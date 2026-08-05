@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clase 1 · Procesos, hilos, carrera y sección crítica — Semáforos en C</title>
+  <meta name="description" content="Hilos que comparten memoria, interleaving, por qué i++ no es atómico y qué es una condición de carrera.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="semaforos/clase-01">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <input type="search" placeholder="Buscar…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="../../semaforos.html" data-i18n="p.semaforos.name">Semáforos en C</a><span class="sep">/</span>
+        <span><span lang="es">Clase 1</span><span lang="en">Class 1</span></span>
+      </nav>
+
+      <h1><span lang="es">Clase 1 · procesos, hilos, carrera y sección crítica</span><span lang="en">Class 1 · processes, threads, races and critical sections</span></h1>
+
+      <div class="class-toolbar">
+        <label class="complete-toggle">
+          <input type="checkbox" data-complete="semaforos/clase-01">
+          <span data-i18n="btn.complete">Marcar clase como completada</span>
+        </label>
+        <span class="toolbar-hint mono">C · POSIX · pthreads</span>
+      </div>
+    </div>
+
+    <div class="prose">
+
+      <!-- ============ ESPAÑOL ============ -->
+      <section lang="es">
+        <div class="objective">
+          <span class="label">Objetivo</span>
+          <p>Construir el modelo mental mínimo de la concurrencia en C: qué es un hilo, qué significa que dos hilos compartan memoria, por qué una operación como <code>i++</code> no es atómica y cómo una condición de carrera produce resultados erróneos. Al terminar debes poder dibujar el interleaving de dos hilos sobre una variable compartida y señalar el punto exacto donde se pierde la exclusión.</p>
+        </div>
+
+        <h2>1. Procesos frente a hilos</h2>
+        <p>Un <strong>proceso</strong> es una instancia de un programa en ejecución. Cada proceso tiene su propia memoria, sus propios descriptores y su propio espacio de direcciones. Dos procesos no ven la memoria del otro sin un mecanismo explícito.</p>
+        <p>Un <strong>hilo</strong> (thread) es una línea de ejecución dentro de un proceso. Todos los hilos de un mismo proceso <strong>comparten la misma memoria</strong>, los mismos descriptores y el mismo espacio de direcciones. Esa memoria compartida es la fuente de los problemas que veremos.</p>
+        <pre class="code">Proceso A                  Proceso B
++------------------------+  +------------------------+
+| memoria propia         |  | memoria propia          |
+| hilo a1, hilo a2       |  | hilo b1                 |
++------------------------+  +------------------------+
+
+Proceso C (un solo proceso con varios hilos)
++----------------------------------------+
+| memoria ÚNICA                          |
+| hilo c1  hilo c2  hilo c3  (comparten) |
++----------------------------------------+</pre>
+        <p>Modelo mental: un hilo es lo que la CPU ejecuta; un proceso es la "caja" que le da memoria. Varios hilos comparten la caja.</p>
+
+        <h2>2. El programador y el interleaving</h2>
+        <p>El kernel tiene un <strong>planificador</strong> (scheduler) que interrumpe un hilo y ejecuta otro. El orden en que se entrelazan las instrucciones se llama <strong>interleaving</strong> y <strong>no es determinista</strong>: no podemos predecir cuál se ejecutará primero ni en qué punto.</p>
+        <pre class="code">hilo c1:   A   B   C
+hilo c2:      X     Y
+
+Interleaving posible: A X B C Y
+Otro posible:          X A Y B C</pre>
+        <p>Dos hilos pueden intercalarse <strong>dentro</strong> de una misma operación si esa operación usa varias instrucciones.</p>
+
+        <h2>3. Operaciones atómicas y no atómicas</h2>
+        <p>Una operación es <strong>atómica</strong> si, desde fuera del hilo que la ejecuta, parece indivisible: no hay un punto intermedio observable. En C, la mayoría de las operaciones de alto nivel <strong>no son atómicas</strong>.</p>
+        <p>Por ejemplo, <code>counter++</code> en C se traduce en varias instrucciones de máquina:</p>
+        <pre class="code">1. leer   el valor de counter desde memoria   (load)
+2. sumar  1 al valor leído                    (add)
+3. escribir el resultado de vuelta a memoria  (store)</pre>
+        <p>Hay un punto observable entre la lectura y la escritura: otro hilo puede ver <code>counter</code> con el valor antiguo o con el nuevo, pero no "a medias del incremento". El problema es que dos hilos pueden intercalarse entre esos tres pasos.</p>
+
+        <h2>4. Condición de carrera</h2>
+        <p>Una <strong>condición de carrera</strong> ocurre cuando el resultado depende del orden en que se ejecutan los hilos. Es un error: el resultado puede ser distinto en cada ejecución del mismo programa.</p>
+        <p>Ejemplo con dos hilos que ambos ejecutan <code>counter++</code> partiendo de <code>counter = 0</code>:</p>
+        <pre class="code">#include &lt;stdio.h&gt;
+#include &lt;pthread.h&gt;
+
+static int counter = 0;
+
+void *inc(void *arg) {
+    (void)arg;
+    for (int i = 0; i &lt; 100000; i++) counter++;
+    return NULL;
+}
+
+int main(void) {
+    pthread_t t1, t2;
+    pthread_create(&amp;t1, NULL, inc, NULL);
+    pthread_create(&amp;t2, NULL, inc, NULL);
+    pthread_join(t1, NULL);
+    pthread_join(t2, NULL);
+    printf("counter = %d\n", counter);   /* ¿200000? */
+    return 0;
+}</pre>
+        <p>Intuitivamente querríamos <code>200000</code>, pero a menudo es menor. El interleaving "pierde" incrementos:</p>
+        <pre class="code">hilo c1:   leer 0  -&gt; sumar -&gt; 1 -&gt; escribir 1
+hilo c2:     leer 0 (ve el valor ANTES del store de c1)
+             -&gt; sumar -&gt; 1 -&gt; escribir 1
+
+Resultado: 1 en lugar de 2. Se perdió un incremento.</pre>
+        <p>Ambos hilos leyeron <code>0</code>; ambos escribieron <code>1</code>. El segundo store pisa al primero. Esa es la condición de carrera: el resultado depende del interleaving.</p>
+
+        <h2>5. Sección crítica</h2>
+        <p>Una <strong>sección crítica</strong> es el fragmento de código que accede a un recurso compartido y que no debe ejecutarse <strong>a la vez</strong> que otra sección crítica sobre el mismo recurso.</p>
+        <p>En el ejemplo anterior, el cuerpo <code>counter++</code> es la sección crítica. El objetivo de la sincronización es garantizar una propiedad llamada <strong>exclusión mutua</strong>: si un hilo está en la sección crítica, ningún otro puede entrar hasta que salga.</p>
+        <p>Necesitamos una herramienta que:</p>
+        <ul>
+          <li>Impida que dos hilos estén <strong>simultáneamente</strong> dentro de la sección crítica.</li>
+          <li>No dependa de adivinar el interleaving.</li>
+          <li>Funcione agente casual: dé resultados reproducibles.</li>
+        </ul>
+        <p>Esa herramienta, en este concepto, es el <strong>semáforo</strong> (clase 2). Existe otra, el <strong>mutex</strong>, que veremos a fondo en POSIX Threads.</p>
+
+        <h2>6. Cuándo hace falta sincronización</h2>
+        <p>Se necesita cuando se cumplen las tres condiciones a la vez:</p>
+        <ol>
+          <li>Hay un recurso <strong>compartido</strong> entre varios hilos (una variable global, un buffer, un descriptor).</li>
+          <li>Hay al menos una <strong>escritura</strong> sobre ese recurso.</li>
+          <li>Los hilos no se coordinan de otro modo.</li>
+        </ol>
+        <p>Si el recurso es de solo lectura, no hace falta. Si cada hilo tuviera su propia copia, tampoco. El "riesgo" empieza cuando se comparte algo que se escribe.</p>
+
+        <h2>7. Predicciones y ejercicios</h2>
+        <p>Desarrolla cada uno antes de mirar la solución.</p>
+
+        <div class="exercise">
+          <span class="ex-tag">Predicción 1 · interleaving de <code>i++</code></span>
+          <p>Dos hilos ejecutan <code>i++</code> con <code>i = 0</code> inicial. Escribe una secuencia de interleaving concreta que termine en <code>i = 1</code> explicando qué instrucción del hilo B ve un valor ya desactualizado.</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">A: load i  (lee 0)
+B: load i  (lee 0, A aún no ha escrito)
+A: add  -&gt; 1 ; store -&gt; i = 1
+B: add  -&gt; 1 ; store -&gt; i = 1  (pisa el store de A)
+Resultado: i = 1</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Predicción 2 · qué es atómico</span>
+          <p>Di si las siguientes operaciones son atómicas a nivel de máquina y por qué:</p>
+          <ol>
+            <li><code>x = 5;</code> (guardar una constante en una variable <code>int</code>).</li>
+            <li><code>counter += 1;</code></li>
+            <li><code>str++;</code> (avanzar un puntero).</li>
+          </ol>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>1. Normalmente sí: un <code>store</code> de un <code>int</code> alineado suele ser atómico en x86-64.</p>
+              <p>2. No: implica <code>load</code>, <code>add</code>, <code>store</code>.</p>
+              <p>3. No: es <code>load</code> del puntero + <code>add</code> + <code>store</code> del nuevo valor. Aunque el "avance" sea de una unidad, son varias instrucciones.</p>
+              <p>La atomicidad depende de la plataforma y de si hay un punto observable a mitad de camino; el estándar no promete nada sobre instrucciones concretas, solo sobre primitivas como los atómicos de C11.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Predicción 3 · ¿siempre hay carrera?</span>
+          <p>Tres hilos incrementan cada uno 1000 veces una variable compartida. ¿El resultado está garantizado? Justifica.</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>No. El resultado puede ser menor que 3000 dependiendo del interleaving. La presencia de la carrera no garantiza un valor erróneo en cada ejecución: puede "acertar" por casualidad. Que no salte cada vez no significa que el código sea correcto.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio · localizar la sección crítica</span>
+          <p>Dada esta función que dos hilos llaman sobre la misma estructura <code>struct msg *m</code>:</p>
+          <pre class="code">void add(struct msg *m, int n) {
+    m-&gt;total += n;
+    m-&gt;count++;
+}</pre>
+          <p>Localiza la sección crítica, la escritura compartida y explica qué resultado querríamos y cuál puede pasar.</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <ul>
+                <li>Recurso compartido: <code>m-&gt;total</code> y <code>m-&gt;count</code> (ambos se leen y escriben).</li>
+                <li>Sección crítica: ambas sentencias del cuerpo de <code>add</code>, pues tocan el mismo recurso.</li>
+                <li>Resultado esperado: si dos hilos llaman <code>add(m, 1)</code> y <code>add(m, 2)</code>, querríamos <code>total</code> incrementado en 3 y <code>count</code> en 2.</li>
+                <li>Resultado posible: si los hilos intercalan dentro de <code>m-&gt;total += n</code>, se pierde una suma; y el par <code>total</code>/<code>count</code> puede quedar incoherente de forma transitoria. De aquí surge también la idea de que a veces hace falta proteger más de una variable a la vez.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Errores frecuentes</span>
+          <ul>
+            <li>Pensar que "escribo código simple, así que no hace falta sincronización". La necesidad no depende de la complejidad sino de compartir una escritura.</li>
+            <li>Creer que <code>i++</code> es atómico porque en el lenguaje parece una sola operación.</li>
+            <li>Asumir que el resultado erróneo aparece siempre; una carrera puede pasar desapercibida en pruebas.</li>
+            <li>Confundir hilos con procesos y asumir que no comparten memoria.</li>
+            <li>Intentar "arreglar" la carrera durmiendo hilos o esperando con <code>usleep</code>; eso cambia la probabilidad, no elimina el problema.</li>
+            <li>Creer que leer y escribir la misma variable desde un único hilo es un problema; la carrera exige al menos dos.</li>
+          </ul>
+        </div>
+
+        <h2>Has aprendido que</h2>
+        <ul>
+          <li>Un hilo comparte la memoria de su proceso con sus hermanos; un proceso no.</li>
+          <li>El orden de ejecución de los hilos (interleaving) lo decide el planificador y no es determinista.</li>
+          <li>Una operación en C no es atómica por defecto; <code>i++</code> son varias instrucciones.</li>
+          <li>Un <strong>interleaving</strong> entre <code>load</code>, <code>add</code> y <code>store</code> puede perder incrementos.</li>
+          <li>Una <strong>condición de carrera</strong> es un resultado que depende del orden de ejecución.</li>
+          <li>Una <strong>sección crítica</strong> toca un recurso compartido y debe correr con exclusión mutua.</li>
+          <li>La sincronización es necesaria cuando se comparte un recurso que se escribe.</li>
+          <li>Dormir hilos o esperar no arregla una carrera; solo cambia su probabilidad.</li>
+        </ul>
+
+        <h2>Preguntas tipo defensa</h2>
+        <p>Responde en voz alta, sin mirar los apuntes:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="d1"><span>¿Qué diferencia hay entre un proceso y un hilo respecto a la memoria?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d2"><span>¿Por qué <code>i++</code> no es atómico en C?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d3"><span>Dibuja un interleaving en el que dos hilos pierden un incremento de una variable compartida.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d4"><span>¿Qué es una condición de carrera y por qué depende del orden de ejecución?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d5"><span>¿Qué condiciones hacen falta para que un acceso necesite sincronización?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d6"><span>¿Por qué <code>usleep</code> no es una solución válida para una carrera?</span></label></li>
+        </ol>
+
+        <h2>Criterio de finalización</h2>
+        <p>La clase está completada cuando puedes:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Dibujar el interleaving de dos hilos sobre una variable compartida indicando el punto exacto del conflicto.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Explicar por qué <code>i++</code> son varias instrucciones y por tanto no atómico.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Distinguir recurso compartido, sección crítica y condición de carrera con tus palabras.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Dar el ejemplo mínimo donde el resultado depende del orden de ejecución.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Dar razones por las que "funcionó una vez" no demuestra que el programa sea correcto.</span></label></li>
+        </ol>
+
+        <p><strong>Siguiente clase:</strong> la clase 2 introduce el semáforo POSIX (<code>sem_t</code>, <code>sem_init</code>, <code>sem_wait</code>, <code>sem_post</code>) como la herramienta que impone exclusión mutua sobre la sección crítica, y te enseña a predecir el valor del contador tras cada operación.</p>
+      </section>
+
+      <!-- ============ ENGLISH ============ -->
+      <section lang="en">
+        <div class="objective">
+          <span class="label">Objective</span>
+          <p>Build the minimum mental model of concurrency in C: what a thread is, what it means for two threads to share memory, why an operation like <code>i++</code> is not atomic, and how a race condition produces wrong results. By the end you must be able to draw the interleaving of two threads over a shared variable and point out the exact spot where mutual exclusion is lost.</p>
+        </div>
+
+        <h2>1. Processes vs threads</h2>
+        <p>A <strong>process</strong> is an instance of a running program. Each process has its own memory, its own file descriptors and its own address space. Two processes cannot see each other's memory without an explicit mechanism.</p>
+        <p>A <strong>thread</strong> is a line of execution inside a process. All threads of the same process <strong>share the same memory</strong>, the same descriptors and the same address space. That shared memory is the source of the problems we will look at.</p>
+        <pre class="code">Process A                  Process B
++------------------------+  +------------------------+
+| own memory             |  | own memory             |
+| thread a1, thread a2   |  | thread b1              |
++------------------------+  +------------------------+
+
+Process C (one process with several threads)
++----------------------------------------+
+| SHARED memory                          |
+| thread c1  thread c2  thread c3        |
++----------------------------------------+</pre>
+        <p>Mental model: a thread is what the CPU executes; a process is the "box" that gives it memory. Several threads share the box.</p>
+
+        <h2>2. The scheduler and interleaving</h2>
+        <p>The kernel has a <strong>scheduler</strong> that interrupts one thread and runs another. The order in which instructions interleave is called <strong>interleaving</strong> and <strong>is not deterministic</strong>: we cannot predict which one runs first or at which point.</p>
+        <pre class="code">thread c1:   A   B   C
+thread c2:      X     Y
+
+Possible interleaving: A X B C Y
+Another one:           X A Y B C</pre>
+        <p>Two threads can interleave <strong>inside</strong> a single operation if that operation uses several instructions.</p>
+
+        <h2>3. Atomic and non-atomic operations</h2>
+        <p>An operation is <strong>atomic</strong> if, seen from outside the thread running it, it looks indivisible: there is no observable middle point. In C, most high-level operations <strong>are not atomic</strong>.</p>
+        <p>For example, <code>counter++</code> compiles to several machine instructions:</p>
+        <pre class="code">1. load   the value of counter from memory   (load)
+2. add    1 to the value read                 (add)
+3. store  the result back to memory           (store)</pre>
+        <p>There is an observable point between the read and the write: another thread can see <code>counter</code> with its old value or its new value, but never "half of the increment". The problem is that two threads can interleave between those three steps.</p>
+
+        <h2>4. Race condition</h2>
+        <p>A <strong>race condition</strong> happens when the result depends on the order in which threads run. It is a bug: the result can differ on every run of the same program.</p>
+        <p>Example with two threads both running <code>counter++</code> starting from <code>counter = 0</code>:</p>
+        <pre class="code">#include &lt;stdio.h&gt;
+#include &lt;pthread.h&gt;
+
+static int counter = 0;
+
+void *inc(void *arg) {
+    (void)arg;
+    for (int i = 0; i &lt; 100000; i++) counter++;
+    return NULL;
+}
+
+int main(void) {
+    pthread_t t1, t2;
+    pthread_create(&amp;t1, NULL, inc, NULL);
+    pthread_create(&amp;t2, NULL, inc, NULL);
+    pthread_join(t1, NULL);
+    pthread_join(t2, NULL);
+    printf("counter = %d\n", counter);   /* 200000? */
+    return 0;
+}</pre>
+        <p>Intuitively we would expect <code>200000</code>, but it is often smaller. The interleaving "loses" increments:</p>
+        <pre class="code">thread c1:   load 0  -&gt; add -&gt; 1 -&gt; store 1
+thread c2:     load 0 (sees the value BEFORE c1's store)
+               -&gt; add -&gt; 1 -&gt; store 1
+
+Result: 1 instead of 2. One increment was lost.</pre>
+        <p>Both threads read <code>0</code>; both wrote <code>1</code>. The second store overwrites the first. That is the race condition: the result depends on the interleaving.</p>
+
+        <h2>5. Critical section</h2>
+        <p>A <strong>critical section</strong> is the piece of code that accesses a shared resource and must not run <strong>at the same time</strong> as another critical section over the same resource.</p>
+        <p>In the previous example, the body <code>counter++</code> is the critical section. The goal of synchronization is to guarantee a property called <strong>mutual exclusion</strong>: if a thread is inside the critical section, no other thread can enter until it leaves.</p>
+        <p>We need a tool that:</p>
+        <ul>
+          <li>Prevents two threads from being <strong>simultaneously</strong> inside the critical section.</li>
+          <li>Does not depend on guessing the interleaving.</li>
+          <li>Works by accident: gives reproducible results.</li>
+        </ul>
+        <p>That tool, in this concept, is the <strong>semaphore</strong> (class 2). There is another one, the <strong>mutex</strong>, which we cover in depth in POSIX Threads.</p>
+
+        <h2>6. When synchronization is needed</h2>
+        <p>It is needed when the three conditions hold at once:</p>
+        <ol>
+          <li>There is a <strong>shared</strong> resource between several threads (a global variable, a buffer, a descriptor).</li>
+          <li>There is at least one <strong>write</strong> to that resource.</li>
+          <li>Threads do not coordinate in any other way.</li>
+        </ol>
+        <p>If the resource is read-only, no synchronization is needed. If each thread had its own copy, none either. The "risk" starts when you share something that is written.</p>
+
+        <h2>7. Predictions and exercises</h2>
+        <p>Work through each one before looking at the answer.</p>
+
+        <div class="exercise">
+          <span class="ex-tag">Prediction 1 · interleaving of <code>i++</code></span>
+          <p>Two threads run <code>i++</code> starting from <code>i = 0</code>. Write a concrete interleaving that ends in <code>i = 1</code>, explaining which instruction of thread B sees an already stale value.</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">A: load i  (reads 0)
+B: load i  (reads 0, A has not written yet)
+A: add  -&gt; 1 ; store -&gt; i = 1
+B: add  -&gt; 1 ; store -&gt; i = 1  (overwrites A's store)
+Result: i = 1</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Prediction 2 · what is atomic</span>
+          <p>Say whether the following operations are atomic at the machine level and why:</p>
+          <ol>
+            <li><code>x = 5;</code> (storing a constant into an <code>int</code> variable).</li>
+            <li><code>counter += 1;</code></li>
+            <li><code>str++;</code> (advancing a pointer).</li>
+          </ol>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>1. Usually yes: an aligned <code>store</code> of an <code>int</code> is typically atomic on x86-64.</p>
+              <p>2. No: it involves <code>load</code>, <code>add</code>, <code>store</code>.</p>
+              <p>3. No: it is a <code>load</code> of the pointer + <code>add</code> + <code>store</code> of its new value. Even though the "advance" is by one unit, those are several instructions.</p>
+              <p>Atomicity depends on the platform and on whether there is an observable point halfway through; the standard promises nothing about specific instructions, only about primitives like C11 atomics.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Prediction 3 · is there always a race?</span>
+          <p>Three threads each increment a shared variable 1000 times. Is the result guaranteed? Justify.</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>No. The result can be lower than 3000 depending on the interleaving. A race does not guarantee a wrong value on every run: it can "get lucky". Not crashing every time does not mean the code is correct.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise · locate the critical section</span>
+          <p>Two threads call this function on the same <code>struct msg *m</code>:</p>
+          <pre class="code">void add(struct msg *m, int n) {
+    m-&gt;total += n;
+    m-&gt;count++;
+}</pre>
+          <p>Locate the critical section, the shared write, and explain the result we would want and the one that can happen.</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <ul>
+                <li>Shared resource: <code>m-&gt;total</code> and <code>m-&gt;count</code> (both are read and written).</li>
+                <li>Critical section: both statements in the body of <code>add</code>, since they touch the same resource.</li>
+                <li>Expected result: if two threads call <code>add(m, 1)</code> and <code>add(m, 2)</code>, we would want <code>total</code> incremented by 3 and <code>count</code> by 2.</li>
+                <li>Possible result: if the threads interleave inside <code>m-&gt;total += n</code>, a sum is lost; and the <code>total</code>/<code>count</code> pair can become temporarily incoherent. This also leads to the idea that sometimes more than one variable needs protecting at once.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Common mistakes</span>
+          <ul>
+            <li>Thinking "my code is simple, so it needs no synchronization". The need depends on sharing a write, not on code complexity.</li>
+            <li>Believing <code>i++</code> is atomic because it looks like one operation in the language.</li>
+            <li>Assuming the wrong result always shows up; a race can go unnoticed in tests.</li>
+            <li>Confusing threads with processes and assuming they do not share memory.</li>
+            <li>Trying to "fix" the race by sleeping threads or waiting with <code>usleep</code>; that changes the probability, it does not remove the problem.</li>
+            <li>Thinking that reading and writing the same variable from a single thread is a problem; a race needs at least two.</li>
+          </ul>
+        </div>
+
+        <h2>You have learned that</h2>
+        <ul>
+          <li>A thread shares its process memory with its siblings; a process does not.</li>
+          <li>The execution order of threads (interleaving) is decided by the scheduler and is not deterministic.</li>
+          <li>An operation in C is not atomic by default; <code>i++</code> is several instructions.</li>
+          <li>An <strong>interleaving</strong> between <code>load</code>, <code>add</code> and <code>store</code> can lose increments.</li>
+          <li>A <strong>race condition</strong> is a result that depends on the order of execution.</li>
+          <li>A <strong>critical section</strong> touches a shared resource and must run with mutual exclusion.</li>
+          <li>Synchronization is needed when a shared resource is written.</li>
+          <li>Sleeping threads or waiting does not fix a race; it only changes its probability.</li>
+        </ul>
+
+        <h2>Defense-style questions</h2>
+        <p>Answer out loud, without looking at your notes:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="d1"><span>What is the difference between a process and a thread regarding memory?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d2"><span>Why is <code>i++</code> not atomic in C?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d3"><span>Draw an interleaving in which two threads lose an increment of a shared variable.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d4"><span>What is a race condition and why does it depend on the order of execution?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d5"><span>What conditions are needed for an access to require synchronization?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d6"><span>Why is <code>usleep</code> not a valid solution to a race?</span></label></li>
+        </ol>
+
+        <h2>Completion criteria</h2>
+        <p>The class is complete when you can:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Draw the interleaving of two threads over a shared variable, pointing out the exact conflict spot.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Explain why <code>i++</code> is several instructions and therefore not atomic.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Tell a shared resource, a critical section and a race condition apart in your own words.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Give the minimal example where the result depends on the order of execution.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Give reasons why "it worked once" does not prove the program is correct.</span></label></li>
+        </ol>
+
+        <p><strong>Next class:</strong> class 2 introduces the POSIX semaphore (<code>sem_t</code>, <code>sem_init</code>, <code>sem_wait</code>, <code>sem_post</code>) as the tool that enforces mutual exclusion over the critical section, and teaches you to predict the counter value after each operation.</p>
+      </section>
+    </div>
+
+    <nav class="pager">
+      <a href="../../semaforos.html">
+        <small data-i18n="back.project">Volver al concepto</small>
+        <strong data-i18n="p.semaforos.name">Semáforos en C</strong>
+      </a>
+      <a class="next" href="../../semaforos.html">
+        <small data-i18n="status.coming">En preparación</small>
+        <strong><span lang="es">Clase 2 · semáforos POSIX y sección crítica</span><span lang="en">Class 2 · POSIX semaphores and critical sections</span></strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>

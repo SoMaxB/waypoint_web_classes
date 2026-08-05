@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glosario — Scop</title>
+  <meta name="description" content="Referencia de términos, estructuras y herramientas del pipeline gráfico del proyecto Scop.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="scop/glosario">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <input type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="../../scop.html" data-i18n="p.scop.name">Scop</a><span class="sep">/</span>
+        <span data-i18n="gloss">Glosario</span>
+      </nav>
+      <h1 data-i18n="gloss">Glosario</h1>
+      <div class="class-toolbar">
+        <span class="toolbar-hint mono">referencia · no memorizar de golpe</span>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p><span lang="es">Este documento reúne los términos, estructuras y herramientas del pipeline gráfico que aparecen durante el proyecto. No hace falta memorizarlo de una vez: úsalo como referencia mientras lees código o haces ejercicios.</span><span lang="en">This document collects the terms, structs and tools of the graphics pipeline that come up during the project. You do not need to memorize it all at once: use it as a reference while reading code or doing exercises.</span></p>
+
+      <h2><span lang="es">Pipeline gráfico</span><span lang="en">Graphics pipeline</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">pipeline</td><td><span lang="es">Tubería / canal de trabajo</span><span lang="en">Pipeline / work channel</span></td><td><span lang="es">Cadena de etapas (vértices → transformaciones → rasterización → fragmentos) que convierte datos 3D en píxeles.</span><span lang="en">Chain of stages (vertices → transformations → rasterization → fragments) that turns 3D data into pixels.</span></td></tr>
+          <tr><td class="mono-col">vertex</td><td><span lang="es">Vértice</span><span lang="en">Vertex</span></td><td><span lang="es">Punto 3D definido por coordenadas (y a veces normal y UV). Es la unidad básica que entra al GPU.</span><span lang="en">3D point defined by coordinates (and sometimes a normal and UV). It is the basic unit that enters the GPU.</span></td></tr>
+          <tr><td class="mono-col">transformación</td><td><span lang="es">Transformación</span><span lang="en">Transformation</span></td><td><span lang="es">Multiplicar coordenadas por matrices para mover, escalar o rotar.</span><span lang="en">Multiplying coordinates by matrices to move, scale or rotate.</span></td></tr>
+          <tr><td class="mono-col">rasterización</td><td><span lang="es">Rasterizar</span><span lang="en">Rasterization</span></td><td><span lang="es">Etapa del GPU que convierte triángulos en fragmentos (candidatos a píxeles).</span><span lang="en">GPU stage that turns triangles into fragments (pixel candidates).</span></td></tr>
+          <tr><td class="mono-col">fragment</td><td><span lang="es">Fragmento</span><span lang="en">Fragment</span></td><td><span lang="es">Cada posición de píxel aún sin color final; lo decide el fragment shader.</span><span lang="en">Each pixel position still without a final color; the fragment shader decides it.</span></td></tr>
+          <tr><td class="mono-col">framebuffer</td><td><span lang="es">Búfer de fotograma</span><span lang="en">Frame buffer</span></td><td><span lang="es">Destino donde queda el resultado final antes de mostrarlo en la ventana.</span><span lang="en">Destination where the final result lands before being shown in the window.</span></td></tr>
+          <tr><td class="mono-col">MVP</td><td>Model · View · Projection</td><td><span lang="es">Producto de las tres matrices que se aplica a cada vértice: <code>Projection * View * Model * v</code>.</span><span lang="en">Product of the three matrices applied to each vertex: <code>Projection * View * Model * v</code>.</span></td></tr>
+          <tr><td class="mono-col">perspectiva</td><td><span lang="es">Proyección en perspectiva</span><span lang="en">Perspective projection</span></td><td><span lang="es">Proyección donde lo lejano se ve más pequeño; usa un frustum y división por <code>w</code>.</span><span lang="en">Projection where distant objects look smaller; it uses a frustum and division by <code>w</code>.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Formato <code>.obj</code></span><span lang="en"><code>.obj</code> format</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado</span><span lang="en">Meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">.obj</td><td>Wavefront OBJ</td><td><span lang="es">Formato de texto que describe un modelo 3D: vértices, coordenadas de textura, normales y caras.</span><span lang="en">Text format describing a 3D model: vertices, texture coordinates, normals and faces.</span></td></tr>
+          <tr><td class="mono-col">v x y z</td><td><span lang="es">Vertex / Vértice</span><span lang="en">Vertex</span></td><td><span lang="es">Línea con la posición de un vértice.</span><span lang="en">Line with the position of a vertex.</span></td></tr>
+          <tr><td class="mono-col">vt u v</td><td>Vertex texture</td><td><span lang="es">Línea con una coordenada de textura (UV).</span><span lang="en">Line with a texture coordinate (UV).</span></td></tr>
+          <tr><td class="mono-col">vn x y z</td><td>Vertex normal</td><td><span lang="es">Línea con la dirección de la normal en un vértice.</span><span lang="en">Line with the normal direction at a vertex.</span></td></tr>
+          <tr><td class="mono-col">f a b c</td><td><span lang="es">Face / Cara</span><span lang="en">Face</span></td><td><span lang="es">Línea de una cara, referenciando vértices por índice 1-based (opcionalmente <code>v/vt/vn</code>).</span><span lang="en">Line of a face referencing vertices by 1-based index (optionally <code>v/vt/vn</code>).</span></td></tr>
+          <tr><td class="mono-col">índice 1-based</td><td><span lang="es">Índice base 1</span><span lang="en">One-based index</span></td><td><span lang="es">En OBJ el primer vértice es 1 (a diferencia de los arrays de GPU, que empiezan en 0).</span><span lang="en">In OBJ the first vertex is 1 (unlike GPU arrays, which start at 0).</span></td></tr>
+          <tr><td class="mono-col">triangulación</td><td>Triangulation</td><td><span lang="es">Convertir una cara con muchos vértices en triángulos (fan triangulation).</span><span lang="en">Turning a face with many vertices into triangles (fan triangulation).</span></td></tr>
+          <tr><td class="mono-col">modelado</td><td>Modeling</td><td><span lang="es">Crear el modelo con una herramienta como Blender y exportarlo a <code>.obj</code>.</span><span lang="en">Creating the model with a tool like Blender and exporting it to <code>.obj</code>.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Matemáticas de matrices</span><span lang="en">Matrix math</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado</span><span lang="en">Meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">matriz 4x4</td><td><span lang="es">Matriz 4×4</span><span lang="en">4×4 matrix</span></td><td><span lang="es">Representación usada para transformaciones con coordenadas homogéneas.</span><span lang="en">Representation used for transformations with homogeneous coordinates.</span></td></tr>
+          <tr><td class="mono-col">coordenadas homogéneas</td><td>Homogeneous coordinates</td><td><span lang="es">Notación <code>[x, y, z, w]</code> que permite trasladar y proyectar con una sola matriz.</span><span lang="en">Notation <code>[x, y, z, w]</code> that lets you translate and project with a single matrix.</span></td></tr>
+          <tr><td class="mono-col">model</td><td><span lang="es">Matriz de modelo</span><span lang="en">Model matrix</span></td><td><span lang="es">Posiciona/escala/rota el objeto; origen en el centro del objeto.</span><span lang="en">Positions/scales/rotates the object; origin at the object's center.</span></td></tr>
+          <tr><td class="mono-col">view</td><td><span lang="es">Matriz de vista</span><span lang="en">View matrix</span></td><td><span lang="es">Coloca la cámara; define desde dónde se mira la escena.</span><span lang="en">Places the camera; defines where the scene is viewed from.</span></td></tr>
+          <tr><td class="mono-col">projection</td><td><span lang="es">Matriz de proyección</span><span lang="en">Projection matrix</span></td><td><span lang="es">Define el frustum con FOV, <code>near</code> y <code>far</code>; produce la perspectiva.</span><span lang="en">Defines the frustum with FOV, <code>near</code> and <code>far</code>; produces the perspective.</span></td></tr>
+          <tr><td class="mono-col">FOV</td><td>Field of View</td><td><span lang="es">Ángulo de visión horizontal/vertical del frustum.</span><span lang="en">Horizontal/vertical viewing angle of the frustum.</span></td></tr>
+          <tr><td class="mono-col">near / far</td><td><span lang="es">Plano cercano / lejano</span><span lang="en">Near / far plane</span></td><td><span lang="es">Profundidades que delimitan la región visible del frustum.</span><span lang="en">Depths that bound the visible region of the frustum.</span></td></tr>
+          <tr><td class="mono-col">perspective division</td><td><span lang="es">División de perspectiva</span><span lang="en">Perspective division</span></td><td><span lang="es">Dividir <code>x,y,z</code> entre <code>w</code> después de proyectar; es lo que achica los objetos lejanos.</span><span lang="en">Dividing <code>x,y,z</code> by <code>w</code> after projecting; this is what makes distant objects smaller.</span></td></tr>
+          <tr><td class="mono-col">orden de matrices</td><td><span lang="es">Multiplicación de matrices</span><span lang="en">Matrix multiplication</span></td><td><span lang="es">En OpenGL se compone <code>Projection * View * Model * v</code>; el orden de multiplicación importa.</span><span lang="en">In OpenGL you compose <code>Projection * View * Model * v</code>; the multiplication order matters.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">OpenGL y buffers</span><span lang="en">OpenGL and buffers</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado</span><span lang="en">Meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">VBO</td><td>Vertex Buffer Object</td><td><span lang="es">Buffer del GPU que guarda los atributos de los vértices.</span><span lang="en">GPU buffer that stores the vertex attributes.</span></td></tr>
+          <tr><td class="mono-col">VAO</td><td>Vertex Array Object</td><td><span lang="es">Recuerda cómo el shader lee cada atributo del VBO (offsets y strides).</span><span lang="en">Remembers how the shader reads each attribute from the VBO (offsets and strides).</span></td></tr>
+          <tr><td class="mono-col">EBO</td><td>Element Buffer Object</td><td><span lang="es">Buffer de índices para reutilizar vértices entre caras.</span><span lang="en">Index buffer to reuse vertices across faces.</span></td></tr>
+          <tr><td class="mono-col">glDrawArrays</td><td>GL draw arrays</td><td><span lang="es">Dibuja leyendo los vértices secuencialmente desde el buffer.</span><span lang="en">Draws by reading vertices sequentially from the buffer.</span></td></tr>
+          <tr><td class="mono-col">glDrawElements</td><td>GL draw elements</td><td><span lang="es">Dibuja usando los índices guardados en el EBO.</span><span lang="en">Draws using the indices stored in the EBO.</span></td></tr>
+          <tr><td class="mono-col">GL_TRIANGLES</td><td>GL triangles</td><td><span lang="es">Modo de dibujo: cada 3 vértices forman un triángulo.</span><span lang="en">Draw mode: every 3 vertices form a triangle.</span></td></tr>
+          <tr><td class="mono-col">glGen* / glDelete*</td><td>GL generate / delete</td><td><span lang="es">Familias de funciones GL para crear y eliminar recursos (buffers, texturas, programas).</span><span lang="en">GL function families to create and release resources (buffers, textures, programs).</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Shaders y GLSL</span><span lang="en">Shaders and GLSL</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado</span><span lang="en">Meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">shader</td><td><span lang="es">Shader</span><span lang="en">Shader</span></td><td><span lang="es">Programa pequeño que corre en el GPU para cada vértice o fragmento.</span><span lang="en">Small program that runs on the GPU for each vertex or fragment.</span></td></tr>
+          <tr><td class="mono-col">vertex shader</td><td><span lang="es">Shader de vértice</span><span lang="en">Vertex shader</span></td><td><span lang="es">Recibe cada vértice, aplica el MVP y pasa datos al fragmento.</span><span lang="en">Receives each vertex, applies the MVP and passes data to the fragment.</span></td></tr>
+          <tr><td class="mono-col">fragment shader</td><td><span lang="es">Shader de fragmento</span><span lang="en">Fragment shader</span></td><td><span lang="es">Decide el color final de cada fragmento (color, UV, textura…).</span><span lang="en">Decides the final color of each fragment (color, UV, texture…).</span></td></tr>
+          <tr><td class="mono-col">GLSL</td><td>OpenGL Shading Language</td><td><span lang="es">Lenguaje de los shaders en OpenGL.</span><span lang="en">Language of shaders in OpenGL.</span></td></tr>
+          <tr><td class="mono-col">gl_Position</td><td>GL position</td><td><span lang="es">Variable de salida del vertex shader: posición del vértice en clip-space.</span><span lang="en">Vertex shader output variable: the vertex position in clip space.</span></td></tr>
+          <tr><td class="mono-col">uniform</td><td>Uniform</td><td><span lang="es">Variable global del shader, igual para todos los vértices (p. ej. la matriz MVP).</span><span lang="en">Global shader variable, the same for all vertices (e.g. the MVP matrix).</span></td></tr>
+          <tr><td class="mono-col">in / out</td><td><span lang="es">Entrada / salida</span><span lang="en">Input / output</span></td><td><span lang="es">Calificadores que pasan datos del vertex shader al fragment shader.</span><span lang="en">Qualifiers that pass data from the vertex shader to the fragment shader.</span></td></tr>
+          <tr><td class="mono-col">compile / link</td><td><span lang="es">Compilar y enlazar</span><span lang="en">Compile and link</span></td><td><span lang="es">Fases para cargar y dejar listo un programa de shaders; se implementan a mano.</span><span lang="en">Phases to load and finalize a shader program; implemented by hand.</span></td></tr>
+          <tr><td class="mono-col">mix()</td><td>GLSL mix</td><td><span lang="es">Interpola entre dos valores según un factor (usado para transiciones suaves).</span><span lang="en">Interpolates between two values by a factor (used for smooth transitions).</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Texturas</span><span lang="en">Textures</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado</span><span lang="en">Meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">textura</td><td>Texture</td><td><span lang="es">Imagen mapeada sobre la superficie del objeto para darle detalle.</span><span lang="en">Image mapped onto the object's surface to give it detail.</span></td></tr>
+          <tr><td class="mono-col">UV</td><td><span lang="es">Coordenada de textura</span><span lang="en">Texture coordinate</span></td><td><span lang="es">Coordenadas de la imagen a muestrear por vértice/fragmento.</span><span lang="en">Image coordinates to sample per vertex/fragment.</span></td></tr>
+          <tr><td class="mono-col">GL_TEXTURE_2D</td><td>GL texture 2D</td><td><span lang="es">Target de una textura bidimensional.</span><span lang="en">Target of a two-dimensional texture.</span></td></tr>
+          <tr><td class="mono-col">muestreo</td><td>Sampling</td><td><span lang="es">Leer el color de la textura en una coordenada UV.</span><span lang="en">Reading the texture color at a UV coordinate.</span></td></tr>
+          <tr><td class="mono-col">texel</td><td>Texture element</td><td><span lang="es">Píxel de una textura; lo que devuelve el muestreo.</span><span lang="en">Pixel of a texture; what sampling returns.</span></td></tr>
+          <tr><td class="mono-col">stretching</td><td><span lang="es">Estirado</span><span lang="en">Stretching</span></td><td><span lang="es">Distorsión visible al aplicar una textura a caras de forma muy distinta a la imagen.</span><span lang="en">Visible distortion when applying a texture to faces whose shape differs a lot from the image.</span></td></tr>
+          <tr><td class="mono-col">transición suave</td><td>Smooth transition</td><td><span lang="es">Cambio gradual (color → textura) interpolando en el fragment shader, sin cortes bruscos.</span><span lang="en">Gradual change (color → texture) interpolating in the fragment shader, without abrupt cuts.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Ventana, eventos y defensa</span><span lang="en">Window, events and defense</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado</span><span lang="en">Meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">GLFW / GLAD</td><td><span lang="es">Librerías de ventana/contexto</span><span lang="en">Window/context libraries</span></td><td><span lang="es">Única librería externa permitida: crear la ventana, el contexto GL y manejar eventos.</span><span lang="en">The only allowed external library: create the window, the GL context and handle events.</span></td></tr>
+          <tr><td class="mono-col">bucle de eventos</td><td>Event loop</td><td><span lang="es">Ciclo que refresca frames y procesa entrada (teclado/mouse) hasta cerrar.</span><span lang="en">Loop that refreshes frames and processes input (keyboard/mouse) until closing.</span></td></tr>
+          <tr><td class="mono-col">eje central</td><td>Central axis</td><td><span lang="es">Eje de simetría del objeto (pasa por su centro). El 42 logo debe girar sobre él.</span><span lang="en">Symmetry axis of the object (through its center). The 42 logo must spin around it.</span></td></tr>
+          <tr><td class="mono-col">tonos de gris</td><td>Shades of gray</td><td><span lang="es">Color base del 42 logo: caras en grises suaves; la textura alegre se muestra desde atrás.</span><span lang="en">Base look of the 42 logo: faces in soft grays; the cheerful texture shows from behind.</span></td></tr>
+          <tr><td class="mono-col">one-line command</td><td><span lang="es">Línea de comando</span><span lang="en">One-line command</span></td><td><span lang="es">Comando único (p. ej. <code>make</code>) que comprueba e instala las dependencias.</span><span lang="en">Single command (e.g. <code>make</code>) that checks and installs the dependencies.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Herramientas de verificación</span><span lang="en">Verification tools</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado</span><span lang="en">Meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">make</td><td>Make</td><td><span lang="es">Automatiza la compilación; es la "one-line command" de dependencias del proyecto.</span><span lang="en">Automates compilation; it is the project's "one-line command" for dependencies.</span></td></tr>
+          <tr><td class="mono-col">cc / g++</td><td><span lang="es">Compiladores</span><span lang="en">Compilers</span></td><td><span lang="es">Compilan el renderer y los shaders.</span><span lang="en">Compile the renderer and the shaders.</span></td></tr>
+          <tr><td class="mono-col">Blender</td><td>Modelado 3D</td><td><span lang="es">Crear y exportar los modelos <code>.obj</code> de prueba.</span><span lang="en">Create and export the test <code>.obj</code> models.</span></td></tr>
+          <tr><td class="mono-col">glslangValidator</td><td><span lang="es">Validador GLSL</span><span lang="en">GLSL validator</span></td><td><span lang="es">Comprueba la sintaxis de los shaders GLSL.</span><span lang="en">Checks the syntax of GLSL shaders.</span></td></tr>
+          <tr><td class="mono-col">renderdoc</td><td><span lang="es">Debugger de GPU</span><span lang="en">GPU debugger</span></td><td><span lang="es">Inspecciona draw calls, buffers y texturas.</span><span lang="en">Inspects draw calls, buffers and textures.</span></td></tr>
+          <tr><td class="mono-col">man</td><td>Manual</td><td><span lang="es">Documentación local de la API y del contexto elegido.</span><span lang="en">Local documentation of the API and the chosen context.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Regla de lectura</span><span lang="en">Reading rule</span></h2>
+      <p><span lang="es">Cuando leas una función o término nuevo, pregúntate:</span><span lang="en">When you meet a new function or term, ask yourself:</span></p>
+      <pre class="code">1. ¿En qué etapa del pipeline se usa (vértice, transformación, raster, fragmento)?
+2. ¿Qué recurso toca (buffer/VAO, shader, uniform, textura) y con qué tiempo de vida?
+3. ¿De dónde sale el dato (parseado del .obj, calculado por ti, o del GPU)?
+4. ¿Puede fallar (archivo mal formado, shader que no compila)?
+   ¿Cómo se detecta y maneja sin cerrar bruscamente?</pre>
+      <p><span lang="es">Esta secuencia evita intentar entender todos los términos del pipeline de una vez.</span><span lang="en">This sequence keeps you from trying to understand every pipeline term at once.</span></p>
+    </div>
+
+    <nav class="pager">
+      <a href="../../scop.html">
+        <small data-i18n="back.project">Volver al proyecto</small>
+        <strong data-i18n="p.scop.name">Scop</strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>

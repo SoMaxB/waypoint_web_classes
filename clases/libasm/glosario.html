@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glosario — Libasm</title>
+  <meta name="description" content="Referencia de siglas, registros, instrucciones, flags y herramientas del proyecto Libasm.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="libasm/glosario">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <input type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="../../libasm.html" data-i18n="p.libasm.name">Libasm</a><span class="sep">/</span>
+        <span data-i18n="gloss">Glosario</span>
+      </nav>
+      <h1 data-i18n="gloss">Glosario</h1>
+      <div class="class-toolbar">
+        <span class="toolbar-hint mono">referencia · no memorizar de golpe</span>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p><span lang="es">Este documento reúne las siglas, palabras e instrucciones que aparecen durante el proyecto. No hace falta memorizarlo de una vez: úsalo como referencia mientras lees código o haces ejercicios.</span><span lang="en">This document collects the acronyms, words and instructions that come up during the project. You do not need to memorize it all at once: use it as a reference while reading code or doing exercises.</span></p>
+
+      <h2><span lang="es">Notación y memoria</span><span lang="en">Notation and memory</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">0x</td><td><span lang="es">Prefijo hexadecimal</span><span lang="en">Hex prefix</span></td><td><span lang="es">Indica que un número está escrito en base 16: <code>0x48</code> es 72 en decimal y <code>'H'</code> en ASCII.</span><span lang="en">Indicates a number written in base 16: <code>0x48</code> is 72 in decimal and <code>'H'</code> in ASCII.</span></td></tr>
+          <tr><td class="mono-col">[]</td><td><span lang="es">Acceso a memoria</span><span lang="en">Memory access</span></td><td><span lang="es"><code>[rdi]</code> significa "el contenido situado en la dirección guardada en <code>rdi</code>". Sin corchetes, <code>rdi</code> es la dirección misma.</span><span lang="en"><code>[rdi]</code> means "the contents located at the address stored in <code>rdi</code>". Without brackets, <code>rdi</code> is the address itself.</span></td></tr>
+          <tr><td class="mono-col">\0</td><td><span lang="es">Byte nulo</span><span lang="en">Null byte</span></td><td><span lang="es">Byte con valor cero. Termina una cadena C; no es el carácter visible <code>'0'</code>, cuyo valor es <code>0x30</code>.</span><span lang="en">Byte with value zero. Terminates a C string; it is not the visible character <code>'0'</code>, whose value is <code>0x30</code>.</span></td></tr>
+          <tr><td class="mono-col">puntero</td><td>Pointer</td><td><span lang="es">Valor que contiene una dirección de memoria.</span><span lang="en">Value that holds a memory address.</span></td></tr>
+          <tr><td class="mono-col">desreferenciar</td><td>Dereference</td><td><span lang="es">Leer o escribir el contenido de la dirección almacenada en un puntero, por ejemplo con <code>[rdi]</code>.</span><span lang="en">Read or write the contents of the address stored in a pointer, for example with <code>[rdi]</code>.</span></td></tr>
+          <tr><td class="mono-col">offset</td><td><span lang="es">Desplazamiento</span><span lang="en">Offset</span></td><td><span lang="es">Número añadido a una dirección, como en <code>[rdi + 2]</code>. En una estructura permite llegar a un campo concreto.</span><span lang="en">Number added to an address, like in <code>[rdi + 2]</code>. In a struct it lets you reach a specific field.</span></td></tr>
+          <tr><td class="mono-col">little-endian</td><td><span lang="es">Extremo pequeño primero</span><span lang="en">Least significant byte first</span></td><td><span lang="es">Orden de memoria en x86-64 para valores de varios bytes: el byte menos significativo ocupa la dirección menor.</span><span lang="en">Memory order in x86-64 for multi-byte values: the least significant byte occupies the lowest address.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Registros</span><span lang="en">Registers</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">registro</td><td>Register</td><td><span lang="es">Pequeño almacenamiento dentro de la CPU. Puede contener números, direcciones o bytes.</span><span lang="en">Small storage inside the CPU. It can hold numbers, addresses or bytes.</span></td></tr>
+          <tr><td class="mono-col">rax</td><td>Register A extended</td><td><span lang="es">Registro general de 64 bits. Se usa habitualmente para retornos, contadores y números de syscall.</span><span lang="en">General 64-bit register. Usually used for returns, counters and syscall numbers.</span></td></tr>
+          <tr><td class="mono-col">eax</td><td>Extended A register</td><td><span lang="es">Los 32 bits bajos de <code>rax</code>. Escribir en él pone a cero los 32 bits altos de <code>rax</code>.</span><span lang="en">The low 32 bits of <code>rax</code>. Writing to it zeroes the high 32 bits of <code>rax</code>.</span></td></tr>
+          <tr><td class="mono-col">ax</td><td>A register</td><td><span lang="es">Los 16 bits bajos de <code>rax</code>.</span><span lang="en">The low 16 bits of <code>rax</code>.</span></td></tr>
+          <tr><td class="mono-col">al</td><td>A low</td><td><span lang="es">Los 8 bits bajos de <code>rax</code>; útil para un byte.</span><span lang="en">The low 8 bits of <code>rax</code>; useful for one byte.</span></td></tr>
+          <tr><td class="mono-col">rdi</td><td>Register destination index</td><td><span lang="es">Primer argumento de una función según la ABI System V; suele guardar un puntero de destino o de cadena.</span><span lang="en">First function argument under the System V ABI; usually holds a destination or string pointer.</span></td></tr>
+          <tr><td class="mono-col">rsi</td><td>Register source index</td><td><span lang="es">Segundo argumento de una función según la ABI System V; suele guardar un puntero fuente.</span><span lang="en">Second function argument under the System V ABI; usually holds a source pointer.</span></td></tr>
+          <tr><td class="mono-col">rdx</td><td>Register data extended</td><td><span lang="es">Tercer argumento de una función; también participa en multiplicaciones y syscalls.</span><span lang="en">Third function argument; also takes part in multiplications and syscalls.</span></td></tr>
+          <tr><td class="mono-col">dl</td><td>Data low</td><td><span lang="es">Los 8 bits bajos de <code>rdx</code>; útil para cargar un byte sin ocupar un registro completo.</span><span lang="en">The low 8 bits of <code>rdx</code>; useful to load a byte without taking a whole register.</span></td></tr>
+          <tr><td class="mono-col">rsp</td><td>Register stack pointer</td><td><span lang="es">Dirección actual del tope de la pila. Se trata en profundidad en la clase 3.</span><span lang="en">Current address of the top of the stack. Covered in depth in class 3.</span></td></tr>
+          <tr><td class="mono-col">rbp</td><td>Register base pointer</td><td><span lang="es">Registro preservado; puede usarse como referencia de un marco de pila.</span><span lang="en">Preserved register; can be used as a frame pointer reference.</span></td></tr>
+          <tr><td class="mono-col">rbx, r12–r15</td><td><span lang="es">Registros preservados</span><span lang="en">Preserved registers</span></td><td><span lang="es">Una función debe restaurarlos si los modifica.</span><span lang="en">A function must restore them if it modifies them.</span></td></tr>
+          <tr><td class="mono-col">rcx, r8–r11</td><td><span lang="es">Registros temporales</span><span lang="en">Temporary registers</span></td><td><span lang="es">Registros que una función puede modificar libremente; no hay que restaurarlos para el llamador.</span><span lang="en">Registers a function may modify freely; no need to restore them for the caller.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Instrucciones básicas</span><span lang="en">Basic instructions</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">mov</td><td>Move</td><td><span lang="es">Copia un valor del origen al destino. No modifica el origen. <code>mov al, [rdi]</code> lee un byte de memoria.</span><span lang="en">Copies a value from source to destination. It does not modify the source. <code>mov al, [rdi]</code> reads one memory byte.</span></td></tr>
+          <tr><td class="mono-col">lea</td><td>Load Effective Address</td><td><span lang="es">Calcula una dirección o una suma de direcciones sin leer memoria. <code>lea rax, [rdi + 2]</code> deja <code>rdi + 2</code> en <code>rax</code>.</span><span lang="en">Computes an address or address sum without reading memory. <code>lea rax, [rdi + 2]</code> puts <code>rdi + 2</code> in <code>rax</code>.</span></td></tr>
+          <tr><td class="mono-col">add</td><td>Add</td><td><span lang="es">Suma el segundo operando al primero: <code>add rax, 1</code>.</span><span lang="en">Adds the second operand to the first: <code>add rax, 1</code>.</span></td></tr>
+          <tr><td class="mono-col">sub</td><td>Subtract</td><td><span lang="es">Resta el segundo operando al primero: <code>sub rsp, 8</code>.</span><span lang="en">Subtracts the second operand from the first: <code>sub rsp, 8</code>.</span></td></tr>
+          <tr><td class="mono-col">inc</td><td>Increment</td><td><span lang="es">Suma uno al operando: <code>inc rax</code>.</span><span lang="en">Adds one to the operand: <code>inc rax</code>.</span></td></tr>
+          <tr><td class="mono-col">dec</td><td>Decrement</td><td><span lang="es">Resta uno al operando: <code>dec rax</code>.</span><span lang="en">Subtracts one from the operand: <code>dec rax</code>.</span></td></tr>
+          <tr><td class="mono-col">cmp</td><td>Compare</td><td><span lang="es">Compara conceptualmente dos valores mediante una resta, actualiza flags y no modifica los operandos.</span><span lang="en">Conceptually compares two values with a subtraction, updates flags and does not modify the operands.</span></td></tr>
+          <tr><td class="mono-col">test</td><td>Test</td><td><span lang="es">Hace un AND lógico solo para actualizar flags. Se ve como alternativa frecuente a <code>cmp reg, 0</code>.</span><span lang="en">Does a logical AND only to update flags. Often seen as an alternative to <code>cmp reg, 0</code>.</span></td></tr>
+          <tr><td class="mono-col">jmp</td><td>Jump</td><td><span lang="es">Salto incondicional a una etiqueta: <code>jmp bucle</code>.</span><span lang="en">Unconditional jump to a label: <code>jmp bucle</code>.</span></td></tr>
+          <tr><td class="mono-col">call</td><td>Call</td><td><span lang="es">Guarda una dirección de retorno en la pila y salta a una función.</span><span lang="en">Saves a return address on the stack and jumps to a function.</span></td></tr>
+          <tr><td class="mono-col">ret</td><td>Return</td><td><span lang="es">Recupera de la pila la dirección guardada por <code>call</code> y vuelve al llamador.</span><span lang="en">Retrieves from the stack the address saved by <code>call</code> and returns to the caller.</span></td></tr>
+          <tr><td class="mono-col">push</td><td>Push</td><td><span lang="es">Reserva 8 bytes en la pila y guarda allí un valor.</span><span lang="en">Reserves 8 bytes on the stack and stores a value there.</span></td></tr>
+          <tr><td class="mono-col">pop</td><td>Pop</td><td><span lang="es">Lee un valor desde la pila y libera esos 8 bytes.</span><span lang="en">Reads a value from the stack and frees those 8 bytes.</span></td></tr>
+          <tr><td class="mono-col">syscall</td><td>System call</td><td><span lang="es">Entra al kernel Linux para pedir operaciones como <code>read</code> o <code>write</code>.</span><span lang="en">Enters the Linux kernel to request operations like <code>read</code> or <code>write</code>.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Flags y saltos condicionales</span><span lang="en">Flags and conditional jumps</span></h2>
+      <p><span lang="es">Un <em>flag</em> es un bit de estado que deja una instrucción como <code>cmp</code>. Un salto condicional consulta esos bits justo después.</span><span lang="en">A <em>flag</em> is a status bit left by an instruction like <code>cmp</code>. A conditional jump reads those bits right after.</span></p>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">ZF</td><td>Zero Flag</td><td><span lang="es">Vale uno si el resultado de una comparación u operación es cero.</span><span lang="en">Is one if the result of a comparison or operation is zero.</span></td></tr>
+          <tr><td class="mono-col">CF</td><td>Carry Flag</td><td><span lang="es">Indica acarreo o préstamo en aritmética sin signo; lo usan comparaciones sin signo.</span><span lang="en">Indicates carry or borrow in unsigned arithmetic; used by unsigned comparisons.</span></td></tr>
+          <tr><td class="mono-col">SF</td><td>Sign Flag</td><td><span lang="es">Refleja el bit de signo de un resultado.</span><span lang="en">Reflects the sign bit of a result.</span></td></tr>
+          <tr><td class="mono-col">OF</td><td>Overflow Flag</td><td><span lang="es">Indica que un cálculo con signo no cabe en el tamaño del operando.</span><span lang="en">Indicates a signed calculation that does not fit in the operand size.</span></td></tr>
+          <tr><td class="mono-col">je / jz</td><td>Jump if Equal / Zero</td><td><span lang="es">Salta cuando los valores comparados son iguales; requiere <code>ZF = 1</code>.</span><span lang="en">Jumps when the compared values are equal; requires <code>ZF = 1</code>.</span></td></tr>
+          <tr><td class="mono-col">jne / jnz</td><td>Jump if Not Equal</td><td><span lang="es">Salta cuando los valores comparados son distintos.</span><span lang="en">Jumps when the compared values are different.</span></td></tr>
+          <tr><td class="mono-col">jb</td><td>Jump if Below</td><td><span lang="es">Salta si el primer valor es menor que el segundo como entero sin signo. Útil al comparar bytes.</span><span lang="en">Jumps if the first value is lower than the second as an unsigned integer. Useful when comparing bytes.</span></td></tr>
+          <tr><td class="mono-col">ja</td><td>Jump if Above</td><td><span lang="es">Salta si el primer valor es mayor que el segundo como entero sin signo.</span><span lang="en">Jumps if the first value is higher than the second as an unsigned integer.</span></td></tr>
+          <tr><td class="mono-col">jl</td><td>Jump if Less</td><td><span lang="es">Salta si el primer valor es menor como entero con signo.</span><span lang="en">Jumps if the first value is lower as a signed integer.</span></td></tr>
+          <tr><td class="mono-col">jg</td><td>Jump if Greater</td><td><span lang="es">Salta si el primer valor es mayor como entero con signo.</span><span lang="en">Jumps if the first value is higher as a signed integer.</span></td></tr>
+        </tbody>
+      </table>
+      <p><span lang="es">Ejemplo:</span><span lang="en">Example:</span></p>
+      <pre class="code">cmp dl, 0
+je fin       ; salta a fin solo si dl vale 0</pre>
+
+      <h2><span lang="es">ABI, pila y llamadas</span><span lang="en">ABI, stack and calls</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">ABI</td><td>Application Binary Interface</td><td><span lang="es">Reglas que permiten a código C y ASM llamarse: argumentos, retorno, registros y pila.</span><span lang="en">Rules that let C and ASM code call each other: arguments, return, registers and stack.</span></td></tr>
+          <tr><td class="mono-col">System V AMD64</td><td>System V ABI for AMD64</td><td><span lang="es">Convención de llamadas usada por Linux x86-64 y por este proyecto.</span><span lang="en">Calling convention used by Linux x86-64 and by this project.</span></td></tr>
+          <tr><td class="mono-col">caller-saved</td><td><span lang="es">Guardado por el llamador</span><span lang="en">Saved by the caller</span></td><td><span lang="es">Registro que una función llamada puede destruir. Si el llamador lo necesita después, debe conservarlo antes.</span><span lang="en">Register a called function may destroy. If the caller needs it later, it must save it first.</span></td></tr>
+          <tr><td class="mono-col">callee-saved</td><td><span lang="es">Guardado por el llamado</span><span lang="en">Saved by the callee</span></td><td><span lang="es">Registro que una función debe restaurar antes de retornar si decide usarlo.</span><span lang="en">Register a function must restore before returning if it decides to use it.</span></td></tr>
+          <tr><td class="mono-col">stack</td><td>Stack</td><td><span lang="es">Zona de memoria para retornos de funciones, valores temporales y registros guardados. Crece hacia direcciones menores.</span><span lang="en">Memory area for function returns, temporary values and saved registers. Grows toward lower addresses.</span></td></tr>
+          <tr><td class="mono-col">alineación</td><td>Alignment</td><td><span lang="es">Regla sobre la dirección de <code>rsp</code>. Antes de <code>call</code>, debe estar alineada a 16 bytes en esta ABI.</span><span lang="en">Rule about the address of <code>rsp</code>. Before <code>call</code> it must be 16-byte aligned in this ABI.</span></td></tr>
+          <tr><td class="mono-col">PLT</td><td>Procedure Linkage Table</td><td><span lang="es">Mecanismo usado al llamar funciones externas dinámicas como <code>malloc</code> en ejecutables PIE.</span><span lang="en">Mechanism used when calling dynamic external functions like <code>malloc</code> in PIE executables.</span></td></tr>
+          <tr><td class="mono-col">PIE</td><td>Position-Independent Executable</td><td><span lang="es">Ejecutable que puede cargarse en distintas direcciones. El subject prohíbe desactivarlo con <code>-no-pie</code>.</span><span lang="en">Executable that can be loaded at different addresses. The subject forbids disabling it with <code>-no-pie</code>.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">NASM, objetos y biblioteca</span><span lang="en">NASM, objects and library</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">NASM</td><td>Netwide Assembler</td><td><span lang="es">Ensamblador que usaremos para archivos <code>.s</code> con sintaxis Intel.</span><span lang="en">Assembler we will use for <code>.s</code> files with Intel syntax.</span></td></tr>
+          <tr><td class="mono-col">Intel syntax</td><td><span lang="es">Sintaxis Intel</span><span lang="en">Intel syntax</span></td><td><span lang="es">Forma de escribir ensamblador usada por NASM: el destino suele aparecer antes del origen, como <code>mov rax, rdi</code>.</span><span lang="en">The assembly style used by NASM: the destination usually comes before the source, like <code>mov rax, rdi</code>.</span></td></tr>
+          <tr><td class="mono-col">ELF64</td><td>Executable and Linkable Format, 64-bit</td><td><span lang="es">Formato de los objetos y ejecutables Linux x86-64.</span><span lang="en">Format of Linux x86-64 objects and executables.</span></td></tr>
+          <tr><td class="mono-col">.s</td><td><span lang="es">Archivo fuente ensamblador</span><span lang="en">Assembly source file</span></td><td><span lang="es">Archivo que contiene el código NASM del proyecto.</span><span lang="en">File containing the project's NASM code.</span></td></tr>
+          <tr><td class="mono-col">.o</td><td><span lang="es">Archivo objeto</span><span lang="en">Object file</span></td><td><span lang="es">Resultado de ensamblar un <code>.s</code>; todavía no es una biblioteca ni ejecutable final.</span><span lang="en">Result of assembling a <code>.s</code>; not yet a library or final executable.</span></td></tr>
+          <tr><td class="mono-col">libasm.a</td><td><span lang="es">Archivo de biblioteca estática</span><span lang="en">Static library file</span></td><td><span lang="es">Biblioteca obligatoria que agrupa los objetos de las funciones del proyecto.</span><span lang="en">Mandatory library that groups the objects of the project's functions.</span></td></tr>
+          <tr><td class="mono-col">global</td><td>Global</td><td><span lang="es">Declara un símbolo exportado por el objeto, por ejemplo <code>global ft_strlen</code>.</span><span lang="en">Declares a symbol exported by the object, e.g. <code>global ft_strlen</code>.</span></td></tr>
+          <tr><td class="mono-col">extern</td><td><span lang="es">Externo</span><span lang="en">External</span></td><td><span lang="es">Declara que un símbolo está definido fuera del archivo actual, como <code>extern malloc</code>.</span><span lang="en">Declares that a symbol is defined outside the current file, like <code>extern malloc</code>.</span></td></tr>
+          <tr><td class="mono-col">símbolo</td><td>Symbol</td><td><span lang="es">Nombre que el enlazador usa para conectar funciones y datos entre objetos.</span><span lang="en">Name the linker uses to connect functions and data between objects.</span></td></tr>
+          <tr><td class="mono-col">linker</td><td>Linker</td><td><span lang="es">Herramienta que une objetos y bibliotecas para producir una biblioteca o ejecutable.</span><span lang="en">Tool that joins objects and libraries to produce a library or executable.</span></td></tr>
+          <tr><td class="mono-col">relocación</td><td>Relocation</td><td><span lang="es">Información que permite ajustar una referencia a una dirección cuando el enlazador decide dónde colocar el código o dato.</span><span lang="en">Information that lets a reference to an address be adjusted once the linker decides where to place the code or data.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Sistema y funciones de Libasm</span><span lang="en">System and Libasm functions</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">syscall</td><td>System call</td><td><span lang="es">Petición directa del programa al kernel Linux. No es lo mismo que una función ordinaria de libc.</span><span lang="en">Direct request from the program to the Linux kernel. Not the same as an ordinary libc function.</span></td></tr>
+          <tr><td class="mono-col">read</td><td><span lang="es">Leer</span><span lang="en">Read</span></td><td><span lang="es">Syscall que copia bytes desde un descriptor de archivo a un buffer.</span><span lang="en">Syscall that copies bytes from a file descriptor into a buffer.</span></td></tr>
+          <tr><td class="mono-col">write</td><td><span lang="es">Escribir</span><span lang="en">Write</span></td><td><span lang="es">Syscall que copia bytes desde un buffer a un descriptor de archivo.</span><span lang="en">Syscall that copies bytes from a buffer to a file descriptor.</span></td></tr>
+          <tr><td class="mono-col">fd</td><td>File descriptor</td><td><span lang="es">Número que identifica un archivo, terminal, pipe u otro recurso abierto.</span><span lang="en">Number identifying a file, terminal, pipe or other open resource.</span></td></tr>
+          <tr><td class="mono-col">errno</td><td>Error number</td><td><span lang="es">Entero local a cada hilo que libc establece cuando una función falla.</span><span lang="en">Per-thread integer libc sets when a function fails.</span></td></tr>
+          <tr><td class="mono-col">__errno_location</td><td><span lang="es">Ubicación de errno</span><span lang="en">Location of errno</span></td><td><span lang="es">Función de glibc que devuelve un puntero al <code>errno</code> del hilo actual.</span><span lang="en">glibc function that returns a pointer to the current thread's <code>errno</code>.</span></td></tr>
+          <tr><td class="mono-col">malloc</td><td>Memory allocation</td><td><span lang="es">Función que reserva memoria dinámica.</span><span lang="en">Function that allocates dynamic memory.</span></td></tr>
+          <tr><td class="mono-col">free</td><td><span lang="es">Liberar</span><span lang="en">Free</span></td><td><span lang="es">Función que devuelve al sistema un bloque antes reservado con <code>malloc</code>.</span><span lang="en">Function that returns to the system a block previously allocated with <code>malloc</code>.</span></td></tr>
+          <tr><td class="mono-col">NULL</td><td><span lang="es">Puntero nulo</span><span lang="en">Null pointer</span></td><td><span lang="es">Valor de puntero que no apunta a un objeto válido. Usualmente se representa como cero.</span><span lang="en">Pointer value that points to no valid object. Usually represented as zero.</span></td></tr>
+          <tr><td class="mono-col">ft_strlen</td><td>Forty Two string length</td><td><span lang="es">Nuestra versión de <code>strlen</code>: cuenta bytes hasta el primer <code>\0</code>.</span><span lang="en">Our version of <code>strlen</code>: counts bytes up to the first <code>\0</code>.</span></td></tr>
+          <tr><td class="mono-col">ft_strcpy</td><td>Forty Two string copy</td><td><span lang="es">Nuestra versión de <code>strcpy</code>: copia una cadena incluido su terminador.</span><span lang="en">Our version of <code>strcpy</code>: copies a string including its terminator.</span></td></tr>
+          <tr><td class="mono-col">ft_strcmp</td><td>Forty Two string compare</td><td><span lang="es">Nuestra versión de <code>strcmp</code>: compara bytes como valores sin signo.</span><span lang="en">Our version of <code>strcmp</code>: compares bytes as unsigned values.</span></td></tr>
+          <tr><td class="mono-col">ft_strdup</td><td>Forty Two string duplicate</td><td><span lang="es">Nuestra versión de <code>strdup</code>: reserva memoria y copia una cadena.</span><span lang="en">Our version of <code>strdup</code>: allocates memory and copies a string.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Herramientas de verificación</span><span lang="en">Verification tools</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">make</td><td>Make</td><td><span lang="es">Ejecuta las reglas del Makefile para construir solo lo que cambió.</span><span lang="en">Runs the Makefile rules to build only what changed.</span></td></tr>
+          <tr><td class="mono-col">ar</td><td>Archiver</td><td><span lang="es">Crea e inspecciona bibliotecas estáticas como <code>libasm.a</code>.</span><span lang="en">Creates and inspects static libraries like <code>libasm.a</code>.</span></td></tr>
+          <tr><td class="mono-col">nm</td><td>Name list</td><td><span lang="es">Muestra los símbolos de un objeto o biblioteca.</span><span lang="en">Shows the symbols of an object or library.</span></td></tr>
+          <tr><td class="mono-col">gdb</td><td>GNU Debugger</td><td><span lang="es">Permite detener el programa y observar instrucciones, memoria y registros.</span><span lang="en">Lets you stop the program and inspect instructions, memory and registers.</span></td></tr>
+          <tr><td class="mono-col">strace</td><td>System call trace</td><td><span lang="es">Muestra las syscalls que un proceso ejecuta y sus resultados.</span><span lang="en">Shows the syscalls a process runs and their results.</span></td></tr>
+          <tr><td class="mono-col">Valgrind</td><td>—</td><td><span lang="es">Detecta errores de acceso a memoria y fugas durante las pruebas.</span><span lang="en">Detects memory access errors and leaks during testing.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Regla de lectura</span><span lang="en">Reading rule</span></h2>
+      <p><span lang="es">Cuando encuentres una instrucción nueva, localiza sus operandos y pregúntate:</span><span lang="en">When you meet a new instruction, locate its operands and ask yourself:</span></p>
+      <pre class="code">1. ¿Qué valor representa cada registro ahora?
+2. ¿Hay corchetes? Si los hay, ¿qué dirección se lee o escribe?
+3. ¿Qué registro, memoria o flag cambia?
+4. Si hay un salto, ¿se cumple su condición?</pre>
+      <p><span lang="es">Esta secuencia evita intentar entender todas las siglas de una vez.</span><span lang="en">This sequence keeps you from trying to understand every acronym at once.</span></p>
+    </div>
+
+    <nav class="pager">
+      <a href="clase-03.html">
+        <small data-i18n="prev.class">Anterior</small>
+        <strong><span lang="es">Clase 3 · ABI, llamadas y pila</span><span lang="en">Class 3 · ABI, calls and stack</span></strong>
+      </a>
+      <a class="next" href="../../libasm.html">
+        <small data-i18n="back.project">Volver</small>
+        <strong data-i18n="p.libasm.name">Libasm</strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>

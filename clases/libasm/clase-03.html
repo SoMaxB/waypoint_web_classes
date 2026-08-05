@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clase 3 · ABI, llamadas y pila — Libasm</title>
+  <meta name="description" content="System V AMD64: argumentos, retorno en rax, call/ret, registros preservados, pila y alineación.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="libasm/clase-03">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <input type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="../../libasm.html" data-i18n="p.libasm.name">Libasm</a><span class="sep">/</span>
+        <span><span lang="es">Clase 3</span><span lang="en">Class 3</span></span>
+      </nav>
+
+      <h1><span lang="es">Clase 3 · ABI, llamadas y pila</span><span lang="en">Class 3 · ABI, calls and stack</span></h1>
+
+      <div class="class-toolbar">
+        <label class="complete-toggle">
+          <input type="checkbox" data-complete="libasm/clase-03">
+          <span data-i18n="btn.complete">Marcar clase como completada</span>
+        </label>
+        <span class="toolbar-hint mono">rdi rsi rdx · rax · call/ret · rsp · push/pop</span>
+      </div>
+    </div>
+
+    <div class="prose">
+
+      <!-- ============ ESPAÑOL ============ -->
+      <section lang="es">
+        <div class="objective">
+          <span class="label">Objetivo</span>
+          <p>Entender el contrato que permite que una función C llame a una función escrita en ensamblador. Al terminar, debes poder explicar cómo llegan los argumentos a una función ASM, dónde se coloca el valor de retorno, qué hace <code>ret</code>, qué registros puedes modificar libremente y por qué la pila debe quedar equilibrada.</p>
+        </div>
+
+        <h2>1. Qué es la ABI</h2>
+        <p>ABI significa <em>Application Binary Interface</em>. No es una instrucción concreta, sino un acuerdo entre el código llamador y el código llamado.</p>
+        <p>En Libasm usamos la ABI System V AMD64 sobre Linux x86-64. Esta ABI define, entre otras cosas:</p>
+        <pre class="code">El primer argumento llega en rdi.
+El segundo argumento llega en rsi.
+El tercer argumento llega en rdx.
+El valor de retorno sale en rax.
+ret vuelve al llamador usando una dirección guardada en la pila.
+Algunos registros se pueden destruir; otros se deben preservar.
+La pila debe estar correctamente alineada antes de llamar a otra función.</pre>
+        <p>Sin esta convención, C y ASM no sabrían dónde dejar o buscar argumentos y resultados.</p>
+
+        <h2>2. Argumentos de función</h2>
+        <p>Los primeros argumentos enteros o punteros llegan en este orden:</p>
+        <pre class="code">1. rdi
+2. rsi
+3. rdx
+4. rcx
+5. r8
+6. r9</pre>
+        <p>Por ejemplo:</p>
+        <pre class="code">size_t ft_strlen(const char *s);</pre>
+        <p><code>ft_strlen</code> recibe un solo argumento, así que al entrar en ASM:</p>
+        <pre class="code">rdi = dirección del primer byte de la cadena</pre>
+        <p>Si C llama:</p>
+        <pre class="code">ft_strlen("Hi");</pre>
+        <p>y la cadena está en memoria así:</p>
+        <table>
+          <thead><tr><th>Dirección</th><th>Contenido</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col">0x1000</td><td class="mono">0x48    'H'</td></tr>
+            <tr><td class="mono-col">0x1001</td><td class="mono">0x69    'i'</td></tr>
+            <tr><td class="mono-col">0x1002</td><td class="mono">0x00    '\0'</td></tr>
+          </tbody>
+        </table>
+        <p>entonces al entrar:</p>
+        <pre class="code">rdi   = 0x1000
+[rdi] = 0x48</pre>
+        <p><code>rdi</code> contiene la dirección. <code>[rdi]</code> lee el contenido de esa dirección.</p>
+        <p>Para dos argumentos:</p>
+        <pre class="code">char *ft_strcpy(char *dst, const char *src);</pre>
+        <p>al entrar:</p>
+        <pre class="code">rdi = dst
+rsi = src</pre>
+        <p>Si <code>dst</code> empieza en <code>0x8000</code> y <code>src</code> empieza en <code>0x9000</code>:</p>
+        <pre class="code">rdi = 0x8000
+rsi = 0x9000</pre>
+        <p>Leer un byte de <code>src</code> y escribirlo en <code>dst</code> puede hacerse así:</p>
+        <pre class="code">mov al, [rsi]
+mov [rdi], al</pre>
+
+        <h2>3. Valor de retorno</h2>
+        <p>La ABI dice que los retornos enteros o punteros salen en:</p>
+        <pre class="code">rax</pre>
+        <p>Si una función ASM termina con:</p>
+        <pre class="code">mov rax, 5
+ret</pre>
+        <p>y C hizo:</p>
+        <pre class="code">int x = mi_funcion();</pre>
+        <p>entonces C recibe:</p>
+        <pre class="code">x = 5</pre>
+        <p>En <code>ft_strlen</code>, <code>rax</code> se usa como contador porque al final ese contador es exactamente el valor que debe devolver la función.</p>
+        <p>En <code>ft_strcpy</code>, el contrato exige devolver el <code>dst</code> original. Por eso conviene guardar ese valor antes de avanzar el puntero:</p>
+        <pre class="code">mov rax, rdi</pre>
+        <p>Luego se puede modificar <code>rdi</code> durante la copia, mientras <code>rax</code> conserva el inicio original de <code>dst</code>.</p>
+
+        <h2>4. <code>call</code>, <code>ret</code> y dirección de retorno</h2>
+        <p>Cuando C llama a una función, la CPU ejecuta conceptualmente una instrucción <code>call</code>.</p>
+        <p><code>call</code> hace dos cosas:</p>
+        <pre class="code">1. Guarda en la pila la dirección a la que hay que volver.
+2. Salta a la función llamada.</pre>
+        <p><code>ret</code> hace lo contrario:</p>
+        <pre class="code">1. Lee de la pila la dirección de retorno.
+2. Salta a esa dirección.</pre>
+        <p>Por eso una función ASM normalmente acaba con:</p>
+        <pre class="code">ret</pre>
+        <p>La función no necesita saber manualmente a qué línea de C volver. La dirección de retorno ya fue guardada por <code>call</code>.</p>
+
+        <h2>5. Registros volátiles y preservados</h2>
+        <p>La ABI separa los registros en dos grupos.</p>
+        <p><strong>Registros volátiles</strong>, también llamados caller-saved:</p>
+        <pre class="code">rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11</pre>
+        <p>Una función puede modificarlos libremente. Si el llamador necesitaba conservarlos, el llamador debía guardarlos antes del <code>call</code>.</p>
+        <p><strong>Registros preservados</strong>, también llamados callee-saved:</p>
+        <pre class="code">rbx, rbp, r12, r13, r14, r15</pre>
+        <p>Si una función modifica uno de estos registros, debe restaurarlo antes de <code>ret</code>.</p>
+        <p>Incorrecto:</p>
+        <pre class="code">mi_funcion:
+    mov rbx, 123
+    ret</pre>
+        <p>Correcto si de verdad necesitas usar <code>rbx</code>:</p>
+        <pre class="code">mi_funcion:
+    push rbx
+    mov rbx, 123
+    ; usar rbx...
+    pop rbx
+    ret</pre>
+        <p>Para las funciones obligatorias simples, muchas veces la mejor decisión es no usar registros preservados.</p>
+
+        <h2>6. La pila</h2>
+        <p>La pila es una zona de memoria gestionada principalmente mediante <code>rsp</code>, el <em>stack pointer</em>.</p>
+        <p>En x86-64 la pila crece hacia direcciones menores.</p>
+        <pre class="code">push rax</pre>
+        <p>equivale conceptualmente a:</p>
+        <pre class="code">rsp = rsp - 8
+[rsp] = rax</pre>
+        <p>porque un registro de 64 bits ocupa 8 bytes.</p>
+        <pre class="code">pop rax</pre>
+        <p>equivale conceptualmente a:</p>
+        <pre class="code">rax = [rsp]
+rsp = rsp + 8</pre>
+        <p>Ejemplo:</p>
+        <pre class="code">rsp = 0x1000
+rax = 55</pre>
+        <p>Después de:</p>
+        <pre class="code">push rax</pre>
+        <p>queda:</p>
+        <pre class="code">rsp   = 0xff8
+[rsp] = 55</pre>
+
+        <h2>7. Equilibrio de la pila</h2>
+        <p>Cada <code>push</code> debe estar compensado por un <code>pop</code> antes de <code>ret</code>, salvo que estés ajustando la pila explícitamente con <code>sub rsp, ...</code> y <code>add rsp, ...</code>.</p>
+        <p>Esta función tiene un problema grave:</p>
+        <pre class="code">ft_bad:
+    push rbx
+    mov rbx, 123
+    ret</pre>
+        <p>Al entrar en una función, arriba de la pila está la dirección de retorno. Pero después de <code>push rbx</code>, arriba de la pila queda el valor antiguo de <code>rbx</code>.</p>
+        <p>Si se ejecuta <code>ret</code> sin hacer antes <code>pop rbx</code>, <code>ret</code> intentará saltar al valor antiguo de <code>rbx</code> como si fuera una dirección de código.</p>
+        <p>Versión equilibrada:</p>
+        <pre class="code">ft_ok:
+    push rbx
+    mov rbx, 123
+    pop rbx
+    ret</pre>
+        <p><code>pop rbx</code> restaura <code>rbx</code> y también devuelve <code>rsp</code> a la posición correcta, dejando arriba la dirección de retorno real.</p>
+
+        <h2>8. Funciones hoja</h2>
+        <p>Una función hoja es una función que no llama a otra función.</p>
+        <p>Ejemplos probables en la parte obligatoria:</p>
+        <pre class="code">ft_strlen
+ft_strcpy
+ft_strcmp</pre>
+        <p>Si una función no llama a nadie y no necesita registros preservados, puede no tocar la pila.</p>
+        <p>Una versión compacta de <code>ft_strlen</code>:</p>
+        <pre class="code">global ft_strlen
+
+ft_strlen:
+    mov rax, 0
+
+.loop:
+    cmp byte [rdi + rax], 0
+    je .end
+    inc rax
+    jmp .loop
+
+.end:
+    ret</pre>
+        <p>Aquí:</p>
+        <pre class="code">rdi = dirección inicial de la cadena
+rax = índice y contador</pre>
+        <p>La instrucción:</p>
+        <pre class="code">cmp byte [rdi + rax], 0</pre>
+        <p>hace cuatro cosas conceptuales:</p>
+        <pre class="code">1. Calcula la dirección rdi + rax.
+2. Lee un byte en esa dirección.
+3. Compara ese byte contra 0.
+4. Actualiza flags para que je decida si salta.</pre>
+        <p>No compara <code>rdi</code> contra <code>rax</code>. Tampoco modifica <code>rdi</code> ni <code>rax</code>.</p>
+
+        <h2>9. Alineación de pila</h2>
+        <p>Para funciones hoja simples, normalmente basta con no tocar <code>rsp</code>.</p>
+        <p>Cuando una función llama a otra, como ocurrirá en <code>ft_strdup</code> al llamar a <code>malloc</code>, hay que pensar en la alineación de la pila antes del <code>call</code>.</p>
+        <p>Regla práctica por ahora:</p>
+        <pre class="code">Si tu función no llama a nadie, puedes evitar tocar rsp.
+Si tu función llama a otra función, debes razonar sobre la pila.</pre>
+
+        <h2>Predicciones y ejercicios</h2>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 1</span>
+          <p>Dada esta memoria:</p>
+          <pre class="code">0x5000: 0x41    'A'
+0x5001: 0x00    '\0'</pre>
+          <p>y al entrar <code>rdi = 0x5000</code>, determinar:</p>
+          <pre class="code">rdi   = ?
+[rdi] = ?</pre>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">rdi   = 0x5000
+[rdi] = 0x41</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 2</span>
+          <p>Con:</p>
+          <pre class="code">rdi = 0x8000
+rsi = 0x9000
+
+0x9000: 0x4f
+0x9001: 0x4b
+0x9002: 0x00</pre>
+          <p>predecir el resultado de:</p>
+          <pre class="code">mov al, [rsi]</pre>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">al = 0x4f</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 3</span>
+          <p>Al entrar en <code>ft_strcpy</code>:</p>
+          <pre class="code">rdi = 0x8000
+rsi = 0x9000</pre>
+          <p>Se ejecuta:</p>
+          <pre class="code">mov rax, rdi</pre>
+          <p>Luego la copia avanza <code>rdi</code> hasta <code>0x8003</code>. Determinar el valor que conserva <code>rax</code>.</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">rax = 0x8000</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 4</span>
+          <p>Esta función:</p>
+          <pre class="code">mov rbx, 123
+ret</pre>
+          <p>no respeta la ABI porque modifica <code>rbx</code> sin guardar ni restaurar su valor original.</p>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 5</span>
+          <p>Con:</p>
+          <pre class="code">rsp = 0x1000
+rax = 55</pre>
+          <p>después de:</p>
+          <pre class="code">push rax</pre>
+          <p>queda:</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">rsp   = 0xff8
+[rsp] = 55</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 6</span>
+          <p>Esta función:</p>
+          <pre class="code">ft_bad:
+    push rbx
+    mov rbx, 123
+    ret</pre>
+          <p>tiene dos problemas: no restaura <code>rbx</code> y deja el valor antiguo de <code>rbx</code> arriba de la pila, por lo que <code>ret</code> intentaría usarlo como dirección de retorno.</p>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 7 · trazar ft_strlen</span>
+          <p>Trazar esta función:</p>
+          <pre class="code">global ft_strlen
+
+ft_strlen:
+    mov rax, 0
+
+.loop:
+    cmp byte [rdi + rax], 0
+    je .end
+    inc rax
+    jmp .loop
+
+.end:
+    ret</pre>
+          <p>con esta memoria:</p>
+          <pre class="code">0x4000: 0x4f    'O'
+0x4001: 0x4b    'K'
+0x4002: 0x21    '!'
+0x4003: 0x00    '\0'</pre>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">Iteración 1:
+rax antes = 0
+dirección leída = 0x4000
+byte leído = 0x4f
+salta je = no
+rax después = 1
+
+Iteración 2:
+rax antes = 1
+dirección leída = 0x4001
+byte leído = 0x4b
+salta je = no
+rax después = 2
+
+Iteración 3:
+rax antes = 2
+dirección leída = 0x4002
+byte leído = 0x21
+salta je = no
+rax después = 3
+
+Iteración 4:
+rax antes = 3
+dirección leída = 0x4003
+byte leído = 0x00
+salta je = sí
+valor final devuelto en rax = 3</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Errores frecuentes</span>
+          <ul>
+            <li>Confundir <code>rdi</code>, que contiene una dirección, con <code>[rdi]</code>, que lee el contenido de esa dirección.</li>
+            <li>Creer que <code>cmp byte [rdi + rax], 0</code> compara <code>rdi</code> contra <code>rax</code>; en realidad calcula una dirección, lee un byte y compara ese byte contra cero.</li>
+            <li>Pensar que <code>ret</code> vuelve por magia; realmente usa una dirección de retorno guardada en la pila por <code>call</code>.</li>
+            <li>Modificar <code>rbx</code>, <code>rbp</code> o <code>r12</code>-<code>r15</code> sin restaurarlos.</li>
+            <li>Hacer <code>push</code> sin el <code>pop</code> correspondiente antes de <code>ret</code>.</li>
+            <li>Usar la pila en funciones simples cuando no hace falta, aumentando el riesgo de romper la ABI.</li>
+            <li>Olvidar que <code>rax</code> es el registro de retorno, aunque su significado concreto dependa de la función.</li>
+          </ul>
+        </div>
+
+        <h2>Preguntas de defensa</h2>
+        <p>Responde en voz alta, sin mirar los apuntes:</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>¿Qué registro contiene el primer argumento de una función en System V AMD64?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>¿Dónde debe colocar una función ASM su valor de retorno?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>¿Qué diferencia hay entre <code>rdi</code> y <code>[rdi]</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>¿Qué hace <code>call</code> antes de saltar a una función?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d5"><span>¿Qué espera encontrar <code>ret</code> arriba de la pila?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d6"><span>¿Qué registros son preservados por la ABI?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d7"><span>¿Por qué <code>mov rbx, 123; ret</code> puede romper al llamador?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d8"><span>¿Qué hace <code>push rax</code> sobre <code>rsp</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d9"><span>¿Por qué una función hoja como <code>ft_strlen</code> puede no tocar la pila?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d10"><span>En <code>cmp byte [rdi + rax], 0</code>, ¿qué se compara realmente?</span></label>
+        </div>
+
+        <h2>Criterio de finalización</h2>
+        <p>La clase queda completada cuando puedes explicar cómo llegan argumentos desde C a ASM, cómo se devuelve un valor por <code>rax</code>, qué hacen <code>call</code> y <code>ret</code>, qué registros debes preservar, cómo funcionan <code>push</code> y <code>pop</code>, y puedes trazar una versión de <code>ft_strlen</code> basada en <code>[rdi + rax]</code> hasta devolver la longitud correcta.</p>
+
+        <h2>Has aprendido que</h2>
+        <ul>
+          <li>La ABI es el contrato binario que permite que C y ASM cooperen.</li>
+          <li>En System V AMD64, los primeros argumentos llegan en <code>rdi</code>, <code>rsi</code>, <code>rdx</code>, <code>rcx</code>, <code>r8</code> y <code>r9</code>.</li>
+          <li>El valor de retorno se coloca en <code>rax</code>.</li>
+          <li><code>call</code> guarda una dirección de retorno en la pila y <code>ret</code> vuelve usando esa dirección.</li>
+          <li><code>push</code> resta 8 a <code>rsp</code> y guarda un valor; <code>pop</code> recupera un valor y suma 8 a <code>rsp</code>.</li>
+          <li><code>rbx</code>, <code>rbp</code> y <code>r12</code>-<code>r15</code> deben conservar su valor si una función los usa.</li>
+          <li>Una función hoja simple puede evitar tocar la pila y usar solo registros volátiles.</li>
+          <li><code>cmp byte [rdi + rax], 0</code> lee un byte de memoria en la dirección calculada y compara ese byte contra cero.</li>
+        </ul>
+      </section>
+
+      <!-- ============ ENGLISH ============ -->
+      <section lang="en">
+        <div class="objective">
+          <span class="label">Objective</span>
+          <p>Understand the contract that lets a C function call a function written in assembly. By the end you must be able to explain how arguments reach an ASM function, where the return value goes, what <code>ret</code> does, which registers you may freely modify, and why the stack must end up balanced.</p>
+        </div>
+
+        <h2>1. What the ABI is</h2>
+        <p>ABI stands for <em>Application Binary Interface</em>. It is not a concrete instruction, but an agreement between the calling code and the called code.</p>
+        <p>In Libasm we use the System V AMD64 ABI on Linux x86-64. Among other things, this ABI defines:</p>
+        <pre class="code">The first argument arrives in rdi.
+The second argument arrives in rsi.
+The third argument arrives in rdx.
+The return value comes out in rax.
+ret returns to the caller using an address stored on the stack.
+Some registers can be destroyed; others must be preserved.
+The stack must be correctly aligned before calling another function.</pre>
+        <p>Without this convention, C and ASM would not know where to leave or look for arguments and results.</p>
+
+        <h2>2. Function arguments</h2>
+        <p>The first integer or pointer arguments arrive in this order:</p>
+        <pre class="code">1. rdi
+2. rsi
+3. rdx
+4. rcx
+5. r8
+6. r9</pre>
+        <p>For example:</p>
+        <pre class="code">size_t ft_strlen(const char *s);</pre>
+        <p><code>ft_strlen</code> receives a single argument, so when ASM is entered:</p>
+        <pre class="code">rdi = address of the first byte of the string</pre>
+        <p>If C calls:</p>
+        <pre class="code">ft_strlen("Hi");</pre>
+        <p>and the string is in memory like this:</p>
+        <table>
+          <thead><tr><th>Address</th><th>Contents</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col">0x1000</td><td class="mono">0x48    'H'</td></tr>
+            <tr><td class="mono-col">0x1001</td><td class="mono">0x69    'i'</td></tr>
+            <tr><td class="mono-col">0x1002</td><td class="mono">0x00    '\0'</td></tr>
+          </tbody>
+        </table>
+        <p>then on entry:</p>
+        <pre class="code">rdi   = 0x1000
+[rdi] = 0x48</pre>
+        <p><code>rdi</code> holds the address. <code>[rdi]</code> reads the contents of that address.</p>
+        <p>For two arguments:</p>
+        <pre class="code">char *ft_strcpy(char *dst, const char *src);</pre>
+        <p>on entry:</p>
+        <pre class="code">rdi = dst
+rsi = src</pre>
+        <p>If <code>dst</code> starts at <code>0x8000</code> and <code>src</code> starts at <code>0x9000</code>:</p>
+        <pre class="code">rdi = 0x8000
+rsi = 0x9000</pre>
+        <p>Reading one byte from <code>src</code> and writing it to <code>dst</code> can be done like this:</p>
+        <pre class="code">mov al, [rsi]
+mov [rdi], al</pre>
+
+        <h2>3. Return value</h2>
+        <p>The ABI says integer or pointer returns come out in:</p>
+        <pre class="code">rax</pre>
+        <p>If an ASM function ends with:</p>
+        <pre class="code">mov rax, 5
+ret</pre>
+        <p>and C did:</p>
+        <pre class="code">int x = mi_funcion();</pre>
+        <p>then C receives:</p>
+        <pre class="code">x = 5</pre>
+        <p>In <code>ft_strlen</code>, <code>rax</code> is used as a counter because at the end that counter is exactly the value the function must return.</p>
+        <p>In <code>ft_strcpy</code>, the contract requires returning the original <code>dst</code>. That is why you should save that value before advancing the pointer:</p>
+        <pre class="code">mov rax, rdi</pre>
+        <p>You can then modify <code>rdi</code> during the copy while <code>rax</code> keeps the original start of <code>dst</code>.</p>
+
+        <h2>4. <code>call</code>, <code>ret</code> and the return address</h2>
+        <p>When C calls a function, the CPU conceptually executes a <code>call</code> instruction.</p>
+        <p><code>call</code> does two things:</p>
+        <pre class="code">1. Saves on the stack the address to return to.
+2. Jumps to the called function.</pre>
+        <p><code>ret</code> does the opposite:</p>
+        <pre class="code">1. Reads the return address from the stack.
+2. Jumps to that address.</pre>
+        <p>That is why an ASM function normally ends with:</p>
+        <pre class="code">ret</pre>
+        <p>The function does not need to manually know which C line to return to. The return address was already saved by <code>call</code>.</p>
+
+        <h2>5. Volatile and preserved registers</h2>
+        <p>The ABI splits registers into two groups.</p>
+        <p><strong>Volatile registers</strong>, also called caller-saved:</p>
+        <pre class="code">rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11</pre>
+        <p>A function may modify them freely. If the caller needed them kept, the caller had to save them before the <code>call</code>.</p>
+        <p><strong>Preserved registers</strong>, also called callee-saved:</p>
+        <pre class="code">rbx, rbp, r12, r13, r14, r15</pre>
+        <p>If a function modifies one of these, it must restore it before <code>ret</code>.</p>
+        <p>Incorrect:</p>
+        <pre class="code">mi_funcion:
+    mov rbx, 123
+    ret</pre>
+        <p>Correct if you really need to use <code>rbx</code>:</p>
+        <pre class="code">mi_funcion:
+    push rbx
+    mov rbx, 123
+    ; use rbx...
+    pop rbx
+    ret</pre>
+        <p>For the simple mandatory functions, often the best decision is not to use preserved registers at all.</p>
+
+        <h2>6. The stack</h2>
+        <p>The stack is a memory area managed mainly through <code>rsp</code>, the <em>stack pointer</em>.</p>
+        <p>On x86-64 the stack grows toward lower addresses.</p>
+        <pre class="code">push rax</pre>
+        <p>is conceptually equivalent to:</p>
+        <pre class="code">rsp = rsp - 8
+[rsp] = rax</pre>
+        <p>because a 64-bit register takes 8 bytes.</p>
+        <pre class="code">pop rax</pre>
+        <p>is conceptually equivalent to:</p>
+        <pre class="code">rax = [rsp]
+rsp = rsp + 8</pre>
+        <p>Example:</p>
+        <pre class="code">rsp = 0x1000
+rax = 55</pre>
+        <p>After:</p>
+        <pre class="code">push rax</pre>
+        <p>you get:</p>
+        <pre class="code">rsp   = 0xff8
+[rsp] = 55</pre>
+
+        <h2>7. Stack balance</h2>
+        <p>Every <code>push</code> must be matched by a <code>pop</code> before <code>ret</code>, unless you are adjusting the stack explicitly with <code>sub rsp, ...</code> and <code>add rsp, ...</code>.</p>
+        <p>This function has a serious problem:</p>
+        <pre class="code">ft_bad:
+    push rbx
+    mov rbx, 123
+    ret</pre>
+        <p>When a function is entered, the return address is on top of the stack. But after <code>push rbx</code>, the old value of <code>rbx</code> is on top.</p>
+        <p>If <code>ret</code> runs without a prior <code>pop rbx</code>, <code>ret</code> will try to jump to the old <code>rbx</code> value as if it were a code address.</p>
+        <p>Balanced version:</p>
+        <pre class="code">ft_ok:
+    push rbx
+    mov rbx, 123
+    pop rbx
+    ret</pre>
+        <p><code>pop rbx</code> restores <code>rbx</code> and also returns <code>rsp</code> to the correct position, leaving the real return address on top.</p>
+
+        <h2>8. Leaf functions</h2>
+        <p>A leaf function is a function that does not call another function.</p>
+        <p>Likely examples in the mandatory part:</p>
+        <pre class="code">ft_strlen
+ft_strcpy
+ft_strcmp</pre>
+        <p>If a function calls nobody and needs no preserved registers, it can leave the stack untouched.</p>
+        <p>A compact version of <code>ft_strlen</code>:</p>
+        <pre class="code">global ft_strlen
+
+ft_strlen:
+    mov rax, 0
+
+.loop:
+    cmp byte [rdi + rax], 0
+    je .end
+    inc rax
+    jmp .loop
+
+.end:
+    ret</pre>
+        <p>Here:</p>
+        <pre class="code">rdi = starting address of the string
+rax = index and counter</pre>
+        <p>The instruction:</p>
+        <pre class="code">cmp byte [rdi + rax], 0</pre>
+        <p>does four conceptual things:</p>
+        <pre class="code">1. Computes the address rdi + rax.
+2. Reads one byte at that address.
+3. Compares that byte against 0.
+4. Updates flags so je decides whether to jump.</pre>
+        <p>It does not compare <code>rdi</code> against <code>rax</code>. It does not modify <code>rdi</code> or <code>rax</code> either.</p>
+
+        <h2>9. Stack alignment</h2>
+        <p>For simple leaf functions, usually it is enough to not touch <code>rsp</code>.</p>
+        <p>When a function calls another, as will happen in <code>ft_strdup</code> calling <code>malloc</code>, you must think about stack alignment before the <code>call</code>.</p>
+        <p>Practical rule for now:</p>
+        <pre class="code">If your function calls nobody, you can avoid touching rsp.
+If your function calls another function, you must reason about the stack.</pre>
+
+        <h2>Predictions and exercises</h2>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 1</span>
+          <p>Given this memory:</p>
+          <pre class="code">0x5000: 0x41    'A'
+0x5001: 0x00    '\0'</pre>
+          <p>and on entry <code>rdi = 0x5000</code>, determine:</p>
+          <pre class="code">rdi   = ?
+[rdi] = ?</pre>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">rdi   = 0x5000
+[rdi] = 0x41</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 2</span>
+          <p>With:</p>
+          <pre class="code">rdi = 0x8000
+rsi = 0x9000
+
+0x9000: 0x4f
+0x9001: 0x4b
+0x9002: 0x00</pre>
+          <p>predict the result of:</p>
+          <pre class="code">mov al, [rsi]</pre>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">al = 0x4f</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 3</span>
+          <p>On entering <code>ft_strcpy</code>:</p>
+          <pre class="code">rdi = 0x8000
+rsi = 0x9000</pre>
+          <p>This runs:</p>
+          <pre class="code">mov rax, rdi</pre>
+          <p>Then the copy advances <code>rdi</code> up to <code>0x8003</code>. Determine the value <code>rax</code> keeps.</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">rax = 0x8000</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 4</span>
+          <p>This function:</p>
+          <pre class="code">mov rbx, 123
+ret</pre>
+          <p>does not respect the ABI because it modifies <code>rbx</code> without saving and restoring its original value.</p>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 5</span>
+          <p>With:</p>
+          <pre class="code">rsp = 0x1000
+rax = 55</pre>
+          <p>after:</p>
+          <pre class="code">push rax</pre>
+          <p>you get:</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">rsp   = 0xff8
+[rsp] = 55</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 6</span>
+          <p>This function:</p>
+          <pre class="code">ft_bad:
+    push rbx
+    mov rbx, 123
+    ret</pre>
+          <p>has two problems: it does not restore <code>rbx</code>, and it leaves the old <code>rbx</code> value on top of the stack, so <code>ret</code> would try to use it as a return address.</p>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 7 · trace ft_strlen</span>
+          <p>Trace this function:</p>
+          <pre class="code">global ft_strlen
+
+ft_strlen:
+    mov rax, 0
+
+.loop:
+    cmp byte [rdi + rax], 0
+    je .end
+    inc rax
+    jmp .loop
+
+.end:
+    ret</pre>
+          <p>with this memory:</p>
+          <pre class="code">0x4000: 0x4f    'O'
+0x4001: 0x4b    'K'
+0x4002: 0x21    '!'
+0x4003: 0x00    '\0'</pre>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">Iteration 1:
+rax before = 0
+address read = 0x4000
+byte read = 0x4f
+je jumps = no
+rax after = 1
+
+Iteration 2:
+rax before = 1
+address read = 0x4001
+byte read = 0x4b
+je jumps = no
+rax after = 2
+
+Iteration 3:
+rax before = 2
+address read = 0x4002
+byte read = 0x21
+je jumps = no
+rax after = 3
+
+Iteration 4:
+rax before = 3
+address read = 0x4003
+byte read = 0x00
+je jumps = yes
+final value returned in rax = 3</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Common mistakes</span>
+          <ul>
+            <li>Confusing <code>rdi</code>, which holds an address, with <code>[rdi]</code>, which reads the contents of that address.</li>
+            <li>Thinking <code>cmp byte [rdi + rax], 0</code> compares <code>rdi</code> against <code>rax</code>; it actually computes an address, reads a byte and compares that byte against zero.</li>
+            <li>Thinking <code>ret</code> returns by magic; it really uses a return address saved on the stack by <code>call</code>.</li>
+            <li>Modifying <code>rbx</code>, <code>rbp</code> or <code>r12</code>-<code>r15</code> without restoring them.</li>
+            <li>Doing a <code>push</code> without the matching <code>pop</code> before <code>ret</code>.</li>
+            <li>Using the stack in simple functions when it is not needed, raising the risk of breaking the ABI.</li>
+            <li>Forgetting that <code>rax</code> is the return register, even though its concrete meaning depends on the function.</li>
+          </ul>
+        </div>
+
+        <h2>Defense questions</h2>
+        <p>Answer out loud, without looking at your notes:</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>Which register holds the first argument of a function in System V AMD64?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>Where must an ASM function place its return value?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>What is the difference between <code>rdi</code> and <code>[rdi]</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>What does <code>call</code> do before jumping to a function?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d5"><span>What does <code>ret</code> expect to find on top of the stack?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d6"><span>Which registers are preserved by the ABI?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d7"><span>Why can <code>mov rbx, 123; ret</code> break the caller?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d8"><span>What does <code>push rax</code> do to <code>rsp</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d9"><span>Why can a leaf function like <code>ft_strlen</code> avoid touching the stack?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d10"><span>In <code>cmp byte [rdi + rax], 0</code>, what is actually compared?</span></label>
+        </div>
+
+        <h2>Completion criteria</h2>
+        <p>The class is complete when you can explain how arguments reach ASM from C, how a value is returned through <code>rax</code>, what <code>call</code> and <code>ret</code> do, which registers you must preserve, how <code>push</code> and <code>pop</code> work, and you can trace a <code>ft_strlen</code> based on <code>[rdi + rax]</code> until it returns the correct length.</p>
+
+        <h2>You have learned that</h2>
+        <ul>
+          <li>The ABI is the binary contract that lets C and ASM cooperate.</li>
+          <li>In System V AMD64, the first arguments arrive in <code>rdi</code>, <code>rsi</code>, <code>rdx</code>, <code>rcx</code>, <code>r8</code> and <code>r9</code>.</li>
+          <li>The return value goes into <code>rax</code>.</li>
+          <li><code>call</code> saves a return address on the stack and <code>ret</code> returns using that address.</li>
+          <li><code>push</code> subtracts 8 from <code>rsp</code> and stores a value; <code>pop</code> retrieves a value and adds 8 to <code>rsp</code>.</li>
+          <li><code>rbx</code>, <code>rbp</code> and <code>r12</code>-<code>r15</code> must keep their value if a function uses them.</li>
+          <li>A simple leaf function can avoid touching the stack and use only volatile registers.</li>
+          <li><code>cmp byte [rdi + rax], 0</code> reads a memory byte at the computed address and compares that byte against zero.</li>
+        </ul>
+      </section>
+    </div>
+
+    <nav class="pager">
+      <a href="clase-02.html">
+        <small data-i18n="prev.class">Clase anterior</small>
+        <strong><span lang="es">Clase 2 · registros e instrucciones</span><span lang="en">Class 2 · registers and instructions</span></strong>
+      </a>
+      <a class="next" href="clase-04.html">
+        <small data-i18n="next.class">Siguiente clase</small>
+        <strong><span lang="es">Clase 4 · NASM, ELF64 y herramientas</span><span lang="en">Class 4 · NASM, ELF64 and tools</span></strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>

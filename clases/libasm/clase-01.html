@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clase 1 · Representación y memoria — Libasm</title>
+  <meta name="description" content="Bits, bytes, hexadecimal, direcciones, cadenas C, punteros y little-endian.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="libasm/clase-01">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <input type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="../../libasm.html" data-i18n="p.libasm.name">Libasm</a><span class="sep">/</span>
+        <span><span lang="es">Clase 1</span><span lang="en">Class 1</span></span>
+      </nav>
+
+      <h1><span lang="es">Clase 1 · representación y memoria</span><span lang="en">Class 1 · representation and memory</span></h1>
+
+      <div class="class-toolbar">
+        <label class="complete-toggle">
+          <input type="checkbox" data-complete="libasm/clase-01">
+          <span data-i18n="btn.complete">Marcar clase como completada</span>
+        </label>
+        <span class="toolbar-hint mono">x86-64 · NASM · C</span>
+      </div>
+    </div>
+
+    <div class="prose">
+
+      <!-- ============ ESPAÑOL ============ -->
+      <section lang="es">
+        <div class="objective">
+          <span class="label">Objetivo</span>
+          <p>Construir el modelo mental mínimo para entender cómo una máquina representa información y cómo un programa accede a ella. Al terminar esta clase debes poder dibujar una cadena C en memoria y distinguir una dirección del contenido almacenado en ella.</p>
+        </div>
+        <p>Esta clase no requiere conocimientos previos ni introduce todavía instrucciones de ensamblador.</p>
+
+        <h2>1. Bits</h2>
+        <p>Un bit es la unidad mínima de información. Solo puede tener uno de dos valores:</p>
+        <pre class="code">0
+1</pre>
+        <p>Puede imaginarse como un interruptor apagado o encendido. Un único bit permite representar dos estados posibles.</p>
+
+        <h2>2. Bytes</h2>
+        <p>Un byte agrupa ocho bits:</p>
+        <pre class="code">01000001</pre>
+        <p>En binario, cada posición representa una potencia de dos. De derecha a izquierda, sus valores son:</p>
+        <pre class="code">posición:  7   6   5   4   3   2   1   0
+valor:    128  64  32  16   8   4   2   1</pre>
+        <p>Para convertir un byte a decimal se suman los valores de las posiciones que contienen un <code>1</code>:</p>
+        <pre class="code">bits:       0   1   0   0   0   0   0   1
+valor:    128  64  32  16   8   4   2   1
+
+64 + 1 = 65</pre>
+        <p>Por tanto:</p>
+        <pre class="code">01000001 (binario) = 65 (decimal)</pre>
+        <p>Cada uno de los ocho bits tiene dos posibilidades. Un byte admite:</p>
+        <pre class="code">2^8 = 256 combinaciones</pre>
+        <p>Si se interpreta como un entero sin signo, sus valores van de <code>0</code> a <code>255</code>. Hay 256 valores porque el cero también cuenta.</p>
+
+        <h3>Comparación con decimal</h3>
+        <p>En decimal, cada posición es una potencia de diez:</p>
+        <pre class="code">572 = 5 * 100 + 7 * 10 + 2 * 1</pre>
+        <p>En binario, cada posición es una potencia de dos:</p>
+        <pre class="code">101 = 1 * 4 + 0 * 2 + 1 * 1 = 5</pre>
+        <p>No se elevan los dígitos escritos al cuadrado. El valor depende de la posición que ocupa cada dígito.</p>
+
+        <h2>3. Hexadecimal</h2>
+        <p>Hexadecimal es una forma compacta de escribir bits. Utiliza dieciséis símbolos:</p>
+        <pre class="code">0 1 2 3 4 5 6 7 8 9 A B C D E F</pre>
+        <p>Las letras representan los valores decimales del 10 al 15:</p>
+        <pre class="code">A = 10
+B = 11
+C = 12
+D = 13
+E = 14
+F = 15</pre>
+        <p>Un dígito hexadecimal representa exactamente cuatro bits. Dos dígitos representan un byte:</p>
+        <pre class="code">0100 0001
+   4    1
+
+01000001 (binario) = 0x41 (hexadecimal) = 65 (decimal)</pre>
+        <p>El prefijo <code>0x</code> indica que un valor está escrito en hexadecimal.</p>
+        <p>Otro ejemplo:</p>
+        <pre class="code">1010 1010
+   A    A
+
+10101010 (binario) = 0xAA (hexadecimal) = 170 (decimal)</pre>
+        <p>Los bits no contienen inherentemente una letra, un número o un color. El mismo byte <code>0x41</code> puede interpretarse como el número 65, el carácter ASCII <code>A</code> o parte de otro tipo de dato. El contexto determina su significado.</p>
+
+        <h2>4. Memoria y direcciones</h2>
+        <p>La memoria puede imaginarse como una fila enorme de cajas. Cada caja:</p>
+        <ul>
+          <li>Guarda un byte.</li>
+          <li>Tiene una dirección única.</li>
+          <li>Puede contener un valor entre <code>0x00</code> y <code>0xFF</code>.</li>
+        </ul>
+        <p>Ejemplo:</p>
+        <table>
+          <thead><tr><th>Dirección</th><th>Contenido</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col">0x1000</td><td class="mono">0x48</td></tr>
+            <tr><td class="mono-col">0x1001</td><td class="mono">0x6F</td></tr>
+            <tr><td class="mono-col">0x1002</td><td class="mono">0x6C</td></tr>
+            <tr><td class="mono-col">0x1003</td><td class="mono">0x61</td></tr>
+            <tr><td class="mono-col">0x1004</td><td class="mono">0x00</td></tr>
+          </tbody>
+        </table>
+        <p>Como cada dirección identifica un byte, la siguiente caja está en la dirección siguiente:</p>
+        <pre class="code">0x1000 -&gt; 0x1001 -&gt; 0x1002 -&gt; 0x1003 -&gt; 0x1004</pre>
+
+        <h2>5. Cadenas C</h2>
+        <p>Una cadena C es una secuencia de bytes terminada por un byte cero. Los bytes del ejemplo anterior representan:</p>
+        <pre class="code">0x48 = 'H'
+0x6F = 'o'
+0x6C = 'l'
+0x61 = 'a'
+0x00 = '\0'</pre>
+        <p>La cadena completa es:</p>
+        <pre class="code">'H' 'o' 'l' 'a' '\0'</pre>
+        <p>El terminador <code>\0</code> es el byte con valor cero:</p>
+        <pre class="code">'\0' = 0x00</pre>
+        <p>No debe confundirse con el carácter visible <code>'0'</code>:</p>
+        <pre class="code">'\0' = 0x00
+'0'  = 0x30</pre>
+        <p>Una cadena C no lleva su longitud almacenada. Para conocerla hay que recorrer sus bytes hasta encontrar el primer <code>0x00</code>. El terminador no cuenta como parte de la longitud:</p>
+        <pre class="code">strlen("Hola") = 4</pre>
+        <p>Sin embargo, almacenar la cadena completa requiere cinco bytes: cuatro caracteres y el terminador.</p>
+        <p>Un cero en medio finaliza la cadena aunque haya otros bytes después:</p>
+        <pre class="code">'A' '\0' 'B' '\0'</pre>
+        <p>Vista como cadena C, su longitud es <code>1</code>. El byte <code>'B'</code> sigue existiendo en memoria, pero queda después del primer terminador.</p>
+
+        <h2>6. Punteros</h2>
+        <p>Un puntero es un valor que contiene una dirección de memoria. Si <code>s</code> apunta a la cadena <code>"Hola"</code> del ejemplo:</p>
+        <pre class="code">s = 0x1000</pre>
+        <p>El puntero contiene la dirección <code>0x1000</code>; no contiene directamente la letra <code>H</code> ni la cadena completa.</p>
+        <p>En notación similar a C:</p>
+        <pre class="code">s       = 0x1000             dirección guardada
+*s      = 0x48 = 'H'        contenido de esa dirección
+s + 2   = 0x1002             nueva dirección
+*(s+2)  = 0x6C = 'l'        contenido de la nueva dirección</pre>
+        <p>El operador <code>*</code> representa aquí el acceso a la memoria situada en la dirección indicada. Esta operación se llama <strong>desreferenciar</strong>.</p>
+
+        <h3>El puntero también ocupa memoria</h3>
+        <p>Una variable puntero debe estar almacenada en algún lugar:</p>
+        <pre class="code">Dirección de la variable s:  0x5000
+Valor guardado en s:         0x1000
+Byte situado en 0x1000:      0x48</pre>
+        <p>Esto crea dos niveles diferentes:</p>
+        <pre class="code">&amp;s = 0x5000    dirección donde está almacenado el puntero
+s  = 0x1000    dirección contenida en el puntero
+*s = 0x48      byte almacenado en la dirección apuntada</pre>
+        <p>Representación visual:</p>
+        <pre class="code">0x5000                  0x1000
++--------------+        +----------+
+|    0x1000    |-------&gt;| 0x48 'H' |
++--------------+        +----------+
+ variable s              dato apuntado</pre>
+
+        <h2>7. Little-endian</h2>
+        <p>Un byte individual no necesita un orden interno entre bytes. Un valor que ocupa varios bytes sí.</p>
+        <p>El número:</p>
+        <pre class="code">0x12345678</pre>
+        <p>está formado por cuatro bytes:</p>
+        <pre class="code">0x12 0x34 0x56 0x78</pre>
+        <p>x86-64 utiliza el orden <strong>little-endian</strong>: el byte menos significativo, el situado más a la derecha en la escritura del número, se guarda en la dirección más baja.</p>
+        <p>Si el número comienza en <code>0x2000</code>, la memoria contiene:</p>
+        <table>
+          <thead><tr><th>Dirección</th><th>Contenido</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col">0x2000</td><td class="mono">0x78</td></tr>
+            <tr><td class="mono-col">0x2001</td><td class="mono">0x56</td></tr>
+            <tr><td class="mono-col">0x2002</td><td class="mono">0x34</td></tr>
+            <tr><td class="mono-col">0x2003</td><td class="mono">0x12</td></tr>
+          </tbody>
+        </table>
+        <p>Little-endian no invierte los bits dentro de cada byte. Tampoco invierte el texto de una cadena. Solo determina el orden de los bytes cuando varios de ellos se interpretan conjuntamente como un único valor.</p>
+        <p>Una cadena se almacena como una secuencia de bytes independientes en orden de recorrido:</p>
+        <pre class="code">"1234" -&gt; 0x31 0x32 0x33 0x34 0x00</pre>
+
+        <h2>8. Predicciones y ejercicios</h2>
+        <p>Conviene intentar cada ejercicio antes de consultar la solución.</p>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 1 · conversión binaria</span>
+          <p>Para el byte <code>10101010</code>:</p>
+          <ol>
+            <li>Indica qué columnas deben sumarse.</li>
+            <li>Calcula su valor decimal.</li>
+            <li>Sepáralo en dos grupos de cuatro bits y conviértelo a hexadecimal.</li>
+          </ol>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">Columnas: 128, 32, 8 y 2
+Decimal:  128 + 32 + 8 + 2 = 170
+Hex:      1010 1010 = 0xAA</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 2 · cadena en memoria</span>
+          <p>Una cadena <code>"Hola"</code> empieza en <code>0x1000</code> y ocupa los bytes mostrados anteriormente.</p>
+          <ol>
+            <li>¿Qué valor contiene un puntero <code>s</code> que apunta a la cadena?</li>
+            <li>¿Qué byte hay en <code>0x1002</code>?</li>
+            <li>¿Qué dirección se obtiene al avanzar <code>s</code> dos bytes?</li>
+            <li>¿Qué carácter hay en esa nueva dirección?</li>
+            <li>¿Cuántos bytes ocupa la cadena incluyendo su terminador?</li>
+          </ol>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">s = 0x1000
+byte en 0x1002 = 0x6C
+s + 2 = 0x1002
+*(s + 2) = 'l'
+espacio total = 5 bytes</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 3 · little-endian</span>
+          <p>Guarda <code>0x12345678</code> empezando en <code>0x2000</code>. Completa:</p>
+          <table>
+            <thead><tr><th>Dirección</th><th>Contenido</th></tr></thead>
+            <tbody>
+              <tr><td class="mono-col">0x2000</td><td class="mono">?</td></tr>
+              <tr><td class="mono-col">0x2001</td><td class="mono">?</td></tr>
+              <tr><td class="mono-col">0x2002</td><td class="mono">?</td></tr>
+              <tr><td class="mono-col">0x2003</td><td class="mono">?</td></tr>
+            </tbody>
+          </table>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">0x2000: 0x78
+0x2001: 0x56
+0x2002: 0x34
+0x2003: 0x12</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 4 · dirección frente a contenido</span>
+          <p>Supón:</p>
+          <pre class="code">Dirección    Contenido
+0x4000       0x58       'X'
+0x4001       0x59       'Y'
+0x4002       0x00       '\0'
+
+q = 0x4000</pre>
+          <p>Calcula:</p>
+          <pre class="code">q       = ?
+*q      = ?
+q + 1   = ?
+*(q+1)  = ?</pre>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">q       = 0x4000
+*q      = 0x58
+q + 1   = 0x4001
+*(q+1)  = 0x59</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Errores frecuentes</span>
+          <ul>
+            <li>Aplicar reglas de posiciones decimales al interpretar binario.</li>
+            <li>Confundir el valor hexadecimal <code>A</code> con la escritura decimal <code>10</code> dentro de un número hexadecimal.</li>
+            <li>Confundir el puntero <code>p</code> con el contenido <code>*p</code>.</li>
+            <li>Responder con <code>p + 2</code> cuando se pregunta por <code>*(p + 2)</code>.</li>
+            <li>Contar el terminador <code>\0</code> como parte de la longitud de una cadena.</li>
+            <li>Confundir el byte cero <code>0x00</code> con el carácter <code>'0'</code>, cuyo código es <code>0x30</code>.</li>
+            <li>Pensar que little-endian invierte una cadena o los bits de cada byte.</li>
+          </ul>
+        </div>
+
+        <h2>Has aprendido que</h2>
+        <ul>
+          <li>Un bit vale <code>0</code> o <code>1</code>.</li>
+          <li>Un byte contiene ocho bits y admite 256 combinaciones.</li>
+          <li>Dos dígitos hexadecimales representan exactamente un byte.</li>
+          <li>Los bits no tienen un significado único; el programa decide cómo interpretarlos.</li>
+          <li>La memoria es una secuencia de bytes identificados por direcciones.</li>
+          <li>Un puntero contiene una dirección, mientras que desreferenciarlo obtiene el contenido de esa dirección.</li>
+          <li>Sumar a un puntero produce otra dirección; desreferenciar el resultado obtiene el byte situado allí.</li>
+          <li>Una cadena C es una secuencia de bytes terminada por <code>0x00</code>.</li>
+          <li>El terminador ocupa memoria, pero no forma parte de la longitud de la cadena.</li>
+          <li>x86-64 almacena valores multibyte en orden little-endian.</li>
+          <li>Little-endian no invierte las cadenas, porque estas se recorren byte a byte.</li>
+        </ul>
+
+        <h2>Preguntas tipo defensa</h2>
+        <p>Responde en voz alta, sin mirar los apuntes:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="d1"><span>¿Qué diferencia hay entre <code>p</code>, <code>p + 1</code>, <code>*p</code> y <code>*(p + 1)</code>?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d2"><span>¿Por qué <code>"Hola"</code> tiene longitud 4 pero ocupa 5 bytes?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d3"><span>¿Qué diferencia existe entre <code>0x00</code> y el carácter <code>'0'</code>?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d4"><span>¿Por qué el byte <code>0x41</code> no significa necesariamente la letra <code>A</code>?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d5"><span>¿Cómo se almacena <code>0x12345678</code> en una máquina little-endian?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d6"><span>¿Por qué little-endian no transforma <code>"Hola"</code> en <code>"aloH"</code>?</span></label></li>
+        </ol>
+
+        <h2>Criterio de finalización</h2>
+        <p>La clase está completada cuando puedes:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Convertir un byte sencillo entre binario, decimal y hexadecimal.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Dibujar una cadena C en memoria incluyendo su terminador.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Explicar la diferencia entre una dirección y su contenido.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Calcular correctamente <code>p</code>, <code>*p</code>, <code>p + n</code> y <code>*(p + n)</code> sobre una tabla de memoria.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Distribuir en memoria los bytes de un valor multibyte usando little-endian.</span></label></li>
+        </ol>
+
+        <p><strong>Siguiente clase:</strong> la clase 2 utiliza este modelo de memoria para introducir los registros de la CPU y las instrucciones <code>mov</code>, <code>lea</code>, aritmética, <code>cmp</code>, flags y saltos.</p>
+      </section>
+
+      <!-- ============ ENGLISH ============ -->
+      <section lang="en">
+        <div class="objective">
+          <span class="label">Objective</span>
+          <p>Build the minimum mental model to understand how a machine represents information and how a program accesses it. By the end of this class you must be able to draw a C string in memory and tell an address apart from its contents.</p>
+        </div>
+        <p>This class requires no prior knowledge and does not introduce assembly instructions yet.</p>
+
+        <h2>1. Bits</h2>
+        <p>A bit is the smallest unit of information. It can only hold one of two values:</p>
+        <pre class="code">0
+1</pre>
+        <p>Think of it as a light switch: off or on. A single bit can represent two possible states.</p>
+
+        <h2>2. Bytes</h2>
+        <p>A byte groups eight bits:</p>
+        <pre class="code">01000001</pre>
+        <p>In binary, each position represents a power of two. From right to left, their values are:</p>
+        <pre class="code">position:  7   6   5   4   3   2   1   0
+value:    128  64  32  16   8   4   2   1</pre>
+        <p>To convert a byte to decimal, add the values of the positions that contain a <code>1</code>:</p>
+        <pre class="code">bits:       0   1   0   0   0   0   0   1
+value:    128  64  32  16   8   4   2   1
+
+64 + 1 = 65</pre>
+        <p>Therefore:</p>
+        <pre class="code">01000001 (binary) = 65 (decimal)</pre>
+        <p>Each of the eight bits has two possibilities. A byte supports:</p>
+        <pre class="code">2^8 = 256 combinations</pre>
+        <p>Interpreted as an unsigned integer, its values range from <code>0</code> to <code>255</code>. There are 256 values because zero also counts.</p>
+
+        <h3>Comparison with decimal</h3>
+        <p>In decimal, each position is a power of ten:</p>
+        <pre class="code">572 = 5 * 100 + 7 * 10 + 2 * 1</pre>
+        <p>In binary, each position is a power of two:</p>
+        <pre class="code">101 = 1 * 4 + 0 * 2 + 1 * 1 = 5</pre>
+        <p>Digits are not squared. The value depends on the position each digit occupies.</p>
+
+        <h2>3. Hexadecimal</h2>
+        <p>Hexadecimal is a compact way to write bits. It uses sixteen symbols:</p>
+        <pre class="code">0 1 2 3 4 5 6 7 8 9 A B C D E F</pre>
+        <p>The letters represent the decimal values 10 through 15:</p>
+        <pre class="code">A = 10
+B = 11
+C = 12
+D = 13
+E = 14
+F = 15</pre>
+        <p>One hexadecimal digit represents exactly four bits. Two digits represent one byte:</p>
+        <pre class="code">0100 0001
+   4    1
+
+01000001 (binary) = 0x41 (hexadecimal) = 65 (decimal)</pre>
+        <p>The <code>0x</code> prefix means the value is written in hexadecimal.</p>
+        <p>Another example:</p>
+        <pre class="code">1010 1010
+   A    A
+
+10101010 (binary) = 0xAA (hexadecimal) = 170 (decimal)</pre>
+        <p>Bits do not inherently hold a letter, a number or a color. The same byte <code>0x41</code> can be read as the number 65, the ASCII character <code>A</code>, or part of another data type. Context decides its meaning.</p>
+
+        <h2>4. Memory and addresses</h2>
+        <p>Picture memory as a huge row of boxes. Each box:</p>
+        <ul>
+          <li>Holds one byte.</li>
+          <li>Has a unique address.</li>
+          <li>Can hold a value between <code>0x00</code> and <code>0xFF</code>.</li>
+        </ul>
+        <p>Example:</p>
+        <table>
+          <thead><tr><th>Address</th><th>Contents</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col">0x1000</td><td class="mono">0x48</td></tr>
+            <tr><td class="mono-col">0x1001</td><td class="mono">0x6F</td></tr>
+            <tr><td class="mono-col">0x1002</td><td class="mono">0x6C</td></tr>
+            <tr><td class="mono-col">0x1003</td><td class="mono">0x61</td></tr>
+            <tr><td class="mono-col">0x1004</td><td class="mono">0x00</td></tr>
+          </tbody>
+        </table>
+        <p>Since each address identifies one byte, the next box is at the next address:</p>
+        <pre class="code">0x1000 -&gt; 0x1001 -&gt; 0x1002 -&gt; 0x1003 -&gt; 0x1004</pre>
+
+        <h2>5. C strings</h2>
+        <p>A C string is a sequence of bytes terminated by a zero byte. The bytes from the previous example represent:</p>
+        <pre class="code">0x48 = 'H'
+0x6F = 'o'
+0x6C = 'l'
+0x61 = 'a'
+0x00 = '\0'</pre>
+        <p>The complete string is:</p>
+        <pre class="code">'H' 'o' 'l' 'a' '\0'</pre>
+        <p>The terminator <code>\0</code> is the byte with value zero:</p>
+        <pre class="code">'\0' = 0x00</pre>
+        <p>Do not confuse it with the visible character <code>'0'</code>:</p>
+        <pre class="code">'\0' = 0x00
+'0'  = 0x30</pre>
+        <p>A C string does not store its length. To know it you must walk its bytes until the first <code>0x00</code>. The terminator does not count as part of the length:</p>
+        <pre class="code">strlen("Hola") = 4</pre>
+        <p>However, storing the whole string takes five bytes: four characters plus the terminator.</p>
+        <p>A zero in the middle ends the string even if more bytes follow:</p>
+        <pre class="code">'A' '\0' 'B' '\0'</pre>
+        <p>As a C string its length is <code>1</code>. The byte <code>'B'</code> still exists in memory, but it comes after the first terminator.</p>
+
+        <h2>6. Pointers</h2>
+        <p>A pointer is a value that holds a memory address. If <code>s</code> points to the <code>"Hola"</code> string from the example:</p>
+        <pre class="code">s = 0x1000</pre>
+        <p>The pointer holds the address <code>0x1000</code>; it does not directly hold the letter <code>H</code> or the whole string.</p>
+        <p>In C-like notation:</p>
+        <pre class="code">s       = 0x1000             stored address
+*s      = 0x48 = 'H'        contents of that address
+s + 2   = 0x1002             new address
+*(s+2)  = 0x6C = 'l'        contents of the new address</pre>
+        <p>The <code>*</code> operator here means accessing the memory located at the given address. This operation is called <strong>dereferencing</strong>.</p>
+
+        <h3>The pointer also occupies memory</h3>
+        <p>A pointer variable must be stored somewhere:</p>
+        <pre class="code">Address of variable s:  0x5000
+Value stored in s:      0x1000
+Byte at 0x1000:         0x48</pre>
+        <p>This creates two different levels:</p>
+        <pre class="code">&amp;s = 0x5000    address where the pointer is stored
+s  = 0x1000    address contained in the pointer
+*s = 0x48      byte stored at the pointed address</pre>
+        <p>Visual representation:</p>
+        <pre class="code">0x5000                  0x1000
++--------------+        +----------+
+|    0x1000    |-------&gt;| 0x48 'H' |
++--------------+        +----------+
+ variable s              pointed data</pre>
+
+        <h2>7. Little-endian</h2>
+        <p>A single byte does not need an internal byte order. A value spanning several bytes does.</p>
+        <p>The number:</p>
+        <pre class="code">0x12345678</pre>
+        <p>is made of four bytes:</p>
+        <pre class="code">0x12 0x34 0x56 0x78</pre>
+        <p>x86-64 uses <strong>little-endian</strong> order: the least significant byte, the rightmost one as written, is stored at the lowest address.</p>
+        <p>If the number starts at <code>0x2000</code>, memory contains:</p>
+        <table>
+          <thead><tr><th>Address</th><th>Contents</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col">0x2000</td><td class="mono">0x78</td></tr>
+            <tr><td class="mono-col">0x2001</td><td class="mono">0x56</td></tr>
+            <tr><td class="mono-col">0x2002</td><td class="mono">0x34</td></tr>
+            <tr><td class="mono-col">0x2003</td><td class="mono">0x12</td></tr>
+          </tbody>
+        </table>
+        <p>Little-endian does not flip the bits inside a byte. It does not flip string text either. It only determines the byte order when several bytes are read together as a single value.</p>
+        <p>A string is stored as a sequence of independent bytes in traversal order:</p>
+        <pre class="code">"1234" -&gt; 0x31 0x32 0x33 0x34 0x00</pre>
+
+        <h2>8. Predictions and exercises</h2>
+        <p>Try each exercise before checking the answer.</p>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 1 · binary conversion</span>
+          <p>For the byte <code>10101010</code>:</p>
+          <ol>
+            <li>Say which columns must be added.</li>
+            <li>Compute its decimal value.</li>
+            <li>Split it into two groups of four bits and convert to hexadecimal.</li>
+          </ol>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">Columns: 128, 32, 8 and 2
+Decimal:  128 + 32 + 8 + 2 = 170
+Hex:      1010 1010 = 0xAA</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 2 · string in memory</span>
+          <p>A <code>"Hola"</code> string starts at <code>0x1000</code> and occupies the bytes shown earlier.</p>
+          <ol>
+            <li>What value does a pointer <code>s</code> to the string hold?</li>
+            <li>What byte is at <code>0x1002</code>?</li>
+            <li>What address do you get by advancing <code>s</code> two bytes?</li>
+            <li>What character is at that new address?</li>
+            <li>How many bytes does the string occupy including its terminator?</li>
+          </ol>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">s = 0x1000
+byte at 0x1002 = 0x6C
+s + 2 = 0x1002
+*(s + 2) = 'l'
+total space = 5 bytes</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 3 · little-endian</span>
+          <p>Store <code>0x12345678</code> starting at <code>0x2000</code>. Complete:</p>
+          <table>
+            <thead><tr><th>Address</th><th>Contents</th></tr></thead>
+            <tbody>
+              <tr><td class="mono-col">0x2000</td><td class="mono">?</td></tr>
+              <tr><td class="mono-col">0x2001</td><td class="mono">?</td></tr>
+              <tr><td class="mono-col">0x2002</td><td class="mono">?</td></tr>
+              <tr><td class="mono-col">0x2003</td><td class="mono">?</td></tr>
+            </tbody>
+          </table>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">0x2000: 0x78
+0x2001: 0x56
+0x2002: 0x34
+0x2003: 0x12</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 4 · address vs contents</span>
+          <p>Assume:</p>
+          <pre class="code">Address    Contents
+0x4000     0x58       'X'
+0x4001     0x59       'Y'
+0x4002     0x00       '\0'
+
+q = 0x4000</pre>
+          <p>Compute:</p>
+          <pre class="code">q       = ?
+*q      = ?
+q + 1   = ?
+*(q+1)  = ?</pre>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">q       = 0x4000
+*q      = 0x58
+q + 1   = 0x4001
+*(q+1)  = 0x59</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Common mistakes</span>
+          <ul>
+            <li>Applying decimal position rules when reading binary.</li>
+            <li>Confusing the hexadecimal value <code>A</code> with the decimal writing <code>10</code> inside a hexadecimal number.</li>
+            <li>Confusing the pointer <code>p</code> with its contents <code>*p</code>.</li>
+            <li>Answering <code>p + 2</code> when asked for <code>*(p + 2)</code>.</li>
+            <li>Counting the <code>\0</code> terminator as part of a string's length.</li>
+            <li>Confusing the zero byte <code>0x00</code> with the character <code>'0'</code>, whose code is <code>0x30</code>.</li>
+            <li>Thinking little-endian reverses a string or the bits of each byte.</li>
+          </ul>
+        </div>
+
+        <h2>You have learned that</h2>
+        <ul>
+          <li>A bit is either <code>0</code> or <code>1</code>.</li>
+          <li>A byte contains eight bits and supports 256 combinations.</li>
+          <li>Two hexadecimal digits represent exactly one byte.</li>
+          <li>Bits have no single meaning; the program decides how to interpret them.</li>
+          <li>Memory is a sequence of bytes identified by addresses.</li>
+          <li>A pointer holds an address, while dereferencing it gets the contents of that address.</li>
+          <li>Adding to a pointer yields another address; dereferencing that result gets the byte located there.</li>
+          <li>A C string is a sequence of bytes terminated by <code>0x00</code>.</li>
+          <li>The terminator occupies memory but is not part of the string's length.</li>
+          <li>x86-64 stores multi-byte values in little-endian order.</li>
+          <li>Little-endian does not reverse strings, because they are traversed byte by byte.</li>
+        </ul>
+
+        <h2>Defense-style questions</h2>
+        <p>Answer out loud, without looking at your notes:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="d1"><span>What is the difference between <code>p</code>, <code>p + 1</code>, <code>*p</code> and <code>*(p + 1)</code>?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d2"><span>Why does <code>"Hola"</code> have length 4 but take 5 bytes?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d3"><span>What is the difference between <code>0x00</code> and the character <code>'0'</code>?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d4"><span>Why does byte <code>0x41</code> not necessarily mean the letter <code>A</code>?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d5"><span>How is <code>0x12345678</code> stored on a little-endian machine?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d6"><span>Why does little-endian not turn <code>"Hola"</code> into <code>"aloH"</code>?</span></label></li>
+        </ol>
+
+        <h2>Completion criteria</h2>
+        <p>The class is complete when you can:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Convert a simple byte between binary, decimal and hexadecimal.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Draw a C string in memory including its terminator.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Explain the difference between an address and its contents.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Correctly compute <code>p</code>, <code>*p</code>, <code>p + n</code> and <code>*(p + n)</code> on a memory table.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Lay out the bytes of a multi-byte value in memory using little-endian.</span></label></li>
+        </ol>
+
+        <p><strong>Next class:</strong> class 2 uses this memory model to introduce CPU registers and the instructions <code>mov</code>, <code>lea</code>, arithmetic, <code>cmp</code>, flags and jumps.</p>
+      </section>
+    </div>
+
+    <nav class="pager">
+      <a href="../../libasm.html">
+        <small data-i18n="back.project">Volver al proyecto</small>
+        <strong data-i18n="p.libasm.name">Libasm</strong>
+      </a>
+      <a class="next" href="clase-02.html">
+        <small data-i18n="next.class">Siguiente clase</small>
+        <strong><span lang="es">Clase 2 · registros e instrucciones</span><span lang="en">Class 2 · registers and instructions</span></strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>

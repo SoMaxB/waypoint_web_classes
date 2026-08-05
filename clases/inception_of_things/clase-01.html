@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clase 1 · Subject y mapa mental — Inception of Things</title>
+  <meta name="description" content="Convertir el subject en una matriz de estudio: requisito, fichero, comando de prueba y concepto.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="inception_of_things/clase-01">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <input type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="../../inception_of_things.html" data-i18n="p.inception_of_things.name">Inception of Things</a><span class="sep">/</span>
+        <span><span lang="es">Clase 1</span><span lang="en">Class 1</span></span>
+      </nav>
+
+      <h1><span lang="es">Clase 1 · Subject y mapa mental</span><span lang="en">Class 1 · Subject and mental map</span></h1>
+
+      <div class="class-toolbar">
+        <label class="complete-toggle">
+          <input type="checkbox" data-complete="inception_of_things/clase-01">
+          <span data-i18n="btn.complete">Marcar clase como completada</span>
+        </label>
+        <span class="toolbar-hint mono">Vagrant · K3s · K3d · Argo CD · GitOps</span>
+      </div>
+    </div>
+
+    <div class="prose">
+
+      <!-- ============ ESPAÑOL ============ -->
+      <section lang="es">
+        <div class="objective">
+          <span class="label">Objetivo</span>
+          <p>Convertir el subject en una <strong>matriz de estudio</strong>: requisito → fichero real → comando de prueba → concepto. Al terminar, poder explicar el proyecto completo en <strong>dos minutos</strong> y ubicar cada parte (<code>p1</code>, <code>p2</code>, <code>p3</code>, <code>bonus</code>) en el repo.</p>
+        </div>
+
+        <h2>1. El proyecto en dos minutos</h2>
+        <p>Inception of Things es un recorrido escalonado hacia Kubernetes, de menos a más:</p>
+        <ol>
+          <li><strong>p1 — K3s + Vagrant:</strong> creas <strong>2 máquinas virtuales</strong> con Vagrant y montas un <strong>cluster K3s de 2 nodos</strong> (server + worker).</li>
+          <li><strong>p2 — K3s + 3 apps:</strong> sobre un solo nodo, despliegas <strong>3 aplicaciones</strong> expuestas vía <strong>Ingress</strong> según el <code>Host header</code>.</li>
+          <li><strong>p3 — K3d + Argo CD:</strong> sin Vagrant, creas un cluster <strong>K3d</strong> (K3s dentro de Docker) y <strong>Argo CD</strong> despliega tu app leyendo manifiestos desde <strong>GitHub</strong>, con 2 versiones intercambiables.</li>
+          <li><strong>bonus — GitLab local:</strong> el flujo GitOps usa un <strong>GitLab dentro del cluster</strong> como fuente en vez de GitHub.</li>
+        </ol>
+        <div class="panel">
+          <span class="label">Hilo conductor</span>
+          <p>Gestionar VMs (Vagrant) → gestionar un solo nodo (K3s) → gestionar GitOps en un cluster (K3d + Argo CD).</p>
+        </div>
+
+        <h2>2. Requisito → fichero → prueba → concepto</h2>
+        <h3>Parte 1 — K3s y Vagrant (IV.1)</h3>
+        <table>
+          <thead><tr><th>Requisito del subject</th><th>Fichero real</th><th>Cómo se prueba</th></tr></thead>
+          <tbody>
+            <tr><td>2 máquinas Vagrant; nombres = login + <code>S</code>/<code>SW</code></td><td class="mono">p1/Vagrantfile</td><td class="mono">vagrant ssh &lt;login&gt;S -c hostname</td></tr>
+            <tr><td>IP dedicada: <code>.110</code> (Server) y <code>.111</code> (SW)</td><td class="mono">Vagrantfile (red privada)</td><td class="mono">vagrant ssh &lt;login&gt;S -c "ip a"</td></tr>
+            <tr><td>SSH sin contraseña</td><td>provisioner Vagrant</td><td class="mono">vagrant ssh</td></tr>
+            <tr><td>K3s en modo controller</td><td class="mono">p1/scripts/server.sh</td><td class="mono">kubectl get nodes</td></tr>
+            <tr><td>K3s en modo agent</td><td class="mono">p1/scripts/worker.sh</td><td class="mono">kubectl get nodes -o wide</td></tr>
+            <tr><td>kubectl instalado</td><td class="mono">server.sh</td><td class="mono">kubectl config get-contexts</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Parte 2 — K3s + 3 aplicaciones (IV.2)</h3>
+        <table>
+          <thead><tr><th>Requisito</th><th>Fichero</th><th>Prueba</th></tr></thead>
+          <tbody>
+            <tr><td>1 VM, K3s server</td><td class="mono">p2/Vagrantfile + scripts/setup.sh</td><td class="mono">kubectl get nodes</td></tr>
+            <tr><td>app1 según <code>app1.com</code></td><td class="mono">confs/app1.yaml</td><td class="mono">curl -H "Host: app1.com" http://192.168.56.110</td></tr>
+            <tr><td>app2 (3 réplicas) según <code>app2.com</code></td><td class="mono">confs/app2.yaml</td><td class="mono">curl -H "Host: app2.com" http://192.168.56.110</td></tr>
+            <tr><td>app3 por defecto (catch-all)</td><td class="mono">confs/app3.yaml + ingress.yaml</td><td class="mono">curl http://192.168.56.110 (sin Host)</td></tr>
+            <tr><td>Enrutado por Host</td><td class="mono">confs/ingress.yaml</td><td>Ingress sin <code>host</code> = default (app3)</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Parte 3 — K3d + Argo CD (IV.3)</h3>
+        <table>
+          <thead><tr><th>Requisito</th><th>Fichero</th><th>Prueba</th></tr></thead>
+          <tbody>
+            <tr><td>Instalar todo (sin sudo)</td><td class="mono">p3/scripts/install.sh</td><td>ejecutar el script</td></tr>
+            <tr><td>Namespace <code>argocd</code></td><td>installer</td><td class="mono">kubectl get ns</td></tr>
+            <tr><td>Namespace <code>dev</code> con la app</td><td>installer</td><td class="mono">kubectl -n dev get pods</td></tr>
+            <tr><td>Argo CD lee de GitHub</td><td class="mono">confs/application.yaml (repoURL)</td><td class="mono">kubectl get application -n argocd</td></tr>
+            <tr><td>Cambiar v1→v2 desde GitHub</td><td class="mono">confs/manifests/deployment.yaml</td><td class="mono">curl localhost:8888 → "v2"</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Bonus — GitLab local (V)</h3>
+        <table>
+          <thead><tr><th>Archivo</th><th>Rol</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">scripts/install.sh</td><td>orquesta el clúster + GitLab</td></tr>
+            <tr><td class="mono">scripts/gitlab.sh</td><td>instala GitLab CE</td></tr>
+            <tr><td class="mono">scripts/argocd.sh</td><td>configura Argo CD contra el GitLab</td></tr>
+            <tr><td class="mono">confs/gitlab.yaml</td><td>deployment de GitLab</td></tr>
+            <tr><td class="mono">confs/application.yaml</td><td>Argo apunta a <span class="mono">gitlab.gitlab.svc.cluster.local</span></td></tr>
+          </tbody>
+        </table>
+
+        <h2>3. Pensar en capas (K3s vs K3d)</h2>
+        <p>La confusión más común de la clase. Fórmula para no olvidarla:</p>
+        <ul>
+          <li><strong>K3s = K8s ligero en una VM</strong> (p1, p2).</li>
+          <li><strong>K3d = K3s dentro de un contenedor Docker</strong> (p3).</li>
+        </ul>
+        <p>No son versiones distintas de Kubernetes: <strong>ambos corren K3s</strong>. Lo que cambia es <em>dónde se ejecuta</em>. K3d te quita Vagrant de encima.</p>
+
+        <h2>Predicción / Ejercicio 1.1 — el mapa en 2 minutos</h2>
+        <p>Sin mirar apuntes, contesta en voz alta: ¿qué hace cada parte (<code>p1</code>, <code>p2</code>, <code>p3</code>, <code>bonus</code>) y qué herramienta es la protagonista de cada una?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">p1      → Vagrant crea 2 VMs con K3s (server + worker).
+p2      → K3s (1 nodo) ejecuta 3 apps y las expone con Ingress.
+p3      → K3d (K3s en Docker) + Argo CD desplegando desde GitHub.
+bonus   → GitLab local reemplaza a GitHub como fuente GitOps.
+
+Esperado: poder decirlo de corrido en 2 minutos.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Errores frecuentes</span>
+          <ul>
+            <li>Confundir <strong>K3d con una versión</strong> distinta de Kubernetes → es "dónde corre", no "qué versión".</li>
+            <li>No respetar la estructura de carpetas del subject (raíz <code>p1</code>/<code>p2</code>/<code>p3</code>/<code>bonus</code>, dentro <code>scripts/</code> y <code>confs/</code>).</li>
+            <li>Creer que app3 es un DNS → <strong>app3 es la Ingress sin <code>host</code></strong>, el catch-all.</li>
+            <li>Olvidar que el cambio de versión en p3 lo hace <strong>el usuario en GitHub</strong>, y Argo CD lo detecta y sincroniza.</li>
+          </ul>
+        </div>
+
+        <h2>Preguntas tipo defensa</h2>
+        <p>Responde en voz alta, sin mirar los apuntes:</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>¿Cómo cambiarías la versión de la app en p3 de forma <em>automática</em>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>¿En qué capa difería p1/p2 de p3? ¿Es K3d una distribución distinta?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>¿Cómo se decide app1/app2/app3 con una sola IP (<code>192.168.56.110</code>)?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>¿Qué carpetas y subcarpetas exige el subject en la raíz del repo?</span></label>
+        </div>
+
+        <h2>Criterio de finalización</h2>
+        <p>La clase está completada cuando puedes, sin apuntes:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Explicar qué resuelve cada parte en total (problema → componente).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Nombrar los comandos que levantan y verifican <code>p1</code>, <code>p2</code>, <code>p3</code> y <code>bonus</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Decir qué fichero del repo mantendría el comportamiento principal de cada parte.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Identificar un fallo típico de cada fase y cómo se diagnosticaría.</span></label></li>
+        </ol>
+
+        <h2>Has aprendido que</h2>
+        <ul>
+          <li>El <strong>subject es la fuente de verdad</strong>; la estructura del repo lo refleja tal cual.</li>
+          <li>La parte obligatoria es escalonada y debe hacerse <strong>en orden</strong> (<code>p1</code> → <code>p2</code> → <code>p3</code>); el bonus solo se evalúa si la obligatoria es <em>flawless</em>.</li>
+          <li>Las <strong>tres herramientas clave</strong> del curso son <strong>Vagrant</strong>, <strong>K3s/Kubernetes</strong> y <strong>K3d + Argo CD</strong>.</li>
+          <li>Cómo localizar en el repo el fichero que implementa cada requisito y cómo probarlo vivo.</li>
+        </ul>
+
+        <p><strong>Siguiente clase:</strong> la clase 2 entra de lleno en <strong>Vagrant, máquinas virtuales y p1</strong>: cómo se crea un cluster K3s de dos nodos y cómo un worker (<code>&lt;login&gt;SW</code>) se une al server (<code>&lt;login&gt;S</code>) sin copiar el <code>node-token</code>.</p>
+      </section>
+
+      <!-- ============ ENGLISH ============ -->
+      <section lang="en">
+        <div class="objective">
+          <span class="label">Objective</span>
+          <p>Turn the subject into a <strong>study matrix</strong>: requirement → real file → test command → concept. By the end, explain the whole project in <strong>two minutes</strong> and locate each part (<code>p1</code>, <code>p2</code>, <code>p3</code>, <code>bonus</code>) in the repo.</p>
+        </div>
+
+        <h2>1. The project in two minutes</h2>
+        <p>Inception of Things is a staged path toward Kubernetes, from less to more:</p>
+        <ol>
+          <li><strong>p1 — K3s &amp; Vagrant:</strong> build <strong>2 VMs</strong> with Vagrant ; form a <strong>2-node K3s cluster</strong> (server + worker).</li>
+          <li><strong>p2 — K3s &amp; 3 apps:</strong> on one node, deploy <strong>3 apps</strong> exposed via <strong>Ingress</strong> by the <code>Host</code> header.</li>
+          <li><strong>p3 — K3d &amp; Argo CD:</strong> no Vagrant; a <strong>K3d</strong> cluster (K3s in Docker) where <strong>Argo CD</strong> deploys your app reading from <strong>GitHub</strong>, switchable between 2 versions.</li>
+          <li><strong>bonus — local GitLab:</strong> the GitOps flow uses an in-cluster <strong>GitLab</strong> instead of GitHub.</li>
+        </ol>
+        <div class="panel">
+          <span class="label">Through line</span>
+          <p>Manage VMs (Vagrant) → manage a single node (K3s) → manage GitOps in a cluster (K3d + Argo CD).</p>
+        </div>
+
+        <h2>2. Requirement → file → proof → concept</h2>
+        <h3>Part 1 — K3s and Vagrant (IV.1)</h3>
+        <table>
+          <thead><tr><th>Subject requirement</th><th>Real file</th><th>How it is tested</th></tr></thead>
+          <tbody>
+            <tr><td>2 Vagrant machines; names = login + <code>S</code>/<code>SW</code></td><td class="mono">p1/Vagrantfile</td><td class="mono">vagrant ssh &lt;login&gt;S -c hostname</td></tr>
+            <tr><td>Dedicated IP: <code>.110</code> (Server) and <code>.111</code> (SW)</td><td class="mono">Vagrantfile (private network)</td><td class="mono">vagrant ssh &lt;login&gt;S -c "ip a"</td></tr>
+            <tr><td>SSH without password</td><td>Vagrant provisioner</td><td class="mono">vagrant ssh</td></tr>
+            <tr><td>K3s in controller mode</td><td class="mono">p1/scripts/server.sh</td><td class="mono">kubectl get nodes</td></tr>
+            <tr><td>K3s in agent mode</td><td class="mono">p1/scripts/worker.sh</td><td class="mono">kubectl get nodes -o wide</td></tr>
+            <tr><td>kubectl installed</td><td class="mono">server.sh</td><td class="mono">kubectl config get-contexts</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Part 2 — K3s + 3 apps (IV.2)</h3>
+        <table>
+          <thead><tr><th>Requirement</th><th>File</th><th>Proof</th></tr></thead>
+          <tbody>
+            <tr><td>1 VM, K3s server</td><td class="mono">p2/Vagrantfile + scripts/setup.sh</td><td class="mono">kubectl get nodes</td></tr>
+            <tr><td>app1 per <code>app1.com</code></td><td class="mono">confs/app1.yaml</td><td class="mono">curl -H "Host: app1.com" http://192.168.56.110</td></tr>
+            <tr><td>app2 (3 replicas) per <code>app2.com</code></td><td class="mono">confs/app2.yaml</td><td class="mono">curl -H "Host: app2.com" http://192.168.56.110</td></tr>
+            <tr><td>app3 by default (catch-all)</td><td class="mono">confs/app3.yaml + ingress.yaml</td><td class="mono">curl http://192.168.56.110 (no Host)</td></tr>
+            <tr><td>Routing by Host</td><td class="mono">confs/ingress.yaml</td><td>Ingress with no <code>host</code> = default (app3)</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Part 3 — K3d + Argo CD (IV.3)</h3>
+        <table>
+          <thead><tr><th>Requirement</th><th>File</th><th>Proof</th></tr></thead>
+          <tbody>
+            <tr><td>Install everything (no sudo)</td><td class="mono">p3/scripts/install.sh</td><td>run the script</td></tr>
+            <tr><td><code>argocd</code> namespace</td><td>installer</td><td class="mono">kubectl get ns</td></tr>
+            <tr><td><code>dev</code> namespace with the app</td><td>installer</td><td class="mono">kubectl -n dev get pods</td></tr>
+            <tr><td>Argo CD reads from GitHub</td><td class="mono">confs/application.yaml (repoURL)</td><td class="mono">kubectl get application -n argocd</td></tr>
+            <tr><td>Switch v1→v2 from GitHub</td><td class="mono">confs/manifests/deployment.yaml</td><td class="mono">curl localhost:8888 → "v2"</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Bonus — local GitLab (V)</h3>
+        <table>
+          <thead><tr><th>File</th><th>Role</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">scripts/install.sh</td><td>orchestrates the cluster + GitLab</td></tr>
+            <tr><td class="mono">scripts/gitlab.sh</td><td>installs GitLab CE</td></tr>
+            <tr><td class="mono">scripts/argocd.sh</td><td>configures Argo CD against the GitLab</td></tr>
+            <tr><td class="mono">confs/gitlab.yaml</td><td>GitLab deployment</td></tr>
+            <tr><td class="mono">confs/application.yaml</td><td>Argo points to <span class="mono">gitlab.gitlab.svc.cluster.local</span></td></tr>
+          </tbody>
+        </table>
+
+        <h2>3. Layer thinking (K3s vs K3d)</h2>
+        <p>The most common confusion in this class. Memory hook:</p>
+        <ul>
+          <li><strong>K3s = lightweight K8s in a VM</strong> (p1, p2).</li>
+          <li><strong>K3d = K3s inside a Docker container</strong> (p3).</li>
+        </ul>
+        <p>Not different Kubernetes <em>versions</em> — both run K3s. What changes is <em>where</em> it runs. K3d removes Vagrant.</p>
+
+        <h2>Prediction / Exercise 1.1 — the map in 2 minutes</h2>
+        <p>Without notes, answer out loud: what does each part (<code>p1</code>, <code>p2</code>, <code>p3</code>, <code>bonus</code>) do, and which tool is its key?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">p1   → Vagrant builds 2 VMs with K3s (server + worker).
+p2   → K3s (1 node) runs 3 apps and exposes them with Ingress.
+p3   → K3d (K3s in Docker) + Argo CD deploying from GitHub.
+bonus → local GitLab replaces GitHub as the GitOps source.
+
+Expected: be able to say this straight through in 2 minutes.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Frequent mistakes</span>
+          <ul>
+            <li>Thinking K3d is a different K8s <em>version</em> → it is "where", not "which version".</li>
+            <li>Not respecting the subject's folder layout (<code>p1/p2/p3/bonus</code> with <code>scripts/</code> and <code>confs/</code>).</li>
+            <li>Believing app3 is a DNS entry → <strong>app3 is the Ingress with no <code>host</code></strong>, the catch-all.</li>
+            <li>In p3, forgetting the version change is done <strong>by the user in GitHub</strong>; Argo CD detects and syncs it.</li>
+          </ul>
+        </div>
+
+        <h2>Defense-style questions</h2>
+        <p>Answer out loud, without notes:</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>How do you change the app version in p3 <em>automatically</em>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>What layer differs between p1/p2 and p3? Is K3d a separate version?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>How are app1/app2/app3 chosen with a single IP (<code>192.168.56.110</code>)?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>What folders/files does the subject require at the repo root?</span></label>
+        </div>
+
+        <h2>Completion criteria</h2>
+        <p>The class is complete when, without notes, you can:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Explain what each part solves overall (problem → component).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Name the commands that bring up and verify <code>p1</code>, <code>p2</code>, <code>p3</code> and <code>bonus</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Say which repo file drives each part's main behavior.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Identify one typical failure per phase and how to diagnose it.</span></label></li>
+        </ol>
+
+        <h2>You have learned that</h2>
+        <ul>
+          <li>The <strong>subject is the source of truth</strong>; the repo mirrors it literally.</li>
+          <li>The mandatory part is staged and must go <strong>in order</strong> (<code>p1</code> → <code>p2</code> → <code>p3</code>); bonus requires a <em>flawless</em> mandatory part.</li>
+          <li>The <strong>three key tools</strong> are <strong>Vagrant</strong>, <strong>K3s/Kubernetes</strong> and <strong>K3d + Argo CD</strong>.</li>
+          <li>How to find in the repo the file that implements each requirement and prove it live.</li>
+        </ul>
+
+        <p><strong>Next class:</strong> class 2 dives into <strong>Vagrant, VMs and p1</strong>: how a two-node K3s cluster is created and how a worker (<code>&lt;login&gt;SW</code>) joins the server (<code>&lt;login&gt;S</code>) without copying the <code>node-token</code>.</p>
+      </section>
+    </div>
+
+    <nav class="pager">
+      <a href="../../inception_of_things.html">
+        <small data-i18n="back.project">Volver al proyecto</small>
+        <strong data-i18n="p.inception_of_things.name">Inception of Things</strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>

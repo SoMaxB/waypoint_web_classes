@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>waypoint — Aprende por proyectos</title>
+  <meta name="description" content="Clases interactivas para aprender por proyectos. Toma cada clase, resuelve los ejercicios y defiende lo aprendido.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <input id="site-search" type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" autocomplete="off">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero container">
+    <span class="hero-kicker" data-i18n="hero.kicker">web_classes · estudio por proyectos</span>
+    <h1 data-i18n="hero.title">Aprende por proyectos</h1>
+    <p data-i18n="hero.sub">Toma cada clase, resuelve los ejercicios antes de mirar la solución y defiende lo aprendido.</p>
+  </section>
+
+  <main class="container">
+    <h2 class="grid-title">
+      <span data-i18n="grid.title">Biblioteca</span>
+      <span class="count" id="grid-count">11</span>
+      <div class="grid-filters">
+        <label class="filter-chip" data-kind-filter="proyecto">
+          <input type="checkbox" data-kind-filter="proyecto" checked><span data-i18n="filter.projects">Proyectos</span>
+        </label>
+        <label class="filter-chip" data-kind-filter="concepto">
+          <input type="checkbox" data-kind-filter="concepto" checked><span data-i18n="filter.concepts">Conceptos</span>
+        </label>
+      </div>
+    </h2>
+
+    <div class="grid" id="project-grid">
+
+      <!-- Libasm -->
+      <a class="card" data-kind="proyecto" style="--i:0" href="libasm.html"
+         data-name="libasm asm ensamblador x86-64 nasm c"
+         data-tags="asm x86-64">
+        <span class="card-icon">L</span>
+        <h3 data-i18n="p.libasm.name">Libasm</h3>
+        <p class="card-desc" data-i18n="p.libasm.desc">Ensamblador x86-64 desde cero: memoria, registros, la ABI System V y tus primeras funciones en NASM.</p>
+        <div class="card-meta">
+          <span class="badge accent" data-i18n="proj.active">Activo</span>
+          <span class="badge"><span data-i18n="proj.classes">clases</span>: 15</span>
+          <span class="badge">x86-64</span>
+          <span class="badge">NASM</span>
+        </div>
+        <div class="progress">
+          <span class="progress-track"><span class="progress-fill" data-project="libasm" data-total="15" data-progress-fill></span></span>
+          <span class="progress-label" data-project="libasm" data-total="15" data-progress-label>0 de 15 clases</span>
+        </div>
+        <span class="card-link" data-i18n="proj.view">Entrar al proyecto</span>
+      </a>
+
+      <!-- Inception of Things -->
+      <a class="card tone-blue" data-kind="proyecto" style="--i:1" href="inception_of_things.html"
+         data-name="inception of things iot k3s kubernetes docker gitops argo vagrant"
+         data-tags="devops k8s gitops">
+        <span class="card-icon">IoT</span>
+        <h3 data-i18n="p.inception_of_things.name">Inception of Things</h3>
+        <p class="card-desc" data-i18n="p.inception_of_things.desc">Infraestructura reproducible: Vagrant, K3s, Kubernetes, Argo CD y GitOps.</p>
+        <div class="card-meta">
+          <span class="badge accent" data-i18n="proj.active">Activo</span>
+          <span class="badge"><span data-i18n="proj.classes">clases</span>: 6</span>
+          <span class="badge">K3s</span>
+          <span class="badge">GitOps</span>
+        </div>
+        <div class="progress">
+          <span class="progress-track"><span class="progress-fill" data-project="inception_of_things" data-total="6" data-progress-fill></span></span>
+          <span class="progress-label" data-project="inception_of_things" data-total="6" data-progress-label>0 de 6 clases</span>
+        </div>
+        <span class="card-link" data-i18n="proj.view">Entrar al proyecto</span>
+      </a>
+
+      <!-- ft_ping -->
+      <a class="card tone-amber" data-kind="proyecto" style="--i:2" href="ft_ping.html"
+         data-name="ft_ping ping icmp sockets red raw network"
+         data-tags="c network icmp">
+        <span class="card-icon">P</span>
+        <h3 data-i18n="p.ft_ping.name">ft_ping</h3>
+        <p class="card-desc" data-i18n="p.ft_ping.desc">Recodifica el comando ping: sockets raw, ICMP Echo, RTT y estadísticas.</p>
+        <div class="card-meta">
+          <span class="badge accent" data-i18n="proj.active">Activo</span>
+          <span class="badge"><span data-i18n="proj.classes">clases</span>: 8</span>
+          <span class="badge">C</span>
+          <span class="badge">ICMP</span>
+        </div>
+        <div class="progress">
+          <span class="progress-track"><span class="progress-fill" data-project="ft_ping" data-total="8" data-progress-fill></span></span>
+          <span class="progress-label" data-project="ft_ping" data-total="8" data-progress-label>0 de 8 clases</span>
+        </div>
+        <span class="card-link" data-i18n="proj.view">Entrar al proyecto</span>
+      </a>
+
+      <!-- Music Room -->
+      <article class="card coming tone-purple" data-kind="proyecto" style="--i:3"
+         data-name="music room musicroom musica web audio"
+         data-tags="web audio">
+        <span class="card-icon">MR</span>
+        <h3 data-i18n="p.music.name">Music Room</h3>
+        <p class="card-desc" data-i18n="p.music.desc">Un reproductor de música en el navegador.</p>
+        <div class="card-meta">
+          <span class="badge amber" data-i18n="proj.coming">Próximamente</span>
+        </div>
+        <span class="card-link" data-i18n="proj.viewlater">Próximamente</span>
+      </article>
+
+      <!-- Red Tetris -->
+      <article class="card coming tone-blue" data-kind="proyecto" style="--i:4"
+         data-name="red tetris redtetris multijugador websockets"
+         data-tags="websockets game">
+        <span class="card-icon">RT</span>
+        <h3 data-i18n="p.redtetris.name">Red Tetris</h3>
+        <p class="card-desc" data-i18n="p.redtetris.desc">Tetris multijugador sobre websockets.</p>
+        <div class="card-meta">
+          <span class="badge amber" data-i18n="proj.coming">Próximamente</span>
+        </div>
+        <span class="card-link" data-i18n="proj.viewlater">Próximamente</span>
+      </article>
+
+      <!-- Scop -->
+      <a class="card tone-purple" data-kind="proyecto" style="--i:5" href="scop.html"
+         data-name="scop 3d opengl renderizador shaders obj"
+         data-tags="opengl 3d">
+        <span class="card-icon">SC</span>
+        <h3 data-i18n="p.scop.name">Scop</h3>
+        <p class="card-desc" data-i18n="p.scop.desc">Un renderizador 3D con OpenGL y shaders.</p>
+        <div class="card-meta">
+          <span class="badge accent" data-i18n="proj.active">Activo</span>
+          <span class="badge"><span data-i18n="proj.classes">clases</span>: 8</span>
+          <span class="badge">OpenGL</span>
+          <span class="badge">C</span>
+        </div>
+        <div class="progress">
+          <span class="progress-track"><span class="progress-fill" data-project="scop" data-total="8" data-progress-fill></span></span>
+          <span class="progress-label" data-project="scop" data-total="8" data-progress-label>0 de 8 clases</span>
+        </div>
+        <span class="card-link" data-i18n="proj.view">Entrar al proyecto</span>
+      </a>
+
+      <!-- POSIX Threads -->
+      <article class="card coming k-concept" data-kind="concepto" style="--i:7"
+         data-name="pthreads posix threads hilos concurrencia mutex"
+         data-tags="c posix threads">
+        <span class="card-icon">PT</span>
+        <h3 data-i18n="p.pthreads.name">POSIX Threads</h3>
+        <p class="card-desc" data-i18n="p.pthreads.desc">Concurrencia con pthreads: creación de hilos, carreras, mutex, variables de condición y join.</p>
+        <div class="card-meta">
+          <span class="badge concept" data-i18n="badge.concept">Concepto</span>
+          <span class="badge amber" data-i18n="proj.coming">Próximamente</span>
+        </div>
+        <span class="card-link" data-i18n="proj.viewlater">Próximamente</span>
+      </article>
+
+      <!-- Semáforos en C -->
+      <a class="card k-concept" data-kind="concepto" style="--i:8" href="semaforos.html"
+         data-name="semaphores c semaforos sincronizacion hilos threads posix seccion critica"
+         data-tags="c posix sync">
+        <span class="card-icon">SEM</span>
+        <h3 data-i18n="p.semaforos.name">Semáforos en C</h3>
+        <p class="card-desc" data-i18n="p.semaforos.desc">Sincronización de hilos con semáforos POSIX: secciones críticas, atomicidad y productor-consumidor.</p>
+        <div class="card-meta">
+          <span class="badge concept" data-i18n="badge.concept">Concepto</span>
+          <span class="badge accent" data-i18n="proj.active">Activo</span>
+          <span class="badge"><span data-i18n="proj.classes">clases</span>: 3</span>
+          <span class="badge">C</span>
+        </div>
+        <div class="progress">
+          <span class="progress-track"><span class="progress-fill" data-project="semaforos" data-total="3" data-progress-fill></span></span>
+          <span class="progress-label" data-project="semaforos" data-total="3" data-progress-label>0 de 3 clases</span>
+        </div>
+        <span class="card-link" data-i18n="proj.viewconcept">Entrar al concepto</span>
+      </a>
+
+      <!-- Sockets -->
+      <article class="card coming k-concept" data-kind="concepto" style="--i:9"
+         data-name="sockets red network c cliente servidor client server berkeley"
+         data-tags="network c">
+        <span class="card-icon">SOC</span>
+        <h3 data-i18n="p.sockets.name">Sockets</h3>
+        <p class="card-desc" data-i18n="p.sockets.desc">Redes desde el API de Berkeley: socket, bind, listen, accept y comunicación cliente-servidor.</p>
+        <div class="card-meta">
+          <span class="badge concept" data-i18n="badge.concept">Concepto</span>
+          <span class="badge amber" data-i18n="proj.coming">Próximamente</span>
+        </div>
+        <span class="card-link" data-i18n="proj.viewlater">Próximamente</span>
+      </article>
+
+      <!-- Woody Woodpacker -->
+      <article class="card coming tone-slate" data-kind="proyecto" style="--i:6"
+         data-name="woody woodpacker woodywoodpacker elf ejecutable packer"
+         data-tags="elf binary">
+        <span class="card-icon">WW</span>
+        <h3 data-i18n="p.woody.name">Woody Woodpacker</h3>
+        <p class="card-desc" data-i18n="p.woody.desc">Un empaquetador de ejecutables ELF.</p>
+        <div class="card-meta">
+          <span class="badge amber" data-i18n="proj.coming">Próximamente</span>
+        </div>
+        <span class="card-link" data-i18n="proj.viewlater">Próximamente</span>
+      </article>
+
+      <p class="no-results hidden" id="search-none" data-i18n="search.none">Sin resultados para esa búsqueda.</p>
+    </div>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

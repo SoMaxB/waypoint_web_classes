@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clase 4 · NASM, ELF64 y las herramientas — Libasm</title>
+  <meta name="description" content="Secciones, global/extern, objetos, símbolos, relocaciones, biblioteca estática, orden de enlace y GDB.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="libasm/clase-04">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <input type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="../../libasm.html" data-i18n="p.libasm.name">Libasm</a><span class="sep">/</span>
+        <span><span lang="es">Clase 4</span><span lang="en">Class 4</span></span>
+      </nav>
+
+      <h1><span lang="es">Clase 4 · NASM, ELF64 y herramientas</span><span lang="en">Class 4 · NASM, ELF64 and tools</span></h1>
+
+      <div class="class-toolbar">
+        <label class="complete-toggle">
+          <input type="checkbox" data-complete="libasm/clase-04">
+          <span data-i18n="btn.complete">Marcar clase como completada</span>
+        </label>
+        <span class="toolbar-hint mono">nasm · elf64 · object · ar · readelf · nm · gdb</span>
+      </div>
+    </div>
+
+    <div class="prose">
+
+      <!-- ============ ESPAÑOL ============ -->
+      <section lang="es">
+        <div class="objective">
+          <span class="label">Objetivo</span>
+          <p>Entender el viaje completo de un archivo <code>.s</code> hasta convertirse en un ejecutable o en <code>libasm.a</code>, y conocer las herramientas que permiten inspeccionar cada etapa (<code>nasm</code>, <code>ld</code>, <code>ar</code>, <code>readelf</code>, <code>objdump</code>, <code>nm</code>, <code>gdb</code>). Al terminar, debes poder explicar qué diferencia hay entre un objeto y un ejecutable, qué significan las columnas de una tabla de símbolos, por qué una biblioteca va al final del enlace y qué hace un breakpoint de GDB.</p>
+        </div>
+
+        <h2>1. El viaje del código</h2>
+        <pre class="code">archivo.s ──nasm──▶ archivo.o ──ld──▶ programa (o libasm.a)
+                    "objeto"    "enlazador"</pre>
+        <p>Un <code>.o</code> no es el mismo archivo que el ejecutable con otro nombre: es la <strong>misma información incompleta</strong>. El objeto contiene el código máquina pero con instrucciones a medio rellenar; el enlazador completa esos huecos.</p>
+        <p>Los tres verbos son distintos:</p>
+        <pre class="code">nasm  = ENSAMBLAR   (texto .s  → bytes .o, con huecos)
+ld    = ENLAZAR     (resolver huecos uniendo objetos)
+gcc   = COMPILAR    (C → ensamblador; llega en la clase 5)</pre>
+
+        <h2>2. El objeto <code>.o</code>: secciones, símbolos y relocaciones</h2>
+        <h3>Secciones</h3>
+        <p>Un objeto se divide en secciones. En NASM se declaran con <code>section</code>:</p>
+        <pre class="code">section .text     ; código: se ejecuta, no se escribe
+section .data     ; variables que cambian en tiempo de ejecución
+section .rodata   ; constantes de solo lectura (cadenas, tablas)
+section .bss      ; variables sin valor inicial (se reservan, no se guardan)</pre>
+        <p>Dentro del objeto, todas las secciones aparecen en dirección <code>0x0000...0000</code>: todavía no tienen dirección final. Se la asigna el enlazador.</p>
+        <h3>Tabla de símbolos</h3>
+        <p>Un objeto tiene una tabla de símbolos. Las columnas que importan:</p>
+        <pre class="code">UND    = "necesito esto, viene de fuera"   → lo resuelve el enlazador
+GLOBAL = "estoy definido y visible"        → otros objetos pueden usarme
+LOCAL  = "existo pero no salgo"            → útil para etiquetas internas</pre>
+        <p>En NASM, <code>global ft_x</code> declara un símbolo visible y <code>extern ft_y</code> declara que el símbolo viene de otro objeto.</p>
+        <h3>Relocaciones</h3>
+        <p>Cuando un objeto referencia un símbolo externo, el ensamblador deja un hueco con un marcador. La sección de relocaciones es la lista de "huecos por rellenar". Por ejemplo, para <code>call ft_destino</code>, la relocación dice:</p>
+        <pre class="code">en el desplazamiento 1 de .text hay 4 bytes que deben rellenarse
+con la dirección de ft_destino</pre>
+        <p>El enlazador es quien rellena esos huecos con la dirección real.</p>
+
+        <h2>3. El enlazador <code>ld</code></h2>
+        <p><code>ld</code> une objetos y bibliotecas, asigna direcciones a las secciones y resuelve todas las referencias <code>UND</code>.</p>
+        <p>Demostración real: si <code>salta.o</code> llama a <code>ft_destino</code> definido en <code>dest.o</code>, después de enlazar:</p>
+        <pre class="code">Antes  (en salta.o):      ft_destino aparece como UND y hay una relocación
+Después (en el ejecutable): ft_destino aparece DEFINIDO (p. ej. 0x401010)
+                           y no quedan relocaciones</pre>
+        <p>El desensamblado con <code>objdump -d -M intel</code> confirma que el hueco se rellenó:</p>
+        <pre class="code">call 401010 &lt;ft_destino&gt;</pre>
+        <p>Matiz importante: el símbolo no "se define al ensamblar". <code>ft_destino</code> ya estaba definido en su archivo; lo que ocurre en el enlace es que la <strong>referencia</strong> se <strong>resuelve</strong>.</p>
+
+        <h2>4. Secciones y permisos en el ejecutable</h2>
+        <p>En el ejecutable, cada sección ocupa su propia zona de memoria con permisos distintos:</p>
+        <pre class="code">Sección   Dirección    Permisos
+.text     0x401000     R E   (se lee y se ejecuta)
+.rodata   0x402000     R     (solo se lee)
+.data     0x403008     R W   (se lee y se escribe)</pre>
+        <p>Ninguna sección se pierde ni se mezcla en un único bloque: el SO marca <code>.text</code> como no escribible y <code>.data</code> como no ejecutable. Es una medida de seguridad. Separarlas también significa que <strong>escribir sobre <code>.rodata</code> o sobre <code>.text</code> produce un fallo de segmentación</strong>. Por eso las cadenas que se modifican (destino de <code>ft_strcpy</code>, resultado de <code>ft_strdup</code>) viven en memoria de escritura, mientras que las literales van a <code>.rodata</code>.</p>
+
+        <h2>5. La biblioteca estática</h2>
+        <p>Un archivo <code>.a</code> es un <strong>contenedor de objetos <code>.o</code></strong>, un "zip sin comprimir". Su firma de archivo lo delata: empieza con los bytes <code>!&lt;arch&gt;</code>.</p>
+        <pre class="code">ar  r  c  s  libx.a  a.o  b.o
+    │  │  │   └──────────┐───────────┘
+    │  │  │              └─ objetos que se meten en la caja
+    │  │  └─ "s": generar índice de símbolos
+    │  └─ "c": crear si no existe
+    └─ "r": reemplazar/añadir objetos</pre>
+        <p>El índice (<code>s</code>) permite al enlazador saber en qué miembro está cada símbolo sin leer toda la caja. Cuando un programa enlaza contra <code>libx.a</code>, el enlazador <strong>solo extrae los objetos que resuelven símbolos pendientes</strong>, no todos.</p>
+
+        <h2>6. El orden del enlace</h2>
+        <p>La regla más importante: <strong>la biblioteca va al final del comando</strong>, después de los objetos que la usan.</p>
+        <pre class="code">ld main.o libx.a        → OK
+ld libx.a main.o        → FALLA
+ld main.o libx.a ft_c.o  → FALLA
+ld main.o libx.a libx.a  → OK (repetir la lib nunca rompe)</pre>
+        <p>El enlazador procesa los argumentos de izquierda a derecha. Al llegar a una biblioteca, extrae solo los miembros que resuelven símbolos <strong>ya pendientes en ese momento</strong>; si la pasa sin pendientes, no extrae nada y no vuelve atrás. Por eso:</p>
+        <pre class="code">libx.a main.o       → cuando se ve la lib, nadie ha pedido ft_c todavía: extrae NADA
+main.o libx.a c.o   → cuando se ve la lib, solo ft_c_es pendiente (y libx.a no lo
+                    tiene); las referencias que llegan después, tarde</pre>
+        <p>Consecuencia para el Makefile de la clase 10: el orden será <code>$(CC) tests.o libasm.a</code>.</p>
+        <h3>El peligro del comodín <code>*.o</code></h3>
+        <p><code>ar rcs libasm.a *.o</code> funciona, pero arrastra <strong>todo</strong> lo que haya en la carpeta, incluidos objetos de prueba con su <code>_start</code>. Una biblioteca de entrega debe contener exactamente sus objetos:</p>
+        <pre class="code">ar rcs libasm.a ft_strlen.o ft_strcpy.o ft_strcmp.o ft_write.o ft_read.o ft_strdup.o</pre>
+        <p>Con <code>nm libasm.a | grep " T "</code> se verifica que la biblioteca exporta exactamente los seis símbolos obligatorios y nada más.</p>
+
+        <h2>7. GDB: congelar el tiempo</h2>
+        <p>GDB no sirve para "ejecutar", sino para <strong>detener la ejecución en un punto y comparar el estado real con el esperado</strong>.</p>
+        <ul>
+          <li>Un <strong>breakpoint</strong> (punto de parada) detiene la CPU <strong>antes</strong> de ejecutar la instrucción marcada: los registros muestran el estado previo.</li>
+          <li><code>info registers rax rdi</code> muestra el valor de esos registros en el instante congelado.</li>
+          <li><code>rip</code> indica la dirección de la instrucción congelada.</li>
+          <li><code>x/5bx $rdi+$rax</code> lee memoria en bruto (bytes hexadecimales), que es como el ensamblador ve el mundo. En el formato <code>x/5bx</code>: <code>x</code> = examine memoria, <code>5</code> = cantidad, <code>b</code> = unidades de 1 byte, <code>x</code> = mostrar en hexadecimal.</li>
+        </ul>
+        <p>La primera pregunta ante cualquier bug en ensamblador no es "¿dónde está el error del algoritmo?" sino:</p>
+        <pre class="code">¿En qué estado está la CPU ahora? ¿Coincide con el estado que yo esperaba?</pre>
+        <p>En C, un bug suele ser una línea mala; en ensamblador casi siempre es un <strong>desajuste de estado</strong>: un registro con un valor inesperado, un puntero que avanzó de más, un flag distinto al esperado.</p>
+
+        <h2>8. Herramientas de la clase</h2>
+        <pre class="code">nasm      texto .s → objeto .o   (nasm -f elf64 archivo.s -o archivo.o)
+ld        objetos + libs → ejecutable (resuelve huecos y direcciones)
+ar        agrupa objetos en bibliotecas .a (ar rcs lib.a a.o b.o)
+readelf   inspecciona cabeceras, secciones, símbolos y relocaciones de un ELF
+objdump   desensambla: muestra el código máquina con sintaxis Intel
+nm        lista los símbolos de un objeto o biblioteca
+gdb       depurador: breakpoints, registros, memoria</pre>
+
+        <h2>9. Predicciones y ejercicios</h2>
+        <p>Conviene intentar cada ejercicio antes de consultar la solución.</p>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 1 · el .o frente al ejecutable</span>
+          <p>¿Son <code>.o</code> y el ejecutable final el mismo archivo? Explica qué contiene el <code>.o</code> que el ejecutable ya no tiene.</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">No. El .o contiene la misma información pero incompleta:
+secciones sin dirección final, símbolos UND y relocaciones por resolver.
+En el ejecutable los huecos ya están rellenados.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 2 · UND y relocación tras enlazar</span>
+          <p>¿Qué ocurre con la entrada <code>UND</code> y la relocación después de enlazar?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">La referencia se resuelve: ft_destino pasa a aparecer definida y la relocación desaparece.
+El símbolo no "se define al ensamblar"; ya estaba definido en su archivo,
+y el enlazador resuelve la referencia.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 3 · secciones tras enlazar</span>
+          <p>¿Cómo quedan <code>.text</code>, <code>.data</code> y <code>.rodata</code> después de enlazar?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">Cada sección ocupa su propia zona de memoria con permisos distintos (R E / R W / R).
+No se juntan en un único bloque ni se pierde ninguna.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 4 · qué hay dentro de un .a</span>
+          <p>¿Qué hay literalmente dentro de un <code>.a</code>?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">Objetos .o concatenados, más cabeceras e índice de símbolos. Su firma es "!&lt;arch&gt;".</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 5 · el orden de la biblioteca</span>
+          <p>¿Importa el orden de la biblioteca en el enlace? ¿Por qué?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">Sí: debe ir después de los objetos que la usan, porque solo extrae miembros
+que resuelven símbolos pendientes en el momento en que se la encuentra.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 6 · estado con un breakpoint</span>
+          <p>Con un breakpoint en <code>inc rax</code>, ¿qué muestra <code>info registers rax rdi</code>?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">Los valores ANTES de ejecutar la instrucción: el breakpoint congela la CPU pre-instrucción.
+La primera pregunta ante un bug debe ser sobre el estado real vs. el esperado, no sobre el algoritmo.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 7 · ejercicio de comandos</span>
+          <p>Predice y luego verifica:</p>
+          <pre class="code">nasm -f elf64 ft_strlen.s -o ft_strlen.o
+ar rcs libasm.a ft_strlen.o ft_strcpy.o ft_strcmp.o ft_write.o ft_read.o ft_strdup.o</pre>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">Ambos funcionan tal cual. La trampa: usar "ar rcs libasm.a *.o" arrastra los objetos
+de prueba (_start, etc.) y contamina la biblioteca. La entrega debe exportar exactamente seis símbolos:
+
+nm libasm.a | grep " T "
+0000000000000000 T ft_strlen
+0000000000000000 T ft_strcpy
+0000000000000000 T ft_strcmp
+0000000000000000 T ft_write
+0000000000000000 T ft_read
+0000000000000000 T ft_strdup</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Errores frecuentes</span>
+          <ul>
+            <li>Creer que el <code>.o</code> y el ejecutable son el mismo archivo con otro nombre; en el <code>.o</code> las referencias externas aún no están resueltas.</li>
+            <li>Pensar que <code>extern</code> "define" un símbolo; <code>extern</code> solo declara que viene de otro objeto.</li>
+            <li>Confundir <code>ENSAMBLAR</code> (nasm), <code>ENLAZAR</code> (ld) y <code>COMPILAR</code> (gcc).</li>
+            <li>Escribir sobre <code>.rodata</code> o <code>.text</code> y obtener un fallo de segmentación.</li>
+            <li>Colocar la biblioteca antes de los objetos que la usan en el comando de enlace.</li>
+            <li>Usar <code>*.o</code> en <code>ar</code> y meter en <code>libasm.a</code> objetos de prueba o <code>_start</code>.</li>
+            <li>Esperar que un breakpoint muestre el estado posterior a la instrucción.</li>
+            <li>Buscar el bug en el algoritmo antes de comprobar el estado real de registros y memoria.</li>
+          </ul>
+        </div>
+
+        <h2>Preguntas tipo defensa</h2>
+        <p>Responde en voz alta, sin mirar los apuntes:</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>¿Qué diferencia hay entre el <code>.o</code> y el ejecutable final?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>¿Qué significa <code>UND</code> en una tabla de símbolos y quién lo resuelve?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>¿Qué es una relocación?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>¿En qué secciones pondrías código, variables mutables, constantes y buffers sin inicializar?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d5"><span>¿Por qué el SO da permisos distintos a <code>.text</code> y <code>.data</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d6"><span>¿Qué hay literalmente dentro de <code>libasm.a</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d7"><span>¿Por qué <code>ar rcs</code> usa esas tres letras?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d8"><span>¿Por qué la biblioteca debe ir al final del comando de enlace?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d9"><span>¿Detiene un breakpoint antes o después de ejecutar la instrucción?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d10"><span>¿Cuál es la primera pregunta ante un bug de ensamblador?</span></label>
+        </div>
+
+        <h2>Criterio de finalización</h2>
+        <p>La clase queda completada cuando puedes:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Explicar qué hace cada herramienta (<code>nasm</code>, <code>ld</code>, <code>ar</code>, <code>readelf</code>, <code>objdump</code>, <code>nm</code>, <code>gdb</code>).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Explicar por qué una biblioteca va al final del enlace.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Explicar qué significan las columnas de una tabla de símbolos.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Explicar por qué los permisos de las secciones del ejecutable no son casualidad.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Ensamblar un objeto mínimo, inspeccionarlo y enlazarlo con C.</span></label></li>
+        </ol>
+
+        <h2>Has aprendido que</h2>
+        <ul>
+          <li>Un <code>.o</code> es la misma información que el ejecutable pero incompleta: con secciones sin dirección, símbolos <code>UND</code> y relocaciones por resolver.</li>
+          <li><code>ENSAMBLAR</code>, <code>ENLAZAR</code> y <code>COMPILAR</code> son tres verbos distintos para tres herramientas.</li>
+          <li><code>UND</code> = referencia externa pendiente; <code>GLOBAL</code> = definido y visible; <code>LOCAL</code> = interno.</li>
+          <li>El enlazador resuelve las relocaciones rellenando huecos con direcciones reales.</li>
+          <li><code>.text</code> se ejecuta y no se escribe, <code>.data</code> se lee y escribe, <code>.rodata</code> solo se lee, <code>.bss</code> reserva sin guardar.</li>
+          <li>Un <code>.a</code> es un contenedor de objetos <code>.o</code> con un índice de símbolos; se crea con <code>ar rcs</code>.</li>
+          <li>La biblioteca va al final del enlace: solo extrae objetos que resuelven símbolos ya pendientes.</li>
+          <li>Un breakpoint de GDB congela la CPU antes de la instrucción, mostrando el estado previo.</li>
+          <li>La primera pregunta ante un bug de ensamblador es sobre el estado real de la CPU, no sobre el algoritmo.</li>
+        </ul>
+      </section>
+
+      <!-- ============ ENGLISH ============ -->
+      <section lang="en">
+        <div class="objective">
+          <span class="label">Objective</span>
+          <p>Understand the full journey of a <code>.s</code> file until it becomes an executable or <code>libasm.a</code>, and learn the tools that inspect each stage (<code>nasm</code>, <code>ld</code>, <code>ar</code>, <code>readelf</code>, <code>objdump</code>, <code>nm</code>, <code>gdb</code>). By the end you must be able to explain the difference between an object and an executable, what a symbol table's columns mean, why a library goes at the end of the link, and what a GDB breakpoint does.</p>
+        </div>
+
+        <h2>1. The journey of the code</h2>
+        <pre class="code">file.s ──nasm──▶ file.o ──ld──▶ program (or lib.a)
+        "object"    "linker"</pre>
+        <p>A <code>.o</code> is not the same file as the executable under another name: it is the <strong>same but incomplete information</strong>. The object contains the machine code with placeholders still to fill; the linker fills those gaps.</p>
+        <p>The three verbs are different:</p>
+        <pre class="code">nasm  = ASSEMBLE  (text .s → bytes .o, with gaps)
+ld    = LINK      (resolve gaps by joining objects)
+gcc   = COMPILE   (C → assembly; comes in class 5)</pre>
+
+        <h2>2. The object <code>.o</code>: sections, symbols and relocations</h2>
+        <h3>Sections</h3>
+        <p>An object is split into sections. In NASM they are declared with <code>section</code>:</p>
+        <pre class="code">section .text     ; code: executed, not written
+section .data     ; variables that change at runtime
+section .rodata   ; read-only constants (strings, tables)
+section .bss      ; uninitialized variables (reserved, not stored)</pre>
+        <p>Inside the object, all sections appear at address <code>0x0000...0000</code>: they do not have a final address yet. The linker assigns it.</p>
+        <h3>Symbol table</h3>
+        <p>An object has a symbol table. The columns that matter:</p>
+        <pre class="code">UND    = "I need this, it comes from outside"   → the linker resolves it
+GLOBAL = "I am defined and visible"             → other objects can use me
+LOCAL  = "I exist but I do not leave"           → useful for internal labels</pre>
+        <p>In NASM, <code>global ft_x</code> declares a visible symbol and <code>extern ft_y</code> declares that the symbol comes from another object.</p>
+        <h3>Relocations</h3>
+        <p>When an object references an external symbol, the assembler leaves a gap with a marker. The relocation section is the list of "gaps to fill". For example, for <code>call ft_destino</code>, the relocation says:</p>
+        <pre class="code">at offset 1 of .text there are 4 bytes that must be filled
+with the address of ft_destino</pre>
+        <p>The linker is the one who fills those gaps with the real address.</p>
+
+        <h2>3. The linker <code>ld</code></h2>
+        <p><code>ld</code> joins objects and libraries, assigns addresses to sections and resolves every <code>UND</code> reference.</p>
+        <p>Real demonstration: if <code>salta.o</code> calls <code>ft_destino</code> defined in <code>dest.o</code>, after linking:</p>
+        <pre class="code">Before (in salta.o):       ft_destino appears as UND and there is a relocation
+After (in the executable): ft_destino appears DEFINED (e.g. 0x401010)
+                           and no relocations remain</pre>
+        <p>Disassembling with <code>objdump -d -M intel</code> confirms the gap was filled:</p>
+        <pre class="code">call 401010 &lt;ft_destino&gt;</pre>
+        <p>Key nuance: the symbol is not "defined at assembly". <code>ft_destino</code> was already defined in its file; what happens during linking is that the <strong>reference</strong> gets <strong>resolved</strong>.</p>
+
+        <h2>4. Sections and permissions in the executable</h2>
+        <p>In the executable, each section occupies its own memory area with different permissions:</p>
+        <pre class="code">Section   Address    Permissions
+.text     0x400000   R E   (readable and executable)
+.rodata   0x402000   R     (read-only)
+.data     0x403008   R W   (readable and writable)</pre>
+        <p>No section is lost or merged into a single block: the OS marks <code>.text</code> as non-writable and <code>.data</code> as non-executable. It is a security measure. Separating them also means that <strong>writing over <code>.rodata</code> or <code>.text</code> causes a segmentation fault</strong>. That is why strings that get modified (destination of <code>ft_strcpy</code>, result of <code>ft_strdup</code>) live in writable memory, while literals go to <code>.rodata</code>.</p>
+
+        <h2>5. The static library</h2>
+        <p>A <code>.a</code> file is a <strong>container of <code>.o</code> objects</strong>, an "uncompressed zip". Its file signature gives it away: it starts with the bytes <code>!&lt;arch&gt;</code>.</p>
+        <pre class="code">ar  r  c  s  libx.a  a.o  b.o
+    │  │  │   └──────────┐───────────┘
+    │  │  │              └─ objects put into the box
+    │  │  └─ "s": generate the symbol index
+    │  └─ "c": create if it does not exist
+    └─ "r": replace/add objects</pre>
+        <p>The index (<code>s</code>) lets the linker know where each symbol is without reading the whole box. When a program links against <code>libx.a</code>, the linker <strong>extracts only the objects that resolve pending symbols</strong>, not all.</p>
+
+        <h2>6. Link order</h2>
+        <p>The most important rule: <strong>the library goes at the end of the command</strong>, after the objects that use it.</p>
+        <pre class="code">ld main.o libx.a        → OK
+ld libx.a main.o        → FAILS
+ld main.o libx.a ft_c.o → FAILS
+ld main.o libx.a libx.a → OK (repeating the lib never breaks)</pre>
+        <p>The linker processes arguments left to right. When it reaches a library, it extracts only the members that resolve symbols <strong>already pending at that moment</strong>; if it passes it with nothing pending, it extracts nothing and never goes back. That is why:</p>
+        <pre class="code">libx.a main.o     → when the lib is seen, nobody has asked for ft_a yet: extracts NOTHING
+main.o libx.a c.o → when the lib is seen, only ft_c is pending (and libx.a does not
+                   have it); the reference to ft_a comes later, too late</pre>
+        <p>Consequence for the class-10 Makefile: the order will be <code>$(CC) tests.o libasm.a</code>.</p>
+        <h3>The danger of the <code>*.o</code> wildcard</h3>
+        <p><code>ar rcs libasm.a *.o</code> works, but it drags in <strong>everything</strong> in the folder, including test objects with their <code>_start</code>. A deliverable library must contain exactly its own objects:</p>
+        <pre class="code">ar rcs libasm.a ft_strlen.o ft_strcpy.o ft_strcmp.o ft_write.o ft_read.o ft_strdup.o</pre>
+        <p>With <code>nm libasm.a | grep " T "</code> you verify the library exports exactly the six required symbols and nothing else.</p>
+
+        <h2>7. GDB: freezing time</h2>
+        <p>GDB is not for "running", but for <strong>stopping execution at a point and comparing reality with the expected state</strong>.</p>
+        <ul>
+          <li>A <strong>breakpoint</strong> stops the CPU <strong>before</strong> executing the marked instruction: registers show the previous state.</li>
+          <li><code>info registers rax rdi</code> shows the value of those registers at the frozen instant.</li>
+          <li><code>rip</code> holds the address of the frozen instruction.</li>
+          <li><code>x/5bx $rdi+$rax</code> reads raw memory (hexadecimal bytes), which is how an assembler sees the world. In the format <code>x/5bx</code>: <code>x</code> = examine memory, <code>5</code> = count, <code>b</code> = units of 1 byte, <code>x</code> = show in hexadecimal.</li>
+        </ul>
+        <p>The first question for any assembly bug is not "where is the algorithm wrong?" but</p>
+        <pre class="code">What state is the CPU in now? Does it match the state I expected?</pre>
+
+        <h2>8. Tools of the class</h2>
+        <pre class="code">nasm      text .s → object .o   (nasm -f elf64 file.s -o file.o)
+ld        objects + libs → executable (resolves gaps and addresses)
+ar        groups objects into .a libraries (ar rcs lib.a a.o b.o)
+readelf   inspects headers, sections, symbols and relocations of an ELF
+objdump   disassembles: shows machine code with Intel syntax
+nm        lists the symbols of an object or library
+gdb       debugger: breakpoints, registers, memory</pre>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 1 · the .o vs the executable</span>
+          <p>Are <code>.o</code> and the final executable the same file? Explain what is inside the <code>.o</code> that the executable does not have.</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">No. The .o contains the same information but incomplete:
+sections without a final address, UND symbols and relocations to resolve.
+In the executable the gaps are already filled.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 2 · UND and relocation after linking</span>
+          <p>What happens to an <code>UND</code> entry and its relocation after linking?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">The reference is resolved: ft_destino appears DEFINED and the relocation disappears.
+The symbol is not "defined at assembly"; it was already defined in its file,
+and the linker resolves the reference.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 3 · sections after linking</span>
+          <p>How do <code>.text</code>, <code>.data</code> and <code>.rodata</code> end up after linking?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">Each section gets its own memory area with different permissions:
+R E / R W / R. They are not merged into one block nor does any get lost.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 4 · inside a .a</span>
+          <p>What is literally inside a <code>.a</code>?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">Concatenated .o objects plus headers and a symbol index. Its signature is "!&lt;arch&gt;".</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 5 · link order</span>
+          <p>Does the library's position matter? Why?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">Yes, it must come after the objects that use it, because it only extracts
+members that resolve symbols already pending at the moment it is seen.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 6 · breakpoint state</span>
+          <p>A breakpoint is set on <code>inc rax</code>. What does <code>info registers rax rdi</code> show?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">The values BEFORE the instruction runs: the breakpoint freezes the CPU pre-instruction.
+The first question for a bug must be about actual vs. expected state, not the algorithm.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 7 · command exercise</span>
+          <p>Predict, then verify:</p>
+          <pre class="code">nasm -f elf64 ft_strlen.s -o ft_strlen.o
+ar rcs libasm.a ft_strlen.o ft_strcpy.o ft_strcmp.o ft_write.o ft_read.o ft_strdup.o</pre>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">Both work as is. The trap: using "ar rcs libasm.a *.o" drags the test objects
+(_start, etc.) and pollutes the library. The deliverable must export exactly six symbols:
+
+nm libasm.a | grep " T "
+0000000000000000 T ft_strlen
+0000000000000000 T ft_strcpy
+0000000000000000 T ft_strcmp
+0000000000000000 T ft_write
+0000000000000000 T ft_read
+0000000000000000 T ft_strdup</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Common mistakes</span>
+          <ul>
+            <li>Thinking the <code>.o</code> and the executable are the same file under another name; in the <code>.o</code> external references are not yet resolved.</li>
+            <li>Thinking <code>extern</code> "defines" a symbol; <code>extern</code> only declares that it comes from another object.</li>
+            <li>Confusing <code>ASSEMBLE</code> (nasm), <code>LINK</code> (ld) and <code>COMPILE</code> (gcc).</li>
+            <li>Writing over <code>.rodata</code> or <code>.text</code> and getting a segmentation fault.</li>
+            <li>Putting the library before the objects that use it in the link command.</li>
+            <li>Using <code>*.o</code> in <code>ar</code> and putting test objects or <code>_start</code> inside <code>libasm.a</code>.</li>
+            <li>Having a breakpoint show the post-instruction state.</li>
+            <li>Hunting the bug in the algorithm before checking the real register/memory state.</li>
+          </ul>
+        </div>
+
+        <h2>Defense questions</h2>
+        <p>Answer out loud, without notes:</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>What is the difference between the <code>.o</code> and the final executable?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>What does <code>UND</code> mean in a symbol table and who resolves it?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>What is a relocation?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>In which sections would you put code, mutable variables, constants and uninitialized buffers?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d5"><span>Why does the OS give different permissions to <code>.text</code> and <code>.data</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d6"><span>What is literally inside <code>libasm.a</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d7"><span>Why does <code>ar rcs</code> use those three letters?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d8"><span>Why must the library go at the end of the link command?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d9"><span>Does a breakpoint stop before or after the instruction runs?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d10"><span>What is the first question for any assembly bug?</span></label>
+        </div>
+
+        <h2>Completion criteria</h2>
+        <p>The class is complete when you can:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Explain what each tool does (<code>nasm</code>, <code>ld</code>, <code>ar</code>, <code>readelf</code>, <code>objdump</code>, <code>nm</code>, <code>gdb</code>).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Explain why a library goes at the end of the link.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Explain what the columns of a symbol table mean.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Explain why an executable's section permissions are not a coincidence.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Assemble a minimal object, inspect it and link it with C.</span></label></li>
+        </ol>
+
+        <h2>You have learned that</h2>
+        <ul>
+          <li>A <code>.o</code> is the same information as the executable but incomplete: sections without an address, <code>UND</code> symbols and unresolved relocations.</li>
+          <li><code>ASSEMBLE</code>, <code>LINK</code> and <code>COMPILE</code> are three different verbs for three tools.</li>
+          <li><code>UND</code> = pending external reference; <code>GLOBAL</code> = defined and visible; <code>LOCAL</code> = internal.</li>
+          <li>The linker resolves relocations by filling gaps with real addresses.</li>
+          <li><code>.text</code> executes and is not written, <code>.data</code> is read/written, <code>.rodata</code> is read-only, <code>.bss</code> reserves without storing.</li>
+          <li>A <code>.a</code> is a container of <code>.o</code> files with a symbol index, created with <code>ar rcs</code>.</li>
+          <li>The library goes at the end of the link because it only extracts objects that resolve already-pending symbols.</li>
+          <li>A GDB breakpoint freezes the CPU before the instruction, showing the previous state.</li>
+          <li>The first question for an assembly bug is about the real CPU state, not the algorithm.</li>
+        </ul>
+      </section>
+    </div>
+
+    <nav class="pager">
+      <a href="clase-03.html">
+        <small data-i18n="prev.class">Clase anterior</small>
+        <strong><span lang="es">Clase 3 · ABI, llamadas y pila</span><span lang="en">Class 3 · ABI, calls and stack</span></strong>
+      </a>
+      <a class="next" href="../../libasm.html">
+        <small data-i18n="next.class">Siguiente</small>
+        <strong data-i18n="p.libasm.name">Libasm</strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>

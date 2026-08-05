@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clase 2 · Registros e instrucciones — Libasm</title>
+  <meta name="description" content="Registros, mov, lea, aritmética, cmp, flags, saltos y recorrer una cadena C.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="libasm/clase-02">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <input type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="../../libasm.html" data-i18n="p.libasm.name">Libasm</a><span class="sep">/</span>
+        <span><span lang="es">Clase 2</span><span lang="en">Class 2</span></span>
+      </nav>
+
+      <h1><span lang="es">Clase 2 · registros e instrucciones</span><span lang="en">Class 2 · registers and instructions</span></h1>
+
+      <div class="class-toolbar">
+        <label class="complete-toggle">
+          <input type="checkbox" data-complete="libasm/clase-02">
+          <span data-i18n="btn.complete">Marcar clase como completada</span>
+        </label>
+        <span class="toolbar-hint mono">rdi · rax · dl · mov · lea · cmp</span>
+      </div>
+    </div>
+
+    <div class="prose">
+
+      <!-- ============ ESPAÑOL ============ -->
+      <section lang="es">
+        <div class="objective">
+          <span class="label">Objetivo</span>
+          <p>Entender qué guardan los registros, distinguir una dirección de su contenido en memoria y seguir un bucle corto instrucción por instrucción. Al terminar, debes poder explicar cómo se recorre una cadena C y por qué <code>ft_strlen</code> no cuenta su terminador.</p>
+        </div>
+
+        <h2>1. Registros y significado de los valores</h2>
+        <p>Un registro es almacenamiento pequeño y rápido dentro de la CPU. Puede contener un número, una dirección o un byte. El registro no conoce el significado del valor: lo determina la instrucción que lo utiliza.</p>
+        <p>Usaremos estos tres registros como modelo:</p>
+        <pre class="code">rdi: dirección del byte que estamos leyendo
+rax: contador de caracteres
+dl:  último byte leído</pre>
+        <p>Si una cadena <code>"Hi"</code> está en memoria:</p>
+        <table>
+          <thead><tr><th>Dirección</th><th>Contenido</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col">0x1000</td><td class="mono">0x48    'H'</td></tr>
+            <tr><td class="mono-col">0x1001</td><td class="mono">0x69    'i'</td></tr>
+            <tr><td class="mono-col">0x1002</td><td class="mono">0x00    '\0'</td></tr>
+          </tbody>
+        </table>
+        <p>y <code>rdi = 0x1000</code>, entonces:</p>
+        <pre class="code">rdi       = 0x1000    dirección
+[rdi]     = 0x48      contenido de esa dirección</pre>
+        <p>Los corchetes indican un acceso a memoria. Sin ellos se usa el valor que ya contiene el registro.</p>
+        <pre class="code">mov rax, rdi     ; copia 0x1000, una dirección
+mov al, [rdi]    ; lee 0x48, un byte de memoria</pre>
+
+        <h2>2. Familias de registros</h2>
+        <p>Un registro de 64 bits puede nombrarse por partes:</p>
+        <pre class="code">rax: 64 bits
+eax: 32 bits bajos de rax
+ax:  16 bits bajos de rax
+al:  8 bits bajos de rax</pre>
+        <p>Para recorrer cadenas se cargan bytes en registros de 8 bits como <code>al</code> o <code>dl</code>. Un contador de longitud se mantiene en un registro de 64 bits como <code>rax</code>.</p>
+
+        <h2>3. <code>mov</code>, aritmética y <code>lea</code></h2>
+        <p><code>mov</code> copia un valor. No modifica la fuente:</p>
+        <pre class="code">mov rdi, 0x1000
+mov rax, rdi</pre>
+        <p>Después ambas variables de registro contienen <code>0x1000</code>.</p>
+        <p>Para avanzar una posición de una cadena se suma uno a la dirección:</p>
+        <pre class="code">add rdi, 1</pre>
+        <p>También se puede escribir:</p>
+        <pre class="code">inc rdi</pre>
+        <p><code>dec</code> resta uno. Estas instrucciones cambian solamente su operando:</p>
+        <pre class="code">inc rax        ; no modifica rdi ni dl</pre>
+        <p><code>lea</code> calcula una dirección, pero no accede a memoria:</p>
+        <pre class="code">lea rax, [rdi + 2]</pre>
+        <p>Con <code>rdi = 0x1000</code>, el resultado es <code>rax = 0x1002</code>. A diferencia de <code>mov al, [rdi]</code>, no lee el contenido de esa dirección.</p>
+
+        <h2>4. Comparación, flags y saltos</h2>
+        <p><code>cmp a, b</code> compara conceptualmente <code>a - b</code> y actualiza flags, pero no modifica <code>a</code> ni <code>b</code>.</p>
+        <pre class="code">cmp dl, 0
+je fin</pre>
+        <p>Si <code>dl</code> es cero, se activa el flag cero (<code>ZF = 1</code>) y <code>je</code> salta a <code>fin</code>. Si no es cero, el salto no se realiza y la CPU ejecuta la instrucción siguiente.</p>
+        <p>Los saltos iniciales más importantes son:</p>
+        <table>
+          <thead><tr><th>Salto</th><th>Significado</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col">je</td><td>salta si los valores eran iguales</td></tr>
+            <tr><td class="mono-col">jne</td><td>salta si los valores eran distintos</td></tr>
+            <tr><td class="mono-col">jb</td><td>salta si el primer valor es menor sin signo</td></tr>
+            <tr><td class="mono-col">ja</td><td>salta si el primer valor es mayor sin signo</td></tr>
+          </tbody>
+        </table>
+        <p>Los nombres de las etiquetas no alteran el salto. <code>je fin</code> solo salta si la condición de igualdad se cumple, aunque la etiqueta se llame <code>fin</code>.</p>
+
+        <h2>5. Recorrer una cadena C</h2>
+        <p>Este bucle representa la lógica de <code>strlen</code>:</p>
+        <pre class="code">mov rax, 0
+
+bucle:
+    mov dl, [rdi]
+    cmp dl, 0
+    je fin
+    inc rax
+    inc rdi
+    jmp bucle
+
+fin:</pre>
+        <p>Para la cadena <code>"Hi\0"</code>, el seguimiento correcto es:</p>
+        <table>
+          <thead><tr><th>Paso</th><th>rdi</th><th>dl leído</th><th>¿Es '\0'?</th><th>rax después</th><th>rdi después</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col">1</td><td class="mono">0x1000</td><td class="mono">0x48 ('H')</td><td>No</td><td class="mono">1</td><td class="mono">0x1001</td></tr>
+            <tr><td class="mono-col">2</td><td class="mono">0x1001</td><td class="mono">0x69 ('i')</td><td>No</td><td class="mono">2</td><td class="mono">0x1002</td></tr>
+            <tr><td class="mono-col">3</td><td class="mono">0x1002</td><td class="mono">0x00 ('\0')</td><td>Sí</td><td class="mono">2</td><td class="mono">0x1002</td></tr>
+          </tbody>
+        </table>
+        <p>Al terminar:</p>
+        <pre class="code">rdi = 0x1002
+rax = 2
+dl  = 0x00</pre>
+        <p>El terminador se lee para saber cuándo parar, pero no se cuenta: <code>je fin</code> se realiza antes de <code>inc rax</code>.</p>
+
+        <h2>Predicciones y ejercicios</h2>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 1</span>
+          <p>Con <code>rdi = 0x1000</code>, predecir <code>rax</code> y <code>al</code> tras:</p>
+          <pre class="code">mov rax, rdi
+mov al, [rdi]</pre>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p><code>rax = 0x1000</code> y <code>al = 0x48</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 2</span>
+          <p>Con <code>rdi = 0x1000</code>, predecir <code>rax</code> tras:</p>
+          <pre class="code">lea rax, [rdi + 1]</pre>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p><code>rax = 0x1001</code>; no se ha leído memoria.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 3</span>
+          <p>Para la cadena <code>"A\0"</code> que empieza en <code>0x2000</code>, ejecutar mentalmente el bucle anterior.</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">rdi = 0x2001
+rax = 1
+dl  = 0x00</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 4</span>
+          <p>Para una cadena vacía cuyo primer byte es <code>0x00</code>, determinar el retorno.</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p><code>rax = 0</code>. El primer <code>je fin</code> evita que se incremente el contador.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Errores frecuentes</span>
+          <ul>
+            <li>Confundir <code>rdi</code>, la dirección, con <code>[rdi]</code>, el contenido de la dirección.</li>
+            <li>Creer que una instrucción como <code>inc rax</code> modifica también registros que no menciona.</li>
+            <li>Avanzar el puntero o cargar el siguiente byte antes de que esas instrucciones se ejecuten realmente.</li>
+            <li>Contar <code>\0</code> como un carácter de la cadena.</li>
+            <li>Creer que todos los flags quedan a cero cuando <code>cmp</code> compara dos valores iguales. En ese caso, el flag relevante <code>ZF</code> vale uno.</li>
+            <li>Intentar interpretar todo el bucle de una vez. Es más fiable seguir una línea por vez: qué registro cambia, qué valor toma y si hay salto.</li>
+          </ul>
+        </div>
+
+        <h2>Preguntas de defensa</h2>
+        <p>Responde en voz alta, sin mirar los apuntes:</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>¿Qué diferencia hay entre <code>rdi</code> y <code>[rdi]</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>¿Qué hace <code>lea rax, [rdi + 2]</code> y por qué no lee memoria?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>¿Modifica <code>cmp dl, 0</code> el valor de <code>dl</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>¿Qué debe valer <code>dl</code> para que <code>je fin</code> salte después de <code>cmp dl, 0</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d5"><span>¿Por qué el contador no aumenta al encontrar <code>\0</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d6"><span>¿Qué registros cambian tras ejecutar exclusivamente <code>inc rax</code>?</span></label>
+        </div>
+
+        <h2>Criterio de finalización</h2>
+        <p>La clase queda completada cuando puedes recorrer a mano una cadena vacía, una cadena de un carácter y una de varios caracteres, indicando en cada paso los valores de <code>rdi</code>, <code>rax</code> y <code>dl</code>, y explicando por qué se toma o no un salto.</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="c1"><span>Recorrer a mano una cadena vacía, indicando <code>rdi</code>, <code>rax</code> y <code>dl</code> en cada paso.</span></label>
+          <label class="chk"><input type="checkbox" data-id="c2"><span>Recorrer a mano una cadena de un carácter.</span></label>
+          <label class="chk"><input type="checkbox" data-id="c3"><span>Recorrer a mano una cadena de varios caracteres.</span></label>
+          <label class="chk"><input type="checkbox" data-id="c4"><span>Explicar en cada paso por qué se toma o no el salto.</span></label>
+        </div>
+
+        <p><strong>Siguiente clase:</strong> la clase 3 explica el contrato que une C y ASM: la ABI, los argumentos, el retorno en <code>rax</code>, <code>call</code>/<code>ret</code>, la pila y los registros preservados.</p>
+      </section>
+
+      <!-- ============ ENGLISH ============ -->
+      <section lang="en">
+        <div class="objective">
+          <span class="label">Objective</span>
+          <p>Understand what registers hold, tell an address apart from its contents in memory, and trace a short loop instruction by instruction. By the end you must be able to explain how a C string is walked and why <code>ft_strlen</code> does not count its terminator.</p>
+        </div>
+
+        <h2>1. Registers and the meaning of values</h2>
+        <p>A register is small, fast storage inside the CPU. It can hold a number, an address or a byte. The register does not know the meaning of the value: the instruction using it decides.</p>
+        <p>We will use these three registers as a model:</p>
+        <pre class="code">rdi: address of the byte we are reading
+rax: character counter
+dl:  last byte read</pre>
+        <p>If the string <code>"Hi"</code> is in memory:</p>
+        <table>
+          <thead><tr><th>Address</th><th>Contents</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col">0x1000</td><td class="mono">0x48    'H'</td></tr>
+            <tr><td class="mono-col">0x1001</td><td class="mono">0x69    'i'</td></tr>
+            <tr><td class="mono-col">0x1002</td><td class="mono">0x00    '\0'</td></tr>
+          </tbody>
+        </table>
+        <p>and <code>rdi = 0x1000</code>, then:</p>
+        <pre class="code">rdi       = 0x1000    address
+[rdi]     = 0x48      contents of that address</pre>
+        <p>Brackets mean a memory access. Without them, the value the register already holds is used.</p>
+        <pre class="code">mov rax, rdi     ; copies 0x1000, an address
+mov al, [rdi]    ; reads 0x48, one byte of memory</pre>
+
+        <h2>2. Register families</h2>
+        <p>A 64-bit register can be named by parts:</p>
+        <pre class="code">rax: 64 bits
+eax: low 32 bits of rax
+ax:  low 16 bits of rax
+al:  low 8 bits of rax</pre>
+        <p>To walk strings you load bytes into 8-bit registers like <code>al</code> or <code>dl</code>. A length counter lives in a 64-bit register like <code>rax</code>.</p>
+
+        <h2>3. <code>mov</code>, arithmetic and <code>lea</code></h2>
+        <p><code>mov</code> copies a value. It does not modify the source:</p>
+        <pre class="code">mov rdi, 0x1000
+mov rax, rdi</pre>
+        <p>Afterwards both register variables hold <code>0x1000</code>.</p>
+        <p>To advance one position through a string, add one to the address:</p>
+        <pre class="code">add rdi, 1</pre>
+        <p>You can also write:</p>
+        <pre class="code">inc rdi</pre>
+        <p><code>dec</code> subtracts one. These instructions only change their operand:</p>
+        <pre class="code">inc rax        ; does not modify rdi or dl</pre>
+        <p><code>lea</code> computes an address but does not access memory:</p>
+        <pre class="code">lea rax, [rdi + 2]</pre>
+        <p>With <code>rdi = 0x1000</code>, the result is <code>rax = 0x1002</code>. Unlike <code>mov al, [rdi]</code>, it does not read the contents of that address.</p>
+
+        <h2>4. Comparison, flags and jumps</h2>
+        <p><code>cmp a, b</code> conceptually compares <code>a - b</code> and updates flags, but does not modify <code>a</code> or <code>b</code>.</p>
+        <pre class="code">cmp dl, 0
+je fin</pre>
+        <p>If <code>dl</code> is zero, the zero flag is set (<code>ZF = 1</code>) and <code>je</code> jumps to <code>fin</code>. If not, the jump does not happen and the CPU executes the next instruction.</p>
+        <p>The most important beginner jumps are:</p>
+        <table>
+          <thead><tr><th>Jump</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col">je</td><td>jumps if the values were equal</td></tr>
+            <tr><td class="mono-col">jne</td><td>jumps if the values were different</td></tr>
+            <tr><td class="mono-col">jb</td><td>jumps if the first value is lower, unsigned</td></tr>
+            <tr><td class="mono-col">ja</td><td>jumps if the first value is higher, unsigned</td></tr>
+          </tbody>
+        </table>
+        <p>Label names do not change the jump. <code>je fin</code> only jumps if the equality condition holds, even if the label is named <code>fin</code>.</p>
+
+        <h2>5. Walking a C string</h2>
+        <p>This loop represents the logic of <code>strlen</code>:</p>
+        <pre class="code">mov rax, 0
+
+bucle:
+    mov dl, [rdi]
+    cmp dl, 0
+    je fin
+    inc rax
+    inc rdi
+    jmp bucle
+
+fin:</pre>
+        <p>For the string <code>"Hi\0"</code>, the correct trace is:</p>
+        <table>
+          <thead><tr><th>Step</th><th>rdi</th><th>dl read</th><th>Is it '\0'?</th><th>rax after</th><th>rdi after</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col">1</td><td class="mono">0x1000</td><td class="mono">0x48 ('H')</td><td>No</td><td class="mono">1</td><td class="mono">0x1001</td></tr>
+            <tr><td class="mono-col">2</td><td class="mono">0x1001</td><td class="mono">0x69 ('i')</td><td>No</td><td class="mono">2</td><td class="mono">0x1002</td></tr>
+            <tr><td class="mono-col">3</td><td class="mono">0x1002</td><td class="mono">0x00 ('\0')</td><td>Yes</td><td class="mono">2</td><td class="mono">0x1002</td></tr>
+          </tbody>
+        </table>
+        <p>At the end:</p>
+        <pre class="code">rdi = 0x1002
+rax = 2
+dl  = 0x00</pre>
+        <p>The terminator is read to know when to stop, but it is not counted: <code>je fin</code> happens before <code>inc rax</code>.</p>
+
+        <h2>Predictions and exercises</h2>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 1</span>
+          <p>With <code>rdi = 0x1000</code>, predict <code>rax</code> and <code>al</code> after:</p>
+          <pre class="code">mov rax, rdi
+mov al, [rdi]</pre>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p><code>rax = 0x1000</code> and <code>al = 0x48</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 2</span>
+          <p>With <code>rdi = 0x1000</code>, predict <code>rax</code> after:</p>
+          <pre class="code">lea rax, [rdi + 1]</pre>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p><code>rax = 0x1001</code>; no memory was read.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 3</span>
+          <p>For the string <code>"A\0"</code> starting at <code>0x2000</code>, run the previous loop mentally.</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">rdi = 0x2001
+rax = 1
+dl  = 0x00</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 4</span>
+          <p>For an empty string whose first byte is <code>0x00</code>, determine the return value.</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p><code>rax = 0</code>. The first <code>je fin</code> prevents the counter from being incremented.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Common mistakes</span>
+          <ul>
+            <li>Confusing <code>rdi</code>, the address, with <code>[rdi]</code>, the contents of that address.</li>
+            <li>Thinking an instruction like <code>inc rax</code> also changes registers it does not mention.</li>
+            <li>Advancing the pointer or loading the next byte before those instructions actually run.</li>
+            <li>Counting <code>\0</code> as a character of the string.</li>
+            <li>Thinking all flags go to zero when <code>cmp</code> compares two equal values. In that case the relevant flag <code>ZF</code> is one.</li>
+            <li>Trying to interpret the whole loop at once. It is more reliable to follow one line at a time: which register changes, what value it takes, and whether there is a jump.</li>
+          </ul>
+        </div>
+
+        <h2>Defense questions</h2>
+        <p>Answer out loud, without looking at your notes:</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>What is the difference between <code>rdi</code> and <code>[rdi]</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>What does <code>lea rax, [rdi + 2]</code> do and why does it not read memory?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>Does <code>cmp dl, 0</code> modify <code>dl</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>What must <code>dl</code> be for <code>je fin</code> to jump after <code>cmp dl, 0</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d5"><span>Why does the counter not increase when <code>\0</code> is found?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d6"><span>Which registers change after running only <code>inc rax</code>?</span></label>
+        </div>
+
+        <h2>Completion criteria</h2>
+        <p>The class is complete when you can manually walk an empty string, a one-character string and a multi-character string, stating the values of <code>rdi</code>, <code>rax</code> and <code>dl</code> at each step, and explain why each jump is or is not taken.</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="c1"><span>Walk an empty string by hand, stating <code>rdi</code>, <code>rax</code> and <code>dl</code> at each step.</span></label>
+          <label class="chk"><input type="checkbox" data-id="c2"><span>Walk a one-character string by hand.</span></label>
+          <label class="chk"><input type="checkbox" data-id="c3"><span>Walk a multi-character string by hand.</span></label>
+          <label class="chk"><input type="checkbox" data-id="c4"><span>Explain at each step why the jump is or is not taken.</span></label>
+        </div>
+
+        <p><strong>Next class:</strong> class 3 explains the contract that binds C and ASM: the ABI, the arguments, the return in <code>rax</code>, <code>call</code>/<code>ret</code>, the stack and callee-saved registers.</p>
+      </section>
+    </div>
+
+    <nav class="pager">
+      <a href="clase-01.html">
+        <small data-i18n="prev.class">Clase anterior</small>
+        <strong><span lang="es">Clase 1 · representación y memoria</span><span lang="en">Class 1 · representation and memory</span></strong>
+      </a>
+      <a class="next" href="clase-03.html">
+        <small data-i18n="next.class">Siguiente clase</small>
+        <strong><span lang="es">Clase 3 · ABI, llamadas y pila</span><span lang="en">Class 3 · ABI, calls and stack</span></strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>

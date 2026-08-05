@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glosario — Semáforos en C</title>
+  <meta name="description" content="Referencia de términos de concurrencia y semáforos POSIX del concepto Semáforos en C.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="semaforos/glosario">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <input type="search" placeholder="Buscar…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="../../semaforos.html" data-i18n="p.semaforos.name">Semáforos en C</a><span class="sep">/</span>
+        <span data-i18n="gloss">Glosario</span>
+      </nav>
+      <h1 data-i18n="gloss">Glosario</h1>
+      <div class="class-toolbar">
+        <span class="toolbar-hint mono">referencia · no memorizar de golpe</span>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p><span lang="es">Este documento reúne los términos de concurrencia y la API POSIX que aparecen durante este concepto. No hace falta memorizarlo de una vez: úsalo como referencia mientras lees código o haces ejercicios.</span><span lang="en">This document collects the concurrency terms and the POSIX API that come up during this concept. You do not need to memorize it all at once: use it as a reference while reading code or doing exercises.</span></p>
+
+      <h2><span lang="es">Modelo de concurrencia</span><span lang="en">Concurrency model</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">proceso</td><td>Process</td><td><span lang="es">Instancia de un programa en ejecución con su propia memoria y sus propios descriptores.</span><span lang="en">Instance of a running program with its own memory and file descriptors.</span></td></tr>
+          <tr><td class="mono-col">hilo</td><td>Thread</td><td><span lang="es">Línea de ejecución dentro de un proceso. Los hilos de un mismo proceso comparten memoria.</span><span lang="en">Line of execution inside a process. Threads of the same process share memory.</span></td></tr>
+          <tr><td class="mono-col">concurrencia</td><td>Concurrency</td><td><span lang="es">Capacidad de ejecutar varias secuencias de código superpuestas en el tiempo.</span><span lang="en">Ability to run several code sequences overlapping in time.</span></td></tr>
+          <tr><td class="mono-col">interleaving</td><td>Interleaving</td><td><span lang="es">Orden concreto en el que se entrelazan las instrucciones de varios hilos. No es determinista.</span><span lang="en">Concrete order in which the instructions of several threads interleave. Not deterministic.</span></td></tr>
+          <tr><td class="mono-col">condición de carrera</td><td>Race condition</td><td><span lang="es">Resultado erróneo que depende del orden en que se ejecutan los hilos.</span><span lang="en">Wrong result that depends on the order in which threads run.</span></td></tr>
+          <tr><td class="mono-col">sección crítica</td><td>Critical section</td><td><span lang="es">Fragmento que accede a un recurso compartido y no debe ejecutarse en paralelo con otro que toque el mismo recurso.</span><span lang="en">Piece of code accessing a shared resource that must not run in parallel with another one touching the same resource.</span></td></tr>
+          <tr><td class="mono-col">operación atómica</td><td>Atomic operation</td><td><span lang="es">Operación que se observa como indivisible desde fuera del hilo que la ejecuta.</span><span lang="en">Operation observed as indivisible from outside the thread running it.</span></td></tr>
+          <tr><td class="mono-col">planificador</td><td>Scheduler</td><td><span lang="es">Componente del kernel que decide qué hilo se ejecuta y cuándo.</span><span lang="en">Kernel component that decides which thread runs and when.</span></td></tr>
+          <tr><td class="mono-col">bloqueo</td><td>Blocking</td><td><span lang="es">Estado de un hilo que espera hasta que una condición se cumpla, sin consumir CPU.</span><span lang="en">State of a thread waiting until a condition holds, without burning CPU.</span></td></tr>
+          <tr><td class="mono-col">deadlock</td><td>Deadlock</td><td><span lang="es">Espera cíclica de recursos: dos o más hilos esperan cosas que solo los otros liberan y ninguno avanza.</span><span lang="en">Cyclic wait on resources: two or more threads wait for things only the others release and none makes progress.</span></td></tr>
+          <tr><td class="mono-col">starvation</td><td>Inanición</td><td><span lang="es">Un hilo nunca obtiene el recurso porque otros siempre se adelantan.</span><span lang="en">A thread never gets the resource because others keep getting ahead.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Semáforos POSIX</span><span lang="en">POSIX semaphores</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">semáforo</td><td>Semaphore</td><td><span lang="es">Contador con operaciones atómicas de espera y señalización.</span><span lang="en">Counter with atomic wait and signal operations.</span></td></tr>
+          <tr><td class="mono-col">sem_t</td><td>Semaphore type</td><td><span lang="es">Tipo opaco declarado en <code>semaphore.h</code> que representa un semáforo.</span><span lang="en">Opaque type declared in <code>semaphore.h</code> that represents a semaphore.</span></td></tr>
+          <tr><td class="mono-col">sem_init</td><td>Semaphore initialize</td><td><span lang="es">Inicializa un semáforo sin nombre con un valor inicial y un ámbito.</span><span lang="en">Initializes an unnamed semaphore with an initial value and a scope.</span></td></tr>
+          <tr><td class="mono-col">sem_wait</td><td>Semaphore wait</td><td><span lang="es">Decrementa el contador; bloquea al hilo si el valor es 0. Atómico.</span><span lang="en">Decrements the counter; blocks the thread if the value is 0. Atomic.</span></td></tr>
+          <tr><td class="mono-col">sem_post</td><td>Semaphore post</td><td><span lang="es">Incrementa el contador; desbloquea un hilo si alguno esperaba. Nunca bloquea.</span><span lang="en">Increments the counter; unblocks a thread if one was waiting. Never blocks.</span></td></tr>
+          <tr><td class="mono-col">sem_destroy</td><td>Semaphore destroy</td><td><span lang="es">Libera los recursos asociados a un semáforo inicializado.</span><span lang="en">Frees the resources associated with an initialized semaphore.</span></td></tr>
+          <tr><td class="mono-col">pshared</td><td>Process-shared</td><td><span lang="es">Argumento de <code>sem_init</code>: 0 para hilos del mismo proceso, 1 para procesos distintos (requiere memoria compartida).</span><span lang="en">Argument of <code>sem_init</code>: 0 for threads of the same process, 1 for different processes (requires shared memory).</span></td></tr>
+          <tr><td class="mono-col">mutex</td><td>Mutual exclusion</td><td><span lang="es">Cerradura de exclusión mutua con <em>owner</em>: solo el hilo que la adquirió puede liberarla. Caso particular de semáforo binario.</span><span lang="en">Mutual-exclusion lock with an owner: only the thread that acquired it can release it. Special case of a binary semaphore.</span></td></tr>
+          <tr><td class="mono-col">productor-consumidor</td><td>Producer-consumer</td><td><span lang="es">Patrón con un productor que crea datos y un consumidor que los usa, coordinados por un buffer y contadores.</span><span lang="en">Pattern with a producer creating data and a consumer using it, coordinated by a buffer and counters.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Herramientas</span><span lang="en">Tools</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">-pthread</td><td>pthread flag</td><td><span lang="es">Flag de compilación y enlace que activa el soporte de hilos POSIX.</span><span lang="en">Compile and link flag that enables POSIX thread support.</span></td></tr>
+          <tr><td class="mono-col">TSan</td><td>Thread Sanitizer</td><td><span lang="es">Sanitizador de GCC/Clang (<code>-fsanitize=thread</code>) que detecta condiciones de carrera en tiempo de ejecución.</span><span lang="en">GCC/Clang sanitizer (<code>-fsanitize=thread</code>) that detects race conditions at runtime.</span></td></tr>
+          <tr><td class="mono-col">gdb</td><td>GNU Debugger</td><td><span lang="es">Permite detener el proceso y observar qué hilo está ejecutando cada instrucción.</span><span lang="en">Lets you stop the process and see which thread is running each instruction.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Regla de lectura</span><span lang="en">Reading rule</span></h2>
+      <p><span lang="es">Cuando leas un fragmento concurrente, pregúntate:</span><span lang="en">When you read a concurrent snippet, ask yourself:</span></p>
+      <pre class="code">1. ¿Qué recurso comparten los hilos?
+2. ¿Alguien lo escribe? Si no, no hay carrera.
+3. ¿Qué operaciones son atómicas y cuáles no?
+4. ¿Cada wait tiene su post (o su lock su unlock)?
+5. ¿Puede un hilo quedarse bloqueado mientras sostiene lo que otro necesita? (deadlock)</pre>
+      <p><span lang="es">Esta secuencia evita intentar entender toda la API de una vez.</span><span lang="en">This sequence keeps you from trying to understand the whole API at once.</span></p>
+    </div>
+
+    <nav class="pager">
+      <a href="clase-01.html">
+        <small data-i18n="prev.class">Anterior</small>
+        <strong><span lang="es">Clase 1 · procesos, hilos, carrera y sección crítica</span><span lang="en">Class 1 · processes, threads, races and critical sections</span></strong>
+      </a>
+      <a class="next" href="../../semaforos.html">
+        <small data-i18n="back.project">Volver</small>
+        <strong data-i18n="p.semaforos.name">Semáforos en C</strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>

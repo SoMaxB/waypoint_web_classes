@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glosario — ft_ping</title>
+  <meta name="description" content="Referencia de siglas, estructuras, funciones y herramientas del proyecto ft_ping.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="ft_ping/glosario">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <input type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="../../ft_ping.html" data-i18n="p.ft_ping.name">ft_ping</a><span class="sep">/</span>
+        <span data-i18n="gloss">Glosario</span>
+      </nav>
+      <h1 data-i18n="gloss">Glosario</h1>
+      <div class="class-toolbar">
+        <span class="toolbar-hint mono">referencia · no memorizar de golpe</span>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p><span lang="es">Este documento reúne las siglas, estructuras, funciones y herramientas que aparecen durante el proyecto. No hace falta memorizarlo de una vez: úsalo como referencia mientras lees código o haces ejercicios.</span><span lang="en">This document collects the acronyms, structs, functions and tools that come up during the project. You do not need to memorize it all at once: use it as a reference while reading code or doing exercises.</span></p>
+
+      <h2><span lang="es">Notación y red</span><span lang="en">Notation and networking</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">ICMP</td><td>Internet Control Message Protocol</td><td><span lang="es">Protocolo de control usado por ping. Transporta los Echo Request y Echo Reply; viaja sobre IP, sin puertos.</span><span lang="en">Control protocol used by ping. It carries Echo Requests and Echo Replies over IP, without ports.</span></td></tr>
+          <tr><td class="mono-col">Echo Request</td><td><span lang="es">Petición de eco</span><span lang="en">Echo request</span></td><td><span lang="es">Mensaje ICMP que ping envía (tipo 8, código 0) para comprobar si un host responde.</span><span lang="en">ICMP message ping sends (type 8, code 0) to check whether a host replies.</span></td></tr>
+          <tr><td class="mono-col">Echo Reply</td><td><span lang="es">Respuesta de eco</span><span lang="en">Echo reply</span></td><td><span lang="es">Mensaje ICMP que el host devuelve (tipo 0, código 0) cuando recibe un Echo Request.</span><span lang="en">ICMP message the host returns (type 0, code 0) when it receives an Echo Request.</span></td></tr>
+          <tr><td class="mono-col">type</td><td><span lang="es">Tipo de mensaje ICMP</span><span lang="en">ICMP message type</span></td><td><span lang="es">Campo de la cabecera que identifica el mensaje: 8 = Echo Request, 0 = Echo Reply.</span><span lang="en">Header field identifying the message: 8 = Echo Request, 0 = Echo Reply.</span></td></tr>
+          <tr><td class="mono-col">code</td><td><span lang="es">Código de mensaje ICMP</span><span lang="en">ICMP message code</span></td><td><span lang="es">Campo que matiza el tipo; para eco vale 0.</span><span lang="en">Field that qualifies the type; it is 0 for echo.</span></td></tr>
+          <tr><td class="mono-col">checksum</td><td><span lang="es">Suma de comprobación</span><span lang="en">Checksum</span></td><td><span lang="es">Valor calculado sobre todo el paquete ICMP, con el campo a cero durante el cálculo, para detectar corrupción.</span><span lang="en">Value computed over the whole ICMP packet, with the field zeroed during the calculation, to detect corruption.</span></td></tr>
+          <tr><td class="mono-col">identifier</td><td><span lang="es">Identificador</span><span lang="en">Identifier</span></td><td><span lang="es">Campo que asocia un Echo Request con su Reply; ping suele derivarlo del PID.</span><span lang="en">Field that pairs an Echo Request with its Reply; ping usually derives it from the PID.</span></td></tr>
+          <tr><td class="mono-col">sequence</td><td><span lang="es">Número de secuencia</span><span lang="en">Sequence number</span></td><td><span lang="es">Campo que numera cada Echo Request enviado, para emparejar respuestas.</span><span lang="en">Field numbering each sent Echo Request, to pair replies.</span></td></tr>
+          <tr><td class="mono-col">TTL</td><td>Time To Live</td><td><span lang="es">Campo de la cabecera IP que limita los saltos de un paquete; se reduce en cada salto y al llegar a cero el paquete se descarta.</span><span lang="en">IP header field limiting how many hops a packet may cross; it decreases each hop and at zero the packet is dropped.</span></td></tr>
+          <tr><td class="mono-col">RTT</td><td>Round-Trip Time</td><td><span lang="es">Tiempo entre el envío de un Echo Request y la recepción de su Reply.</span><span lang="en">Time between sending an Echo Request and receiving its Reply.</span></td></tr>
+          <tr><td class="mono-col">FQDN</td><td>Fully Qualified Domain Name</td><td><span lang="es">Nombre de host completo con todos sus dominios, por ejemplo <code>example.com</code>; hay que resolverlo a una dirección IP.</span><span lang="en">Complete host name with all its domains, e.g. <code>example.com</code>; it must be resolved to an IP address.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Sockets y direcciones</span><span lang="en">Sockets and addresses</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">socket</td><td><span lang="es">Toma / enchufe</span><span lang="en">Socket</span></td><td><span lang="es">Extremo de comunicación del sistema. Para ping se abre un socket raw de ICMP.</span><span lang="en">Communication endpoint of the system. For ping a raw ICMP socket is opened.</span></td></tr>
+          <tr><td class="mono-col">raw socket</td><td><span lang="es">Socket crudo</span><span lang="en">Raw socket</span></td><td><span lang="es">Socket que permite construir y leer el protocolo directamente. Ping lo usa con <code>IPPROTO_ICMP</code>.</span><span lang="en">Socket that lets you build and read the protocol directly. Ping uses it with <code>IPPROTO_ICMP</code>.</span></td></tr>
+          <tr><td class="mono-col">AF_INET</td><td>Address Family, Internet</td><td><span lang="es">Familia de direcciones IPv4 usada al crear el socket.</span><span lang="en">IPv4 address family used when creating the socket.</span></td></tr>
+          <tr><td class="mono-col">SOCK_RAW</td><td><span lang="es">Socket tipo raw</span><span lang="en">Raw socket type</span></td><td><span lang="es">Tipo de socket que da acceso al protocolo ICMP a nivel de paquete.</span><span lang="en">Socket type giving packet-level access to the ICMP protocol.</span></td></tr>
+          <tr><td class="mono-col">IPPROTO_ICMP</td><td>Internet Protocol, ICMP</td><td><span lang="es">Protocolo pasado a <code>socket()</code> para indicar que se trabajará con ICMP.</span><span lang="en">Protocol passed to <code>socket()</code> to indicate ICMP will be used.</span></td></tr>
+          <tr><td class="mono-col">sockaddr_in</td><td>Socket address, Internet</td><td><span lang="es">Estructura que guarda una dirección IPv4 y un puerto.</span><span lang="en">Struct holding an IPv4 address and a port.</span></td></tr>
+          <tr><td class="mono-col">inet_pton</td><td>Internet, Presentation to Network</td><td><span lang="es">Convierte una dirección IPv4 en texto (<code>127.0.0.1</code>) a su forma binaria.</span><span lang="en">Converts a textual IPv4 address (<code>127.0.0.1</code>) to its binary form.</span></td></tr>
+          <tr><td class="mono-col">getaddrinfo</td><td>Get address info</td><td><span lang="es">Función de libc que resuelve un nombre o servicio a una o varias direcciones (<code>addrinfo</code>).</span><span lang="en">libc function resolving a name or service to one or more addresses (<code>addrinfo</code>).</span></td></tr>
+          <tr><td class="mono-col">htons</td><td>Host to Network Short</td><td><span lang="es">Convierte un entero de 16 bits del orden del host (little-endian en x86) al orden de red (big-endian).</span><span lang="en">Converts a 16-bit integer from host order (little-endian on x86) to network order (big-endian).</span></td></tr>
+          <tr><td class="mono-col">ntohs</td><td>Network to Host Short</td><td><span lang="es">Inverso de <code>htons</code>: de orden de red a orden del host.</span><span lang="en">Inverse of <code>htons</code>: from network order to host order.</span></td></tr>
+          <tr><td class="mono-col">big-endian</td><td><span lang="es">Extremo grande primero</span><span lang="en">Most significant byte first</span></td><td><span lang="es">Orden de bytes de la red: el byte más significativo va primero.</span><span lang="en">Network byte order: the most significant byte comes first.</span></td></tr>
+          <tr><td class="mono-col">puerto</td><td>Port</td><td><span lang="es">Concepto de transporte (TCP/UDP); ICMP no usa puertos, así que no aplica aquí.</span><span lang="en">Transport concept (TCP/UDP); ICMP has no ports, so it does not apply here.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Envío y recepción</span><span lang="en">Sending and receiving</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">sendto</td><td><span lang="es">Enviar a</span><span lang="en">Send to</span></td><td><span lang="es">Syscall que envía un datagrama a una dirección concreta.</span><span lang="en">Syscall that sends a datagram to a specific address.</span></td></tr>
+          <tr><td class="mono-col">recvfrom</td><td><span lang="es">Recibir de</span><span lang="en">Receive from</span></td><td><span lang="es">Syscall que recibe un datagrama e indica de qué dirección llega.</span><span lang="en">Syscall that receives a datagram and reports which address it came from.</span></td></tr>
+          <tr><td class="mono-col">SO_RCVTIMEO</td><td>Socket Option, Receive Timeout</td><td><span lang="es">Opción de socket que fija el tiempo máximo de espera en <code>recvfrom</code>.</span><span lang="en">Socket option setting the maximum wait time for <code>recvfrom</code>.</span></td></tr>
+          <tr><td class="mono-col">gettimeofday</td><td><span lang="es">Obtener hora del día</span><span lang="en">Get time of day</span></td><td><span lang="es">Función que devuelve el tiempo real; sirve para medir el RTT con precisión de microsegundos.</span><span lang="en">Function returning the real time; used to measure RTT with microsecond precision.</span></td></tr>
+          <tr><td class="mono-col">timeval</td><td><span lang="es">Valor de tiempo</span><span lang="en">Time value</span></td><td><span lang="es">Estructura con segundos y microsegundos, usada por <code>gettimeofday</code> y los timeouts.</span><span lang="en">Struct with seconds and microseconds, used by <code>gettimeofday</code> and timeouts.</span></td></tr>
+          <tr><td class="mono-col">cabecera IPv4</td><td>IPv4 header</td><td><span lang="es">Cabecera del paquete IP que envuelve al ICMP. Al recibir hay que saltarla según su longitud <code>ihl</code>.</span><span lang="en">Header of the IP packet wrapping the ICMP. On receive you must skip it by its <code>ihl</code> length.</span></td></tr>
+          <tr><td class="mono-col">ihl</td><td>IP Header Length</td><td><span lang="es">Campo de la cabecera IPv4 con su longitud en palabras de 32 bits; multiplicado por 4 da los bytes a saltar.</span><span lang="en">IPv4 header field holding its length in 32-bit words; times 4 gives the bytes to skip.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Señales y estadísticas</span><span lang="en">Signals and statistics</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">SIGINT</td><td>Signal Interrupt</td><td><span lang="es">Señal enviada con Ctrl-C. Ping la usa para detener el bucle y mostrar las estadísticas finales.</span><span lang="en">Signal sent with Ctrl-C. Ping uses it to stop the loop and print the final statistics.</span></td></tr>
+          <tr><td class="mono-col">min / avg / max</td><td><span lang="es">Mínimo, medio, máximo</span><span lang="en">Minimum, average, maximum</span></td><td><span lang="es">Resumen del RTT en las estadísticas finales.</span><span lang="en">RTT summary in the final statistics.</span></td></tr>
+          <tr><td class="mono-col">paquetes perdidos</td><td><span lang="es">Lost packets</span><span lang="en">Lost packets</span></td><td><span lang="es">Diferencia entre Echo Request enviados y Reply recibidos, con su porcentaje.</span><span lang="en">Difference between sent Echo Requests and received Replies, with its percentage.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Herramientas de verificación</span><span lang="en">Verification tools</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">make</td><td>Make</td><td><span lang="es">Ejecuta las reglas del Makefile para construir solo lo que cambió.</span><span lang="en">Runs the Makefile rules to build only what changed.</span></td></tr>
+          <tr><td class="mono-col">tcpdump</td><td>TCP dump</td><td><span lang="es">Muestra los paquetes que pasan por la red; sirve para verificar que se envían y reciben Echos.</span><span lang="en">Shows packets crossing the network; used to verify Echos are sent and received.</span></td></tr>
+          <tr><td class="mono-col">strace</td><td>System call trace</td><td><span lang="es">Muestra las syscalls del proceso: <code>socket</code>, <code>sendto</code>, <code>recvfrom</code>, <code>setsockopt</code>.</span><span lang="en">Shows the process syscalls: <code>socket</code>, <code>sendto</code>, <code>recvfrom</code>, <code>setsockopt</code>.</span></td></tr>
+          <tr><td class="mono-col">gdb</td><td>GNU Debugger</td><td><span lang="es">Permite detener el programa y observar buffers y campos de cabecera.</span><span lang="en">Lets you stop the program and inspect buffers and header fields.</span></td></tr>
+          <tr><td class="mono-col">getent</td><td>Get entries</td><td><span lang="es">Comprueba la resolución de nombres (FQDN) en el sistema.</span><span lang="en">Checks name resolution (FQDN) on the system.</span></td></tr>
+          <tr><td class="mono-col">inetutils-2.0</td><td>GNU inetutils</td><td><span lang="es">Referencia de comportamiento de <code>ping</code>: su formato de salida es el modelo a reproducir, salvo excepciones.</span><span lang="en">Behavior reference for <code>ping</code>: its output format is the model to reproduce, except for exceptions.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Regla de lectura</span><span lang="en">Reading rule</span></h2>
+      <p><span lang="es">Cuando leas una función o syscall nueva, pregúntate:</span><span lang="en">When you meet a new function or syscall, ask yourself:</span></p>
+      <pre class="code">1. ¿Qué parámetros recibe y en qué orden?
+2. ¿Qué estructura o buffer leo o escribo?
+3. ¿El valor es de red (big-endian) o del host (little-endian)? ¿Aplico htons/ntohs?
+4. ¿Puede fallar? ¿Cómo se detecta el fallo y cómo se maneja sin salir inesperadamente?</pre>
+      <p><span lang="es">Esta secuencia evita intentar entender todas las siglas de una vez.</span><span lang="en">This sequence keeps you from trying to understand every acronym at once.</span></p>
+    </div>
+
+    <nav class="pager">
+      <a href="../../ft_ping.html">
+        <small data-i18n="back.project">Volver al proyecto</small>
+        <strong data-i18n="p.ft_ping.name">ft_ping</strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>
