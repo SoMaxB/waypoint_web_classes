@@ -1,4 +1,4 @@
-# waypoint · web_codea
+# waypoint · web_classes
 
 > **Biblioteca de aprendizaje estática, bilingüe (ES/EN) · A bilingual static learning library**
 > 100% estática · sin frameworks · sin build — _100% static · no frameworks · no build_
