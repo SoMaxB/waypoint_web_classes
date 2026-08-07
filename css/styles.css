@@ -130,6 +130,30 @@ body::after {
 .search-wrap.hidden-sm { visibility: hidden; pointer-events: none; }
 
 .header-actions { display: flex; align-items: center; gap: 12px; }
+.gh-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 700 12px var(--font-display);
+  letter-spacing: 0.04em;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 14px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
+}
+.gh-link svg { width: 15px; height: 15px; fill: currentColor; }
+.gh-link:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+.gh-count {
+  font-size: 11px;
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
 .lang-toggle {
   font: 700 12px var(--font-display);
   letter-spacing: 0.06em;

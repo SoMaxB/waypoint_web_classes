@@ -3,7 +3,7 @@
 > **Biblioteca de aprendizaje estática, bilingüe (ES/EN) · A bilingual static learning library**
 > 100% estática · sin frameworks · sin build — _100% static · no frameworks · no build_
 
-> 🔗 **Página publicada / Live site:** <https://somaxb.github.io/waipoint_web_classes/>
+> 🔗 **Página publicada / Live site:** <https://somaxb.github.io/waypoint_web_classes/>
 
 Aprende por proyectos de 42. Cada clase es una transcripción didáctica bilingüe con
 predicciones, ejercicios, defensa y criterio de finalización; el progreso se guarda en tu navegador (`localStorage`).
