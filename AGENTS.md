@@ -6,15 +6,16 @@ Web 100% estática, sin frameworks ni build, con clases interactivas basadas en 
 
 ## Estructura del proyecto
 
-- `index.html` — grid de la Biblioteca (portada): proyectos + conceptos, orden alfabético, búsqueda y chips de filtro.
-- `<proyecto>.html` — página del proyecto: lista de clases, enlace al subject.pdf y progreso.
-- `<concepto>.html` — página del concepto (misma estructura que un proyecto, sin subject.pdf).
+- `index.html` — grid de la Biblioteca (portada): proyectos + conceptos, orden alfabético, búsqueda y chips de filtro. Único hub que vive en la raíz.
+- `404.html` — página de error, en la raíz (requerida por GitHub Pages).
+- `clases/<proyecto>/index.html` — página del proyecto (hub publicado): lista de clases, enlace al subject.pdf y progreso, junto a sus clases/glosario.
+- `clases/<concepto>/index.html` — página del concepto (hub, misma estructura que un proyecto, sin subject.pdf).
 - `clases/<proyecto>/clase-NN.html` — clases publicadas. Cada clase es bilingüe: una `<section lang="es">` y otra `<section lang="en">` con el mismo contenido.
 - `clases/<proyecto>/glosario.html` — glosario de referencia publicado (obligatorio, bilingüe).
 - `css/styles.css`, `js/main.js`, `js/i18n.js` — estilos, filtros/progreso y traducción.
-- `concept/` — referencias de diseño (imágenes, ideas).
+- Stubs de redirect en la raíz (`<proyecto>.html`, `<concepto>.html`) — compatibilidad con URLs antiguas; saltan a `clases/<slug>/`. Sin contenido didáctico.
 
-El material crudo no vive suelto en la raíz: cada proyecto tiene su carpeta bajo `proyectos/` y cada concepto la suya bajo `conceptos/`.
+El material crudo no vive suelto en la raíz: cada proyecto tiene su carpeta bajo `proyectos/` y cada concepto la suya bajo `conceptos/`. La raíz solo aloja `index.html`, `404.html`, `css/`, `js/` y los stubs de redirect.
 
 ## Grid de la Biblioteca
 
@@ -34,7 +35,7 @@ Todo proyecto debe mantener esta estructura, igual para todos (Libasm, IoT, Scop
 - `GLOSARIO_<PROYECTO>.md` — glosario de referencia en español: siglas, estructuras, funciones y herramientas que aparecen en el curso (modelo: `proyectos/libasm/GLOSARIO_LIBASM.md`).
 - `clases/clase-NN.md` — drafts de cada clase ya en la **plantilla canónica** (abajo), en español. De aquí se deriva el HTML publicado.
 
-**Todo curso genera glosario**: además del `GLOSARIO_<PROYECTO>.md`, se publica `clases/<proyecto>/glosario.html` bilingüe derivado de él (modelo: `clases/libasm/glosario.html`, tablas con clase `mono-col`, `<body data-class="<proyecto>/glosario">`), y la página `<proyecto>.html` enlaza a él.
+**Todo curso genera glosario**: además del `GLOSARIO_<PROYECTO>.md`, se publica `clases/<proyecto>/glosario.html` bilingüe derivado de él (modelo: `clases/libasm/glosario.html`, tablas con clase `mono-col`, `<body data-class="<proyecto>/glosario">`), y el hub publicado `clases/<proyecto>/index.html` enlaza a él.
 
 La **consistencia de estilo se impone en la creación**, en el draft `clase-NN.md`, no al publicar.
 
@@ -46,7 +47,7 @@ Un concepto es un curso transversal (p. ej. Semáforos en C, Sockets, POSIX Thre
 - `GLOSARIO_<CONCEPTO>.md` — glosario de referencia en español (modelo: `conceptos/semaforos/GLOSARIO_SEMAFOROS.md`).
 - `clases/clase-NN.md` — drafts en la plantilla canónica.
 
-La publicación es igual que en un proyecto: `<concepto>.html` (sin badge de subject, con badge `Concepto`), `clases/<concepto>/clase-NN.html` y `clases/<concepto>/glosario.html`. La clave de progreso es `data-project="<concepto>"` (única, sin colisionar con proyectos).
+La publicación es igual que en un proyecto: `clases/<concepto>/index.html` (sin badge de subject, con badge `Concepto`), `clases/<concepto>/clase-NN.html` y `clases/<concepto>/glosario.html`. La clave de progreso es `data-project="<concepto>"` (única, sin colisionar con proyectos).
 
 ## Flujo para crear una clase nueva
 
@@ -55,7 +56,9 @@ Cada clase nace de una sesión interactiva y pasa por cuatro pasos fijos:
 1. **Sesión (Teaching Mode):** se imparte la clase de forma interactiva con un principiante; el material se lee del subject y de los ficheros reales del repo cuando existan. En un concepto, el material se lee de su `GUIA_<CONCEPTO>.md` y de código real.
 2. **Draft:** se destila la sesión en `proyectos/<proyecto>/clases/clase-NN.md` (o `conceptos/<concepto>/clases/clase-NN.md`) usando la plantilla canónica de abajo, en español y sin transcribir la conversación verbatim.
 3. **Publicación:** se deriva `clases/<proyecto>/clase-NN.html` (bilingüe) siguiendo el formato publicado de más abajo.
-4. **Índices:** se actualizan `<proyecto>.html` o `<concepto>.html` (lista, nº de clases, enlace al subject en proyectos) e `index.html` (descripción, badge, progreso).
+4. **Índices:** se actualizan `clases/<proyecto>/index.html` o `clases/<concepto>/index.html` (lista, nº de clases, enlace al subject en proyectos) e `index.html` (descripción, badge, progreso).
+
+**Regla: ninguna clase se publica sin sesión.** Una clase pasa a `clases/<proyecto>/clase-NN.html` y se enlaza en los índices solo después de la sesión interactiva real. Un draft sin sesión es material en preparación (badge "Próximamente" / "En preparación"), nunca una clase publicada. Si una clase se ha publicado sin sesión, se des-publica (enlace a "Próximamente") hasta tomarla de nuevo.
 
 Cuando el usuario suba material ya escrito (una carpeta temporal o un draft), leerlo, ubicar el proyecto, pulirlo al formato canónico y absorberlo en los pasos 2-4.
 
@@ -133,4 +136,4 @@ El draft canónico (en español) y la sección publicada son la misma lección e
 
 ## Verificación
 
-- No hay build ni lint configurados. Verificar manualmente: enlaces relativos correctos, clases bilingües completas y claves de progreso consistentes entre `index.html`, `<proyecto>.html` y las páginas de clase.
+- No hay build ni lint configurados. Verificar manualmente: enlaces relativos correctos, clases bilingües completas y claves de progreso consistentes entre `index.html`, `clases/<proyecto>/index.html` y las páginas de clase.
