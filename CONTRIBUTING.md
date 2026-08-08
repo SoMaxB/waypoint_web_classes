@@ -24,7 +24,7 @@ Cada clase nace de una **sesión interactiva** (modo enseñanza) y pasa por cuat
    `conceptos/<concepto>/clases/clase-NN.md`) usando la **plantilla canónica** (abajo), en
    español y **sin transcribir la conversación verbatim**.
 3. **Publicación:** se deriva `clases/<proyecto>/clase-NN.html` **bilingüe**.
-4. **Índices:** se actualizan `<proyecto>.html` / `<concepto>.html` e `index.html`.
+4. **Índices:** se actualizan `clases/<proyecto>/index.html` / `clases/<concepto>/index.html` e `index.html`.
 
 El draft (fuente, en español) y el HTML (derivado, bilingüe) son la **misma lección en dos
 estados**. La consistencia de estilo se impone en el borrador, no al publicar.
@@ -108,7 +108,7 @@ Each class originates in an interactive **session** (teaching mode) and goes thr
    `conceptos/<concepto>/clases/clase-NN.md`) using the **canonical template** (below), in
    Spanish, **without transcribing the conversation verbatim**.
 3. **Publication:** derive the **bilingual** `clases/<project>/clase-NN.html`.
-4. **Indexes:** update `<project>.html` / `<concept>.html` and `index.html`.
+4. **Indexes:** update `clases/<project>/index.html` / `clases/<concept>/index.html` and `index.html`.
 
 The draft (source, Spanish) and the HTML (derived, bilingual) are the **same lesson in two
 states**. Style consistency is enforced at creation, in the draft.

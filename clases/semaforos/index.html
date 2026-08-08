@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Semáforos en C — waypoint</title>
+  <meta name="description" content="Sincronización de hilos con semáforos POSIX: secciones críticas, atomicidad y productor-consumidor.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <input type="search" placeholder="Buscar…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span><span data-i18n="p.semaforos.name">Semáforos en C</span>
+      </nav>
+    </div>
+
+    <section class="proj-header prose">
+      <h1 data-i18n="p.semaforos.name">Semáforos en C</h1>
+      <p class="proj-desc" data-i18n="p.semaforos.desc">Sincronización de hilos con semáforos POSIX: secciones críticas, atomicidad y productor-consumidor.</p>
+      <div class="proj-stats">
+        <span class="badge concept" data-i18n="badge.concept">Concepto</span>
+        <span class="badge amber" data-i18n="proj.coming">Próximamente</span>
+        <span class="badge"><span data-i18n="proj.classes">clases</span>: 3</span>
+        <span class="badge">C</span>
+        <span class="badge">POSIX</span>
+      </div>
+      <div class="overall-progress">
+        <span class="progress-track"><span class="progress-fill" data-project="semaforos" data-total="3" data-progress-fill></span></span>
+        <span class="progress-label" data-project="semaforos" data-total="3" data-progress-label>0 de 3 clases</span>
+      </div>
+    </section>
+
+    <section class="prose">
+      <div class="panel">
+        <span class="label"><span lang="es">Cómo tomar esta clase</span><span lang="en">How to take this class</span></span>
+        <p><span lang="es">Estas clases se toman como se recibe una clase en directo. Antes de leer, cierra cada <strong>predicción o ejercicio</strong> y razona tu respuesta; solo después despliega la solución. Traza el código línea por línea. Finalmente, responde en voz alta las <strong>preguntas de defensa</strong> y marca el <strong>criterio de finalización</strong>. Todo tu progreso se guarda en tu navegador.</span><span lang="en">These classes are meant to be taken the way you receive a live class. Before reading further, close each <strong>prediction or exercise</strong> and reason out your answer; only then unfold the solution. Trace the code line by line. Finally, answer the <strong>defense questions</strong> out loud and check off the <strong>completion criteria</strong>. All your progress is stored in your browser.</span></p>
+      </div>
+      <div class="panel">
+        <span class="label"><span lang="es">Glosario</span><span lang="en">Glossary</span></span>
+        <p><span lang="es">Consulta la referencia de términos de concurrencia mientras avanzas, sin salir del ritmo de la clase.</span><span lang="en">Look up the concurrency terms as you go, without breaking the flow of the class.</span></p>
+        <p><a class="glossary-link" href="glosario.html"><span lang="es">Abrir el glosario de Semáforos →</span><span lang="en">Open the Semaphores glossary →</span></a></p>
+      </div>
+    </section>
+
+    <section class="proj-sub prose">
+      <h2 data-i18n="classes.title">Clases</h2>
+      <p class="note" data-i18n="proj.progress">Marca cada clase al completarla; el progreso se actualiza aquí y en la portada.</p>
+
+      <h3 class="soon-heading"><span lang="es">Próximamente</span><span lang="en">Coming soon</span></h3>
+      <div class="soon-grid">
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 1 · Procesos, hilos, carrera y sección crítica</span><span lang="en">Class 1 · Processes, threads, races and critical sections</span></h4>
+          <p><span lang="es"><code>i++</code> no es atómico, interleaving y condición de carrera: la base de la sincronización.</span><span lang="en"><code>i++</code> is not atomic, interleaving and race conditions: the basis of synchronization.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 2 · Semáforos POSIX y sección crítica</span><span lang="en">Class 2 · POSIX semaphores and critical sections</span></h4>
+          <p><span lang="es"><code>sem_t</code>, <code>sem_init</code>, <code>sem_wait</code>, <code>sem_post</code>: proteger un recurso compartido y predecir el valor del contador.</span><span lang="en"><code>sem_t</code>, <code>sem_init</code>, <code>sem_wait</code>, <code>sem_post</code>: protecting a shared resource and predicting the counter value.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 3 · Productor-consumidor y problemas clásicos</span><span lang="en">Class 3 · Producer-consumer and classic problems</span></h4>
+          <p><span lang="es">Buffer compartido con <code>empty</code>/<code>full</code>/<code>mutex</code>, valores iniciales y deadlock.</span><span lang="en">Shared buffer with <code>empty</code>/<code>full</code>/<code>mutex</code>, initial values and deadlock.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+      </div>
+    </section>
+
+    <nav class="pager">
+      <a class="only" href="../../index.html">
+        <small data-i18n="nav.home">Inicio</small>
+        <strong data-i18n="back.project">Volver a los proyectos</strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>

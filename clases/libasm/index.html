@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Libasm — waypoint</title>
+  <meta name="description" content="Ensamblador x86-64 desde cero: memoria, registros, la ABI System V y tus primeras funciones en NASM.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <input type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span><span data-i18n="p.libasm.name">Libasm</span>
+      </nav>
+    </div>
+
+    <section class="proj-header prose">
+      <h1 data-i18n="p.libasm.name">Libasm</h1>
+      <p class="proj-desc" data-i18n="p.libasm.desc">Ensamblador x86-64 desde cero: memoria, registros, la ABI System V y tus primeras funciones en NASM.</p>
+      <div class="proj-stats">
+        <span class="badge accent" data-i18n="proj.active">Activo</span>
+        <span class="badge">x86-64</span>
+        <span class="badge">NASM</span>
+        <span class="badge">System V ABI</span>
+        <a class="badge" href="../../proyectos/libasm/en.subject.pdf" target="_blank" rel="noopener">subject.pdf ↗</a>
+      </div>
+      <div class="overall-progress">
+        <span class="progress-track"><span class="progress-fill" data-project="libasm" data-total="15" data-progress-fill></span></span>
+        <span class="progress-label" data-project="libasm" data-total="15" data-progress-label>0 de 15 clases</span>
+      </div>
+    </section>
+
+    <section class="prose">
+      <div class="panel">
+        <span class="label"><span lang="es">Cómo tomar esta clase</span><span lang="en">How to take this class</span></span>
+        <p><span lang="es">Estas clases se toman como se recibe una clase en directo. Antes de leer, cierra cada <strong>predicción o ejercicio</strong> y razona tu respuesta; solo después despliega la solución. Traza el código línea por línea. Finalmente, responde en voz alta las <strong>preguntas de defensa</strong> y marca el <strong>criterio de finalización</strong>. Todo tu progreso se guarda en tu navegador.</span><span lang="en">These classes are meant to be taken the way you receive a live class. Before reading further, close each <strong>prediction or exercise</strong> and reason out your answer; only then unfold the solution. Trace the code line by line. Finally, answer the <strong>defense questions</strong> out loud and check off the <strong>completion criteria</strong>. All your progress is stored in your browser.</span></p>
+      </div>
+      <div class="panel">
+        <span class="label"><span lang="es">Glosario</span><span lang="en">Glossary</span></span>
+        <p><span lang="es">Consulta la referencia de siglas, registros, instrucciones, flags y herramientas mientras avanzas, sin salir del ritmo de la clase.</span><span lang="en">Look up the reference for acronyms, registers, instructions, flags and tools as you go, without breaking the flow of the class.</span></p>
+        <p><a class="glossary-link" href="glosario.html"><span lang="es">Abrir el glosario de Libasm →</span><span lang="en">Open the Libasm glossary →</span></a></p>
+      </div>
+    </section>
+
+    <section class="proj-sub prose">
+      <h2 data-i18n="classes.title">Clases</h2>
+      <p class="note" data-i18n="proj.progress">Marca cada clase al completarla; el progreso se actualiza aquí y en la portada.</p>
+
+      <div class="class-list">
+        <div class="class-row">
+          <span class="num">01</span>
+          <span class="info">
+            <a href="clase-01.html"><h4><span lang="es">Representación y memoria</span><span lang="en">Representation and memory</span></h4></a>
+            <p><span lang="es">Bits, bytes, hexadecimal, direcciones, cadenas C, punteros y little-endian.</span><span lang="en">Bits, bytes, hexadecimal, addresses, C strings, pointers and little-endian.</span></p>
+          </span>
+          <label class="complete-toggle">
+            <input type="checkbox" data-complete="libasm/clase-01">
+            <span class="status" data-status-for="libasm/clase-01" data-i18n="btn.complete">Marcar clase como completada</span>
+          </label>
+        </div>
+
+        <div class="class-row">
+          <span class="num">02</span>
+          <span class="info">
+            <a href="clase-02.html"><h4><span lang="es">Registros e instrucciones</span><span lang="en">Registers and instructions</span></h4></a>
+            <p><span lang="es">Registros, <code>mov</code>, <code>lea</code>, aritmética, <code>cmp</code>, flags, saltos y recorrer una cadena.</span><span lang="en">Registers, <code>mov</code>, <code>lea</code>, arithmetic, <code>cmp</code>, flags, jumps and walking a string.</span></p>
+          </span>
+          <label class="complete-toggle">
+            <input type="checkbox" data-complete="libasm/clase-02">
+            <span class="status" data-status-for="libasm/clase-02" data-i18n="btn.complete">Marcar clase como completada</span>
+          </label>
+        </div>
+
+        <div class="class-row">
+          <span class="num">03</span>
+          <span class="info">
+            <a href="clase-03.html"><h4><span lang="es">ABI, llamadas y pila</span><span lang="en">ABI, calls and stack</span></h4></a>
+            <p><span lang="es">System V AMD64: argumentos, retorno en <code>rax</code>, <code>call</code>/<code>ret</code>, registros preservados, pila y alineación.</span><span lang="en">System V AMD64: arguments, return in <code>rax</code>, <code>call</code>/<code>ret</code>, callee-saved registers, stack and alignment.</span></p>
+          </span>
+          <label class="complete-toggle">
+            <input type="checkbox" data-complete="libasm/clase-03">
+            <span class="status" data-status-for="libasm/clase-03" data-i18n="btn.complete">Marcar clase como completada</span>
+          </label>
+        </div>
+
+        <div class="class-row">
+          <span class="num">04</span>
+          <span class="info">
+            <a href="clase-04.html"><h4><span lang="es">NASM, ELF64 y herramientas</span><span lang="en">NASM, ELF64 and tools</span></h4></a>
+            <p><span lang="es">Secciones, objetos, símbolos, relocaciones, biblioteca estática, orden de enlace y GDB.</span><span lang="en">Sections, objects, symbols, relocations, static library, link order and GDB.</span></p>
+          </span>
+          <label class="complete-toggle">
+            <input type="checkbox" data-complete="libasm/clase-04">
+            <span class="status" data-status-for="libasm/clase-04" data-i18n="btn.complete">Marcar clase como completada</span>
+          </label>
+        </div>
+      </div>
+
+      <h3 class="soon-heading"><span lang="es">Próximamente</span><span lang="en">Coming soon</span></h3>
+      <div class="soon-grid">
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 5 · <code>ft_strlen</code></span><span lang="en">Class 5 · <code>ft_strlen</code></span></h4>
+          <p><span lang="es">Recorrido de memoria, invariantes, terminador y retorno <code>size_t</code>. Resultado: implementación explicable y tests comparativos completos contra <code>strlen</code>.</span><span lang="en">Memory walk, invariants, terminator and <code>size_t</code> return. Result: explainable implementation and full comparative tests against <code>strlen</code>.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 6 · <code>ft_strcpy</code> y <code>ft_strcmp</code></span><span lang="en">Class 6 · <code>ft_strcpy</code> and <code>ft_strcmp</code></span></h4>
+          <p><span lang="es">Dos punteros, retorno del <code>dst</code> original, terminador y semántica de <code>unsigned char</code>. Resultado: ambas validadas, incluidos bytes <code>&gt;= 0x80</code>.</span><span lang="en">Two pointers, returning the original <code>dst</code>, terminator and <code>unsigned char</code> semantics. Result: both validated, including bytes <code>&gt;= 0x80</code>.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 7 · Interfaz de syscalls</span><span lang="en">Class 7 · Syscall interface</span></h4>
+          <p><span lang="es">Frontera usuario/kernel, convención de registros de <code>syscall</code>, retornos negativos y <code>strace</code>. Resultado: predecir una llamada <code>read</code>/<code>write</code> y distinguir kernel de wrapper libc.</span><span lang="en">User/kernel boundary, <code>syscall</code> register convention, negative returns and <code>strace</code>. Result: predict a <code>read</code>/<code>write</code> call and tell kernel from libc wrapper.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 8 · <code>ft_write</code>, <code>ft_read</code> y <code>errno</code></span><span lang="en">Class 8 · <code>ft_write</code>, <code>ft_read</code> and <code>errno</code></span></h4>
+          <p><span lang="es">Flujo de éxito/error, <code>__errno_location</code>, thread-local storage, PLT y pila. Resultado: igualdad de retorno y <code>errno</code> frente a libc en errores reales.</span><span lang="en">Success/error flow, <code>__errno_location</code>, thread-local storage, PLT and stack. Result: return and <code>errno</code> match libc on real errors.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 9 · <code>ft_strdup</code></span><span lang="en">Class 9 · <code>ft_strdup</code></span></h4>
+          <p><span lang="es"><code>malloc</code>, llamadas anidadas, preservación de punteros, alineación y ownership. Resultado: copia independiente, sin accesos inválidos ni fugas.</span><span lang="en"><code>malloc</code>, nested calls, pointer preservation, alignment and ownership. Result: independent copy, no invalid accesses or leaks.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 10 · Makefile, tester y auditoría</span><span lang="en">Class 10 · Makefile, tester and audit</span></h4>
+          <p><span lang="es">Biblioteca incremental, PIE, símbolos, matriz de tests y simulación de defensa. Resultado: parte obligatoria cerrada antes de abrir el bonus.</span><span lang="en">Incremental library, PIE, symbols, test matrix and defense simulation. Result: mandatory part closed before opening the bonus.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 11 · Bonus: <code>ft_atoi_base</code></span><span lang="en">Class 11 · Bonus: <code>ft_atoi_base</code></span></h4>
+          <p><span lang="es">Validación de la base, búsqueda de dígitos, acumulación y descomposición del problema. Resultado: conversion probada con bases válidas e inválidas.</span><span lang="en">Base validation, digit lookup, accumulation and problem decomposition. Result: conversion tested with valid and invalid bases.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 12 · Layout de listas</span><span lang="en">Class 12 · List layout</span></h4>
+          <p><span lang="es">Estructuras en memoria, offsets, <code>malloc</code>, doble puntero, push y size. Resultado: <code>ft_list_push_front</code> y <code>ft_list_size</code> sin fugas.</span><span lang="en">Structs in memory, offsets, <code>malloc</code>, double pointer, push and size. Result: <code>ft_list_push_front</code> and <code>ft_list_size</code> without leaks.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 13 · Callbacks y ordenación</span><span lang="en">Class 13 · Callbacks and sorting</span></h4>
+          <p><span lang="es">Llamada indirecta, estado que debe sobrevivir y estrategia de ordenación. Resultado: <code>ft_list_sort</code> validado con distintos comparadores.</span><span lang="en">Indirect call, state that must survive and sorting strategy. Result: <code>ft_list_sort</code> validated with different comparators.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 14 · Eliminación segura</span><span lang="en">Class 14 · Safe removal</span></h4>
+          <p><span lang="es">Pointer-to-pointer, nodos consecutivos, ownership, callbacks y use-after-free. Resultado: <code>ft_list_remove_if</code> correcto en toda la matriz de casos.</span><span lang="en">Pointer-to-pointer, consecutive nodes, ownership, callbacks and use-after-free. Result: <code>ft_list_remove_if</code> correct across the full case matrix.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 15 · Auditoría y defensa final</span><span lang="en">Class 15 · Final audit and defense</span></h4>
+          <p><span lang="es">Ejecutar todas las pruebas, inspeccionar artefactos y responder sin memorizar frases. Resultado: entrega reproducible, explicable y ajustada al subject.</span><span lang="en">Run all tests, inspect artifacts and answer without memorized phrases. Result: a reproducible, explainable delivery, aligned with the subject.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+      </div>
+    </section>
+
+    <nav class="pager">
+      <a class="only" href="../../index.html">
+        <small data-i18n="nav.home">Inicio</small>
+        <strong data-i18n="back.project">Volver a los proyectos</strong>
+      </a>
+      <a class="next" href="clase-01.html">
+        <small data-i18n="next.class">Siguiente clase</small>
+        <strong><span lang="es">Clase 1 · representación y memoria</span><span lang="en">Class 1 · representation and memory</span></strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>

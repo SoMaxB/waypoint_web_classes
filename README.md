@@ -41,10 +41,12 @@ didactic content is static front-end served by GitHub Pages, with no server or b
 ```
 .
 ├── index.html               # Biblioteca (grid) · The Library grid
-├── <proyecto>.html          # Página de proyecto · Project page
-├── <concepto>.html          # Página de concepto · Concept page
-├── clases/<proyecto>/       # Clases publicadas · Published classes (ES/EN)
-│   ├── clase-NN.html
+├── 404.html                 # Página de error · Not found page
+├── <proyecto>.html          # Redirects raíz (URL antigua) · Root redirect stubs
+├── <concepto>.html          # Redirects raíz (URL antigua) · Root redirect stubs
+├── clases/<proyecto>/       # Contenido publicado · Published content (ES/EN)
+│   ├── index.html           # Hub del proyecto · Project hub
+│   ├── clase-NN.html        # Clases publicadas · Published classes
 │   └── glosario.html        # Glosario bilingüe · Bilingual glossary
 ├── proyectos/<proyecto>/    # Material crudo · Raw project material
 │   ├── en.subject.pdf       # Subject oficial · Official subject
