@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clase 2 · Vagrant, VM y p1 — Inception of Things</title>
+  <meta name="description" content="Cluster K3s de dos nodos con Vagrant: box, provider y provisioner; el truco del token fijo y las flags del server y del worker.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="inception_of_things/clase-02">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <input type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="index.html" data-i18n="p.inception_of_things.name">Inception of Things</a><span class="sep">/</span>
+        <span><span lang="es">Clase 2</span><span lang="en">Class 2</span></span>
+      </nav>
+
+      <h1><span lang="es">Clase 2 · Vagrant, VM y p1</span><span lang="en">Class 2 · Vagrant, VMs and p1</span></h1>
+
+      <div class="class-toolbar">
+        <label class="complete-toggle">
+          <input type="checkbox" data-complete="inception_of_things/clase-02">
+          <span data-i18n="btn.complete">Marcar clase como completada</span>
+        </label>
+        <span class="toolbar-hint mono">Vagrant · box · provisioner · K3s · node-token</span>
+      </div>
+    </div>
+
+    <div class="prose">
+
+      <!-- ============ ESPAÑOL ============ -->
+      <section lang="es">
+        <div class="objective">
+          <span class="label">Objetivo</span>
+          <p>Entender cómo se levanta un <strong>cluster K3s de dos nodos</strong> con <strong>Vagrant</strong>. Al terminar: explicar qué son el <code>Vagrantfile</code>, el <strong>provider</strong>, la <strong>box</strong> y los <strong>provisioners</strong>; unir el worker (<code>&lt;login&gt;SW</code>) al server (<code>&lt;login&gt;S</code>) <strong>sin copiar el <code>node-token</code></strong> que genera el instalador de K3s; y justificar cada flag del <code>server.sh</code> del repo.</p>
+        </div>
+
+        <h2>1. Los ficheros y las capas</h2>
+        <p>En <code>srcs/p1/</code> hay tres piezas. El <code>Vagrantfile</code> es la <strong>receta declarativa</strong>: qué máquinas se crean, con qué red y qué provisioners se ejecutan. Los scripts <code>server.sh</code> y <code>worker.sh</code> son el <strong>cocinado</strong>: qué se instala dentro de cada máquina.</p>
+        <pre class="code">Vagrant         → crea y provisiona las VMs        (orquestador de máquinas)
+  └─ server     → control-plane + API server        (&lt;login&gt;S,    192.168.56.110)
+  └─ agent      → worker                            (&lt;login&gt;SW,   192.168.56.111)</pre>
+        <div class="panel">
+          <span class="label">Los roles de cada fichero</span>
+          <table>
+            <thead><tr><th>Fichero</th><th>Rol</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">srcs/p1/Vagrantfile</td><td>Receta declarativa: 2 máquinas, IPs fijas, recursos y provisioners. Ahí vive también el token (sección 2).</td></tr>
+              <tr><td class="mono">srcs/p1/scripts/server.sh</td><td>Cocinado del server: instala K3s en modo <code>server</code> (control-plane).</td></tr>
+              <tr><td class="mono">srcs/p1/scripts/worker.sh</td><td>Cocinado del worker: instala K3s en modo <code>agent</code> y lo une al server.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2>2. El token del cluster — el truco central</h2>
+        <p>Cuando el instalador de K3s corre en modo <code>server</code>, <strong>genera un token aleatorio</strong> y lo guarda en <code>/var/lib/rancher/k3s/server/node-token</code>. El agente necesita <strong>ese mismo token</strong> para autenticarse. Copiar el fichero entre máquinas obliga a sincronizar (orden de arranque, <code>scp</code>, carpeta compartida) — frágil e innecesario. Además, aquí la synced folder está <strong>desactivada</strong>.</p>
+        <p><strong>Solución del repo: fijar el token nosotros</strong> en el <code>Vagrantfile</code> y pasárselo a ambos scripts vía <code>args</code>:</p>
+        <pre class="code">K3S_TOKEN = "iot-ravazque-k3s-token"
+
+server.vm.provision "shell", path: "scripts/server.sh", args: [SERVER_IP, K3S_TOKEN]
+worker.vm.provision "shell", path: "scripts/worker.sh", args: [SERVER_IP, WORKER_IP, K3S_TOKEN]</pre>
+        <p>Por qué funciona: el instalador de K3s respeta la variable de entorno <strong><code>K3S_TOKEN</code></strong> — si existe, no genera uno aleatorio. Server y worker se provisionan con el <strong>mismo valor</strong>, así que el agente autentica <strong>sin copiar ficheros</strong> y <strong>sin depender del orden de arranque</strong>.</p>
+        <div class="panel">
+          <span class="label">Ojo</span>
+          <p>Este token es de laboratorio, <strong>no un secreto real</strong>. En producción, <code>K3S_TOKEN</code> vendría de un gestor de secretos, no escrito en un <code>Vagrantfile</code>.</p>
+        </div>
+
+        <h2>3. Resolver la interfaz desde la IP — el detalle clave</h2>
+        <p>El nombre de la NIC de la red privada <strong>cambia según el provider</strong> (libvirt/KVM → <code>eth1</code>…, VirtualBox → <code>enp0s8</code>…). Si se hardcodea, solo funciona en una máquina. Como la IP privada <strong>sí la fijamos nosotros</strong>, se resuelve la interfaz a partir de ella:</p>
+        <pre class="code">IFACE="$(ip -o -4 addr show | grep -w "${SERVER_IP}" | awk '{print $2}' | head -n1)"</pre>
+        <p>Desglose del pipeline:</p>
+        <ul>
+          <li><code>ip -o -4 addr show</code> — una línea por interfaz, solo IPv4.</li>
+          <li><code>grep -w "${SERVER_IP}"</code> — solo la línea con nuestra IP (coincidencia exacta).</li>
+          <li><code>awk '{print $2}'</code> — extrae el nombre de la interfaz.</li>
+          <li><code>head -n1</code> — defensivo; se queda con la primera.</li>
+        </ul>
+        <p>Ese nombre se pasa a K3s como <code>--flannel-iface</code>: la interfaz por la que la red de Pods (flannel) se comunica entre nodos.</p>
+
+        <h2>4. Flags del server — para qué sirve cada una</h2>
+        <p>Con el <code>IFACE</code> resuelto, el server se instala así (snippet real del repo):</p>
+        <pre class="code">curl -sfL https://get.k3s.io | K3S_TOKEN="${TOKEN}" INSTALL_K3S_EXEC="server \
+  --node-ip=${SERVER_IP} \
+  --advertise-address=${SERVER_IP} \
+  --flannel-iface=${IFACE} \
+  --tls-san=${SERVER_IP} \
+  --write-kubeconfig-mode=644" sh -</pre>
+        <table>
+          <thead><tr><th>Flag</th><th>Qué hace</th><th>Sin ella…</th></tr></thead>
+          <tbody>
+            <tr><td><code>--node-ip</code></td><td>IP con la que el kubelet se <strong>registra como nodo</strong>.</td><td>se registra con la NAT (<code>10.0.2.x</code>); server y worker quedan en mundos separados y flannel se rompe.</td></tr>
+            <tr><td><code>--advertise-address</code></td><td>IP que el <strong>API server anuncia</strong> para que los clientes se conecten.</td><td>anuncia una IP mala y los clientes no llegan.</td></tr>
+            <tr><td><code>--flannel-iface</code></td><td>interfaz de la <strong>red de Pods</strong> (CNI/flannel).</td><td>apunta a la NAT; los nodos no se ven entre sí.</td></tr>
+            <tr><td><code>--tls-san</code></td><td>IP extra incluida en el <strong>certificado</strong> del API server.</td><td>el worker falla al validar el cert (<code>x509 … no IP SANs</code>).</td></tr>
+            <tr><td><code>--write-kubeconfig-mode=644</code></td><td>kubeconfig legible para todos.</td><td><code>vagrant</code> no puede leer <code>/etc/rancher/k3s/k3s.yaml</code> sin <code>sudo</code>.</td></tr>
+          </tbody>
+        </table>
+        <p>El <code>server.sh</code> remata con un <code>export KUBECONFIG=/etc/rancher/k3s/k3s.yaml</code> añadido al <code>.bashrc</code> del usuario: <code>kubectl</code> funciona sin <code>sudo</code> ni flags raros. No se usa <code>--bind-address</code>: por defecto el API server también escucha en <code>127.0.0.1</code>, y el <code>kubectl</code> local del server funciona.</p>
+
+        <h2>5. El worker — un solo concepto nuevo</h2>
+        <p>En el worker solo hay una idea nueva: <code>K3S_URL</code>.</p>
+        <pre class="code">curl -sfL https://get.k3s.io | \
+  K3S_URL="https://192.168.56.110:6443" \
+  K3S_TOKEN="${TOKEN}" \
+  INSTALL_K3S_EXEC="agent \
+    --node-ip=192.168.56.111 \
+    --flannel-iface=${IFACE}" sh -</pre>
+        <p><code>K3S_URL</code> le dice al instalador que cree el servicio <strong><code>k3s-agent</code></strong> (y no <code>k3s</code>), y con <code>K3S_TOKEN</code> usa el token fijado en vez de generar otro. El agente es un cliente simple: se conecta a la URL, <strong>valida el certificado</strong> del server y se registra con <code>--node-ip</code>. No lleva <code>--advertise-address</code> ni <code>--tls-san</code>.</p>
+
+        <h2>Predicciones y ejercicios</h2>
+
+        <h3>Ejercicio 2.1 — El token del cluster</h3>
+        <p>Estás solo con el <code>Vagrantfile</code> y los scripts. ¿Cómo consigue <code>&lt;login&gt;SW</code> el token sin copiar el <code>node-token</code>? ¿Qué problema elimina esa elección?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p><strong>Forma A (sincronizar):</strong> esperar a que el server escriba <code>/var/lib/rancher/k3s/server/node-token</code> y copiarlo (<code>scp</code>/SSH). Problemas: <strong>depende del orden de arranque</strong> y la carpeta compartida está desactivada.</p>
+              <p><strong>Forma B (token fijo):</strong> definir el token en el <code>Vagrantfile</code> y pasárselo a ambos scripts con <code>args</code>. El instalador usa la env <code>K3S_TOKEN</code> y no genera otro. Sin copias, sin orden.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Ejercicio 2.2 — La interfaz de red</h3>
+        <p>¿Por qué no escribir directamente <code>--flannel-iface=eth1</code> en ambos scripts?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>El nombre de la NIC privada lo decide el <strong>provider</strong>: libvirt la llama <code>eth1</code>, VirtualBox <code>enp0s8</code>… Si se hardcodea, solo funciona en una máquina. La IP privada la fijamos nosotros, así que se resuelve la interfaz con el pipeline <code>ip -o -4 addr show | grep -w "$IP" | awk '{print $2}'</code>: el mismo código vale en ambos providers.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Ejercicio 2.4 — Diagnosticar "worker NotReady"</h3>
+        <p><code>vagrant up</code> terminó, pero <code>kubectl get nodes</code> solo muestra <code>&lt;login&gt;S</code> <code>Ready</code>; <code>&lt;login&gt;SW</code> está en <code>NotReady</code>. Orden de sospechas — de más probable a más rara:</p>
+        <table>
+          <thead><tr><th>#</th><th>Sospecha</th><th>Qué lo confirma (o lo descarta)</th><th>Comando</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td><strong>Flannel / interfaz</strong></td><td>El worker se registró con la IP de la NAT (<code>10.0.2.x</code>) en vez de <code>192.168.56.111</code>.</td><td class="mono">kubectl get nodes -o wide · journalctl -u k3s-agent -n 50 · ip -o -4 addr show</td></tr>
+            <tr><td>2</td><td><strong>Token</strong></td><td>El agente no autentica (HTTP 401).</td><td class="mono">journalctl -u k3s-agent | grep -i token</td></tr>
+            <tr><td>3</td><td><strong>Certificado / TLS SAN</strong></td><td>El agente no valida el cert ("cannot validate certificate for 192.168.56.110").</td><td class="mono">journalctl -u k3s-agent | grep x509</td></tr>
+            <tr><td>4</td><td><strong>Firewall / red</strong></td><td>No se llega al puerto 6443 del server.</td><td class="mono">nc -zv 192.168.56.110 6443</td></tr>
+          </tbody>
+        </table>
+        <div class="panel">
+          <span class="label">Orden mental</span>
+          <p><strong>flannel → token → certificado → firewall.</strong> <code>kubectl get nodes -o wide</code> separa «IP mal puesta» de «nodo sano» en un segundo.</p>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Errores frecuentes</span>
+          <ul>
+            <li>Creer que el worker "pide" el token al server en tiempo de ejecución → se pasa por <strong>env <code>K3S_TOKEN</code></strong> en los provisioners, constante en el <code>Vagrantfile</code>.</li>
+            <li>Hardcodear la NIC privada en los scripts → se rompe en otro provider.</li>
+            <li>Confundir <code>--node-ip</code> (con qué IP se <strong>registra</strong> el nodo) con <code>--advertise-address</code> (con qué IP se <strong>anuncia</strong> el API server).</li>
+            <li>Pensar que <code>--tls-san</code> es una opción del <strong>cliente</strong>; en realidad rellena las IPs/hostnames del API server en el cert que el agente (y <code>kubectl</code> remoto) validan.</li>
+            <li>Diagnosticar el worker leyendo el <strong>server</strong>: el log que importa vive en el propio worker (<code>journalctl -u k3s-agent</code>).</li>
+          </ul>
+        </div>
+
+        <h2>Preguntas tipo defensa</h2>
+        <p>Responde en voz alta, sin mirar los apuntes:</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>¿Cómo se une <code>&lt;login&gt;SW</code> a <code>&lt;login&gt;S</code> sin copiar el <code>node-token</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>¿Qué tendrías que cambiar para añadir un tercer worker <code>&lt;login&gt;SW2</code> con <code>192.168.56.112</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>Sin <code>--tls-san</code>, ¿qué error verías en el worker y dónde lo diagnosticas?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>¿Por qué no se puede hardcodear <code>eth1</code> como <code>--flannel-iface</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d5"><span><code>kubectl get nodes</code> da el worker <code>NotReady</code>: ¿cuál es tu primer comando y por qué?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d6"><span>¿Por qué <code>--write-kubeconfig-mode=644</code> + el <code>export KUBECONFIG</code> del <code>.bashrc</code> evitan el <code>sudo</code>?</span></label>
+        </div>
+
+        <h2>Criterio de finalización</h2>
+        <p>La clase está completada cuando puedes, sin apuntes:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Explicar las dos VMs del <code>Vagrantfile</code> (box, <code>private_network</code>, provisioners, provider).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Explicar la unión del worker con el token fijo del <code>Vagrantfile</code> (ejercicio 2.1).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Pintar de memoria el pipeline <code>IFACE</code> y por qué no se hardcodea la NIC (ejercicio 2.2).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Justificar cada flag del <code>server.sh</code> (<code>node-ip</code>, <code>advertise-address</code>, <code>flannel-iface</code>, <code>tls-san</code>, <code>kubeconfig-644</code>).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Diagnosticar el worker <code>NotReady</code> en orden (flannel → token → TLS → firewall), con sus comandos (ejercicio 2.4).</span></label></li>
+        </ol>
+
+        <h2>Has aprendido que</h2>
+        <ul>
+          <li>Vagrant es una <strong>receta declarativa</strong> (<code>provider</code>, <code>box</code>, <code>provisioner</code>) que crea y provisiona las VMs; los scripts son la ejecución dentro de cada VM.</li>
+          <li>El <code>K3S_TOKEN</code> fijo hace la unión server–worker <strong>sin copiar el token generado</strong> y sin depender del orden.</li>
+          <li>La interfaz de flannel se <strong>descubre de la IP</strong>, no se hardcode: el mismo código vale para libvirt y VirtualBox.</li>
+          <li>Cada flag del <code>server.sh</code> cubre una capa: registro del nodo, anuncio del API server, CNI, certificado y kubeconfig.</li>
+          <li><code>kubectl get nodes -o wide</code> es la primera prueba: si ambas IPs son las privadas (<code>.110</code>/<code>.111</code>), la unión fue limpia.</li>
+        </ul>
+
+        <p><strong>Siguiente clase:</strong> la clase 3 entra en <strong>Kubernetes básico y p2</strong>: deployments, servicios, replicas e Ingress; cómo una sola IP (<code>192.168.56.110</code>) sirve tres aplicaciones según el <code>Host</code> header.</p>
+      </section>
+
+      <!-- ============ ENGLISH ============ -->
+      <section lang="en">
+        <div class="objective">
+          <span class="label">Objective</span>
+          <p>Understand how a <strong>two-node K3s cluster</strong> is brought up with <strong>Vagrant</strong>. By the end: explain the <code>Vagrantfile</code>, the <strong>provider</strong>, the <strong>box</strong> and the <strong>provisioners</strong>; join the worker (<code>&lt;login&gt;SW</code>) to the server (<code>&lt;login&gt;S</code>) <strong>without copying the K3s-generated <code>node-token</code></strong>; and justify every flag in the repo's <code>server.sh</code>.</p>
+        </div>
+
+        <h2>1. The files and the layers</h2>
+        <p>In <code>srcs/p1/</code> there are three pieces. The <code>Vagrantfile</code> is the <strong>declarative recipe</strong>: which machines are created, with which network and IPs, and which provisioners run. The <code>server.sh</code> and <code>worker.sh</code> scripts are the <strong>cooking</strong>: what gets installed inside each machine.</p>
+        <pre class="code">Vagrant           → creates and provisions the VMs   (machine orchestrator)
+  └─ server       → control-plane + API server       (&lt;login&gt;S,    192.168.56.110)
+  └─ agent        → worker                           (&lt;login&gt;SW,   192.168.56.111)</pre>
+        <div class="panel">
+          <span class="label">Roles of the files</span>
+          <table>
+            <thead><tr><th>File</th><th>Role</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">srcs/p1/Vagrantfile</td><td>Declarative recipe: 2 machines, fixed IPs and provisioners. It also pins the token (section 2).</td></tr>
+              <tr><td class="mono">srcs/p1/scripts/server.sh</td><td>Server cooking: installs K3s in <code>server</code> (control-plane) mode.</td></tr>
+              <tr><td class="mono">srcs/p1/scripts/worker.sh</td><td>Worker cooking: installs K3s in <code>agent</code> mode and joins it to the server.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2>2. The cluster token — the central trick</h2>
+        <p>When the K3s installer runs in <code>server</code> mode it <strong>generates a random token</strong> at <code>/var/lib/rancher/k3s/server/node-token</code>. The agent needs <strong>that same token</strong> to authenticate. Copying the file between machines forces sync (boot order, <code>scp</code>, shared folder) — fragile and unnecessary. Here the synced folder is even <strong>disabled</strong>.</p>
+        <p><strong>Repo solution: pin the token ourselves</strong> in the <code>Vagrantfile</code> and pass it to both scripts via <code>args</code>:</p>
+        <pre class="code">K3S_TOKEN = "iot-ravazque-k3s-token"
+
+server.vm.provision "shell", path: "scripts/server.sh", args: [SERVER_IP, K3S_TOKEN]
+worker.vm.provision "shell", path: "scripts/worker.sh", args: [SERVER_IP, WORKER_IP, K3S_TOKEN]</pre>
+        <p>Why it works: the K3s installer honors the <code>K3S_TOKEN</code> environment variable — when present, it does not generate a random one. Server and worker are provisioned with the <strong>same value</strong>, so the agent authenticates <strong>with no file copying</strong> and <strong>no dependency on boot order</strong>.</p>
+        <div class="panel">
+          <span class="label">Heads up</span>
+          <p>This is a lab token, <strong>not a real secret</strong>. In production, <code>K3S_TOKEN</code> would come from a secrets manager, not a <code>Vagrantfile</code>.</p>
+        </div>
+
+        <h2>3. Resolving the interface from the IP — the key detail</h2>
+        <p>The private NIC name <strong>changes per provider</strong> (libvirt/KVM → <code>eth1</code>…, VirtualBox → <code>enp0s8</code>…). Hardcoding it works on only one machine. Since the private IP <strong>is something we fix ourselves</strong>, the interface is resolved from it:</p>
+        <pre class="code">IFACE="$(ip -o -4 addr show | grep -w "${SERVER_IP}" | awk '{print $2}' | head -n1)"</pre>
+        <p>Pipeline breakdown:</p>
+        <ul>
+          <li><code>ip -o -4 addr show</code> — one line per interface, IPv4 only.</li>
+          <li><code>grep -w "${SERVER_IP}"</code> — only the line with our IP (whole-word match).</li>
+          <li><code>awk '{print $2}'</code> — extracts the interface name.</li>
+          <li><code>head -n1</code> — defensive; keeps the first one.</li>
+        </ul>
+        <p>That name goes to K3s as <code>--flannel-iface</code>: the interface over which the Pod network (flannel) talks between nodes.</p>
+
+        <h2>4. Server flags — what each one is for</h2>
+        <p>With <code>IFACE</code> resolved, the server is installed like this (real snippet from the repo):</p>
+        <pre class="code">curl -sfL https://get.k3s.io | K3S_TOKEN="${TOKEN}" INSTALL_K3S_EXEC="server \
+  --node-ip=${SERVER_IP} \
+  --advertise-address=${SERVER_IP} \
+  --flannel-iface=${IFACE} \
+  --tls-san=${SERVER_IP} \
+  --write-kubeconfig-mode=644" sh -</pre>
+        <table>
+          <thead><tr><th>Flag</th><th>What it does</th><th>Without it…</th></tr></thead>
+          <tbody>
+            <tr><td><code>--node-ip</code></td><td>IP the kubelet <strong>registers as a node</strong>.</td><td>registers with the NAT (<code>10.0.2.x</code>); server and worker live in disjoint worlds and flannel breaks.</td></tr>
+            <tr><td><code>--advertise-address</code></td><td>IP the <strong>API server advertises</strong> for clients to reach.</td><td>advertises a bad IP; clients cannot connect.</td></tr>
+            <tr><td><code>--flannel-iface</code></td><td>interface of the <strong>Pod network</strong> (CNI/flannel).</td><td>points at the NAT; the nodes cannot see each other.</td></tr>
+            <tr><td><code>--tls-san</code></td><td>extra IP in the <strong>API server certificate</strong>.</td><td>the worker fails to validate the cert (<code>x509 … no IP SANs</code>).</td></tr>
+            <tr><td><code>--write-kubeconfig-mode=644</code></td><td>readable kubeconfig for every user.</td><td><code>vagrant</code> cannot read <code>/etc/rancher/k3s/k3s.yaml</code> without <code>sudo</code>.</td></tr>
+          </tbody>
+        </table>
+        <p><code>server.sh</code> also appends <code>export KUBECONFIG=/etc/rancher/k3s/k3s.yaml</code> to the user's <code>.bashrc</code>: <code>kubectl</code> works without <code>sudo</code> or extra flags. No <code>--bind-address</code> is needed: by default the API server also listens on <code>127.0.0.1</code>, so the server's local <code>kubectl</code> works.</p>
+
+        <h2>5. The worker — only one new concept</h2>
+        <p>On the worker there is only one new idea: <code>K3S_URL</code>.</p>
+        <pre class="code">curl -sfL https://get.k3s.io | \
+  K3S_URL="https://192.168.56.110:6443" \
+  K3S_TOKEN="${TOKEN}" \
+  INSTALL_K3S_EXEC="agent \
+    --node-ip=192.168.56.111 \
+    --flannel-iface=${IFACE}" sh -</pre>
+        <p><code>K3S_URL</code> tells the installer to create the <strong><code>k3s-agent</code></strong> service (not <code>k3s</code>), and <code>K3S_TOKEN</code> uses the pinned token instead of generating another. The agent is a simple client: it connects to the URL, <strong>validates the server's certificate</strong> and registers with <code>--node-ip</code>. No <code>--advertise-address</code>, no <code>--tls-san</code>.</p>
+
+        <h2>Predictions and exercises</h2>
+
+        <h3>Exercise 2.1 — The cluster token</h3>
+        <p>You are alone with the <code>Vagrantfile</code> and the scripts. How does <code>&lt;login&gt;SW</code> get the token without copying <code>node-token</code>? Which problem does that choice remove?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p><strong>Option A (sync):</strong> wait for the server to write <code>/var/lib/rancher/k3s/server/node-token</code> and copy it (<code>scp</code>/SSH). Problems: <strong>boot-order dependent</strong>, and the shared folder is disabled.</p>
+              <p><strong>Option B (fixed token):</strong> define the token in the <code>Vagrantfile</code> and pass it to both scripts via <code>args</code>. The installer honors <code>K3S_TOKEN</code> and does not generate one. No copies, no ordering.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Exercise 2.2 — The network interface</h3>
+        <p>Why not write <code>--flannel-iface=eth1</code> directly in both scripts?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>The private NIC name is chosen by the <strong>provider</strong>: libvirt calls it <code>eth1</code>, VirtualBox <code>enp0s8</code>… Hardcoding it works on only one machine. We fix the private IP ourselves, so the interface is resolved with the pipeline <code>ip -o -4 addr show | grep -w "$IP" | awk '{print $2}'</code> — the same code works on both providers.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Exercise 2.4 — Diagnosing a "worker NotReady"</h3>
+        <p><code>vagrant up</code> finished, but <code>kubectl get nodes</code> shows only <code>&lt;login&gt;S</code> <code>Ready</code>; <code>&lt;login&gt;SW</code> is <code>NotReady</code>. Order of suspects, most likely first:</p>
+        <table>
+          <thead><tr><th>#</th><th>Suspect</th><th>What confirms (or rules out) it</th><th>Command</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td><strong>Flannel / interface</strong></td><td>The worker registered a NAT IP (<code>10.0.2.x</code>) instead of <code>192.168.56.111</code>.</td><td class="mono">kubectl get nodes -o wide · journalctl -u k3s-agent -n 50 · ip -o -4 addr show</td></tr>
+            <tr><td>2</td><td><strong>Token</strong></td><td>The agent cannot authenticate (HTTP 401).</td><td class="mono">journalctl -u k3s-agent | grep -i token</td></tr>
+            <tr><td>3</td><td><strong>Certificate / TLS SAN</strong></td><td>The agent fails cert validation ("cannot validate certificate for 192.168.56.110").</td><td class="mono">journalctl -u k3s-agent | grep x509</td></tr>
+            <tr><td>4</td><td><strong>Firewall / network</strong></td><td>Port 6443 on the server is unreachable.</td><td class="mono">nc -zv 192.168.56.110 6443</td></tr>
+          </tbody>
+        </table>
+        <div class="panel">
+          <span class="label">Mental order</span>
+          <p><strong>flannel → token → certificate → firewall.</strong> <code>kubectl get nodes -o wide</code> tells "wrong IP" from "healthy node" in one second.</p>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Frequent mistakes</span>
+          <ul>
+            <li>Thinking the agent "asks" the server for the token at runtime → it is passed via the <code>K3S_TOKEN</code> env in the provisioners, pinned in the <code>Vagrantfile</code>.</li>
+            <li>Hardcoding the private NIC in the scripts → breaks on another provider.</li>
+            <li>Confusing <code>--node-ip</code> (which IP the node <strong>registers as</strong>) with <code>--advertise-address</code> (which IP the API server <strong>announces</strong>).</li>
+            <li>Thinking <code>--tls-san</code> is a <strong>client-side</strong> option; it actually fills the API server's certificate SANs that the agent (and remote <code>kubectl</code>) validate.</li>
+            <li>Diagnosing the worker by reading the <strong>server</strong>: the answer lives in the worker's own <code>journalctl -u k3s-agent</code>.</li>
+          </ul>
+        </div>
+
+        <h2>Defense-style questions</h2>
+        <p>Answer out loud, without notes:</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>How does <code>&lt;login&gt;SW</code> join <code>&lt;login&gt;S</code> without copying the <code>node-token</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>What would you change to add a third worker <code>&lt;login&gt;SW2</code> at <code>192.168.56.112</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>Without <code>--tls-san</code>, what error would you see on the worker, and where do you diagnose it?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>Why can't you hardcode <code>eth1</code> as <code>--flannel-iface</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d5"><span><code>kubectl get nodes</code> shows the worker <code>NotReady</code>: your first command and why?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d6"><span>Why do <code>--write-mode=644</code> + the <code>KUBECONFIG</code> export in <code>.bashrc</code> avoid <code>sudo</code>?</span></label>
+        </div>
+
+        <h2>Completion criteria</h2>
+        <p>The class is complete when, without notes, you can:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Explain the two VMs in the <code>Vagrantfile</code> (box, <code>private_network</code>, provisioners, provider).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Explain the worker join with the fixed <code>Vagrantfile</code> token (exercise 2.1).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Draw from memory the <code>IFACE</code> pipeline and why the NIC is not hardcoded (exercise 2.2).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Justify every <code>server.sh</code> flag (<code>node-ip</code>, <code>advertise-address</code>, <code>flannel-iface</code>, <code>tls-san</code>, <code>kubeconfig-644</code>).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Diagnose the <code>NotReady</code> worker in order (flannel → token → TLS → firewall), with its commands (exercise 2.4).</span></label></li>
+        </ol>
+
+        <h2>You have learned that</h2>
+        <ul>
+          <li>Vagrant is a <strong>declarative recipe</strong> (<code>provider</code>, <code>box</code>, <code>provisioner</code>) that creates and provisions the VMs; the modules run inside each VM.</li>
+          <li>The pinned <code>K3S_TOKEN</code> joins server and worker <strong>without copying the generated token</strong> and without boot-order dependencies.</li>
+          <li>The flannel interface is <strong>derived from the IP</strong>, not hardcoded: the same code works on libvirt and VirtualBox.</li>
+          <li>Each <code>server.sh</code> flag covers one layer: node registration, API advertisement, CNI interface, certificate, kubeconfig.</li>
+          <li><code>kubectl get nodes -o wide</code> is the first proof: if both IPs are the private ones (<code>.110</code>/<code>.111</code>), the join was clean.</li>
+        </ul>
+
+        <p><strong>Next class:</strong> class 3 dives into <strong>basic Kubernetes and p2</strong>: deployments, services, replicas and Ingress; how a single IP (<code>192.168.56.110</code>) serves three apps based on the <code>Host</code> header.</p>
+      </section>
+    </div>
+
+    <nav class="pager">
+      <a href="clase-01.html">
+        <small data-i18n="prev.class">Clase anterior</small>
+        <strong><span lang="es">Clase 1 · Subject y mapa mental</span><span lang="en">Class 1 · Subject and mental map</span></strong>
+      </a>
+      <a class="next" href="index.html">
+        <small data-i18n="back.project">Volver al proyecto</small>
+        <strong data-i18n="p.inception_of_things.name">Inception of Things</strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>
