@@ -13,6 +13,7 @@
     es: {
       "nav.home": "Inicio",
       "search.ph": "Buscar…",
+      "search.label": "Buscar proyecto",
       "lang": "EN",
       "gh.star": "Estrella",
       "hero.kicker": "web_classes · estudio por proyectos",
@@ -75,6 +76,7 @@
     en: {
       "nav.home": "Home",
       "search.ph": "Search…",
+      "search.label": "Search project",
       "lang": "ES",
       "gh.star": "Star",
       "hero.kicker": "web_classes · learning by projects",

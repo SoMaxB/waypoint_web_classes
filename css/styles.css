@@ -128,6 +128,17 @@ body::after {
   box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.12);
 }
 .search-wrap.hidden-sm { visibility: hidden; pointer-events: none; }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
 
 .header-actions { display: flex; align-items: center; gap: 12px; }
 .gh-link {
