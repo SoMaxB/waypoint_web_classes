@@ -72,7 +72,7 @@
 
 <section class="proj-sub prose">
       <h2 data-i18n="classes.title">Clases</h2>
-      <p class="note"><span lang="es">Este es el plan de las 6 clases. Las clases 1 y 2 ya están publicadas; el resto irá apareciendo aquí con la misma dinámica interactiva que Libasm.</span><span lang="en">This is the plan for the 6 classes. Classes 1 and 2 are already published; the rest will appear here with the same interactive dynamic as Libasm.</span></p>
+      <p class="note"><span lang="es">Este es el plan de las 6 clases. Las clases 1, 2 y 3 ya están publicadas; el resto irá apareciendo aquí con la misma dinámica interactiva que Libasm.</span><span lang="en">This is the plan for the 6 classes. Classes 1, 2 and 3 are already published; the rest will appear here with the same interactive dynamic as Libasm.</span></p>
       <p class="note"><span lang="es">Marca cada clase al completarla; el progreso se actualiza aquí y en la portada.</span><span lang="en">Mark each class when complete; progress updates here and on the front page.</span></p>
 
       <div class="class-list">
@@ -98,16 +98,21 @@
             <span class="status" data-status-for="inception_of_things/clase-02" data-i18n="btn.complete">Marcar clase como completada</span>
           </label>
         </div>
+        <div class="class-row">
+          <span class="num">03</span>
+          <span class="info">
+            <a href="clase-03.html"><h4><span lang="es">Kubernetes básico y p2</span><span lang="en">Basic Kubernetes and p2</span></h4></a>
+            <p><span lang="es">Cómo Kubernetes ejecuta tres aplicaciones y las expone con Ingress. Conceptos: ConfigMap, Deployment, ReplicaSet, Pod, labels y selectors, Service <code>ClusterIP</code>, Ingress y Traefik, Host header, replicas y balanceo. Práctica: seguir <code>curl -H "Host: app2.com" http://192.168.56.110</code> desde el host hasta un Pod.</span><span lang="en">How Kubernetes runs three apps and exposes them with Ingress. Concepts: ConfigMap, Deployment, ReplicaSet, Pod, labels and selectors, <code>ClusterIP</code> Service, Ingress and Traefik, Host header, replicas and load balancing. Practice: trace <code>curl -H "Host: app2.com" http://192.168.56.110</code> from the host to a Pod.</span></p>
+          </span>
+          <label class="complete-toggle">
+            <input type="checkbox" data-complete="inception_of_things/clase-03">
+            <span class="status" data-status-for="inception_of_things/clase-03" data-i18n="btn.complete">Marcar clase como completada</span>
+          </label>
+        </div>
       </div>
 
       <h3 class="soon-heading"><span lang="es">Próximamente</span><span lang="en">Coming soon</span></h3>
       <div class="soon-grid">
-
-        <div class="soon-card">
-          <h4><span lang="es">Clase 3 · Kubernetes básico y p2</span><span lang="en">Class 3 · Basic Kubernetes and p2</span></h4>
-          <p><span lang="es">Cómo Kubernetes ejecuta tres aplicaciones y las expone con Ingress. Conceptos: ConfigMap, Deployment, ReplicaSet, Pod, labels y selectors, Service <code>ClusterIP</code>, Ingress y Traefik, Host header, replicas y balanceo. Práctica: seguir <code>curl -H "Host: app2.com" http://192.168.56.110</code> desde el host hasta un Pod.</span><span lang="en">How Kubernetes runs three apps and exposes them with Ingress. Concepts: ConfigMap, Deployment, ReplicaSet, Pod, labels and selectors, <code>ClusterIP</code> Service, Ingress and Traefik, Host header, replicas and load balancing. Practice: trace <code>curl -H "Host: app2.com" http://192.168.56.110</code> from the host to a Pod.</span></p>
-          <span class="badge amber" data-i18n="status.coming">En preparación</span>
-        </div>
 
         <div class="soon-card">
           <h4><span lang="es">Clase 4 · K3d, Argo CD y GitOps con p3</span><span lang="en">Class 4 · K3d, Argo CD and GitOps with p3</span></h4>
