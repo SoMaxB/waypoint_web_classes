@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clase 6 · Defensa y troubleshooting — Inception of Things</title>
+  <meta name="description" content="Orden de demostración del proyecto completo, qué enseñar y justificar en cada parte, y diagnóstico de los 7 escenarios: worker NotReady, connection refused, 404/502/503, OutOfSync/ComparisonError, GitLab lento y Docker parado.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="inception_of_things/clase-06">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <label class="visually-hidden" for="site-search" data-i18n="search.label">Buscar proyecto</label>
+        <input id="site-search" type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="index.html" data-i18n="p.inception_of_things.name">Inception of Things</a><span class="sep">/</span>
+        <span><span lang="es">Clase 6</span><span lang="en">Class 6</span></span>
+      </nav>
+
+      <h1><span lang="es">Clase 6 · Defensa y troubleshooting</span><span lang="en">Class 6 · Defense and troubleshooting</span></h1>
+
+      <div class="class-toolbar">
+        <label class="complete-toggle">
+          <input type="checkbox" data-complete="inception_of_things/clase-06">
+          <span data-i18n="btn.complete">Marcar clase como completada</span>
+        </label>
+        <span class="toolbar-hint mono">p1 · p2 · p3 · bonus · kubectl · journalctl</span>
+      </div>
+    </div>
+
+    <div class="prose">
+
+      <!-- ============ ESPAÑOL ============ -->
+      <section lang="es">
+        <div class="objective">
+          <span class="label">Objetivo</span>
+          <p>Cerrar el curso integrando todo: defender el proyecto completo <strong>en orden</strong>, saber qué enseñar y justificar en cada parte, y diagnosticar los fallos que un evaluador puede provocar o que ocurren en vivo. Al terminar, pasar de "reproducir comandos" a <strong>explicar el porqué detrás de cada capa</strong>.</p>
+        </div>
+
+        <h2>1. La regla de oro de la defensa</h2>
+        <div class="panel">
+          <span class="label">Punto de partida</span>
+          <p>El evaluador tiene el subject delante y <strong>tu repo</strong>. La evaluación se hace en tu máquina, en vivo. Todo lo que muestres debe salir de ejecutar el repo desde cero.</p>
+        </div>
+        <ul>
+          <li><strong>Reproducibilidad por encima de todo:</strong> cada parte tiene un solo comando de arranque, un solo comando de verificación y un solo comando de limpieza. Si "funciona pero no sé por qué", es un riesgo; si "falla pero lo sé diagnosticar", es un punto a favor.</li>
+          <li><strong>No leas de los apuntes:</strong> cada verificación debe poder explicarse con una frase (qué mando y qué espero).</li>
+          <li><strong>Nombra las decisiones de diseño:</strong> en cada parte hay decisiones llamativas (equivalen a "¿por qué está hecho así?" del evaluador).</li>
+        </ul>
+
+        <h2>2. Orden recomendado de demostración</h2>
+        <pre class="code">1. p1   → 2 nodos K3s con Vagrant, prueba de unión
+2. p2   → 3 apps + Ingress, prueba del balanceo
+3. p3   → K3d + Argo CD + GitHub, prueba v1→v2
+4. bonus→ GitLab local, prueba del repoURL + v1→v2 desde GitLab   (si aplica)</pre>
+        <p>Es el mismo orden del subject (IV.1 → IV.2 → IV.3 → V). Cada parte <strong>deja el entorno vivo</strong> para la siguiente cuando aplica (bonus reusa el cluster de p3; p2 comparte la IP 110 con p1; pero ojo: p1 y p2 no pueden convivir encendidas si faltan recursos — el README del bonus pide <code>vagrant destroy -f</code> de p1/p2 antes de bonus).</p>
+        <table>
+          <thead><tr><th>Parte</th><th>Qué demostrar</th><th>Comando de prueba estrella</th></tr></thead>
+          <tbody>
+            <tr><td><strong>p1</strong></td><td>2 VMs, cluster de 2 nodos</td><td class="mono">kubectl get nodes -o wide (2 nodos Ready, names lowercase)</td></tr>
+            <tr><td><strong>p2</strong></td><td>Una IP, 3 apps por Host header</td><td class="mono">curl -H "Host: app2.com" http://192.168.56.110 en bucle (balanceo)</td></tr>
+            <tr><td><strong>p3</strong></td><td>GitOps desde GitHub</td><td class="mono">cat deployment.yaml | grep v1 + curl localhost:8888 → v1</td></tr>
+            <tr><td><strong>bonus</strong></td><td>GitOps desde GitLab local</td><td class="mono">kubectl get application playground -o jsonpath='{.spec.source.repoURL}' (URL GitLab)</td></tr>
+          </tbody>
+        </table>
+
+        <h2>3. Qué enseñar en cada parte (+ justificaciones)</h2>
+
+        <h3>3.1 p1 — K3s y Vagrant</h3>
+        <p><strong>Qué enseñar:</strong> el Vagrantfile (2 VM, <code>config.vm.define</code>, red privada fija, box <code>generic/ubuntu2204</code>), el token compartido en vez de copiar el <code>node-token</code>, y los flags de K3s.</p>
+        <p><strong>Decisiones a justificar:</strong></p>
+        <ul>
+          <li><strong>Token fijo en el Vagrantfile</strong>: el worker se une <strong>sin leer el fichero <code>node-token</code></strong> generado por K3s (<code>/var/lib/rancher/k3s/server/node-token</code>). Se define un token igual en ambos y se pasa por variable de entorno.</li>
+          <li><strong><code>--flannel-iface</code> resuelto por IP, no hardcodeado</strong>: el NIC de la red privada se llama distinto según provider (<code>eth1</code>, <code>enp0s8</code>...), así que se busca la interfaz a partir de la IP fija (<code>ip -o -4 addr show | grep -w $IP</code>).</li>
+          <li><strong><code>--node-ip</code>, <code>--advertise-address</code>, <code>--tls-san</code>, <code>--write-kubeconfig-mode=644</code></strong>: cada flag resuelve un problema real (saber "sin él qué pasa/no funciona").</li>
+          <li><strong>Synced folders deshabilitadas</strong>: los provisioners <code>file</code>/<code>shell</code> suben lo que el guest necesita; no existe <code>/vagrant</code>.</li>
+        </ul>
+        <p><strong>Verificación:</strong> <code>vagrant ssh ravazqueS -c "kubectl get nodes -o wide"</code> → <code>ravazques</code> y <code>ravazquesw</code>, ambos <code>Ready</code>. <strong>No hace falta pedir permiso</strong>: la verificación se hace pidiendo "demuestre 2 nodos".</p>
+
+        <h3>3.2 p2 — 3 apps + Ingress</h3>
+        <p><strong>Qué enseñar:</strong> los 3 objetos de cada <code>appN.yaml</code> (ConfigMap = configuración/página, Deployment → ReplicaSet → Pod, Service ClusterIP), labels/selectors, y la regla del Ingress <strong>sin host</strong> para app3.</p>
+        <p><strong>Decisiones a justificar:</strong></p>
+        <ul>
+          <li><strong>La página vive en un ConfigMap de nginx</strong> (<code>return 200</code> + <code>$hostname</code>): no hace falta imagen propia ni volumen con HTML, y <code>$hostname</code> muestra el nombre del Pod → prueba el balanceo.</li>
+          <li><strong>Ingress sin <code>host</code> = default backend</strong> (app3, "any other Host"): no es un fallo ni DNS, es el diseño que pide el subject.</li>
+          <li><strong>app2 con 3 réplicas</strong> (subject: "una con 3 réplicas"); las demás con 1.</li>
+          <li><strong>Las esperas del script</strong>: <code>kubectl wait node</code> y <code>rollout status</code> porque K3s devuelve el control antes de estar listo y Traefik se instala con un Job de Helm en el arranque.</li>
+        </ul>
+        <p><strong>Verificación:</strong> bucle de curls a <code>app2.com</code> y mostrar que cambia el pod en cada respuesta (round-robin real vía kube-proxy, no "configurado").</p>
+
+        <h3>3.3 p3 — K3d + Argo CD + GitHub</h3>
+        <p><strong>Qué enseñar:</strong> K3s vs K3d, el cluster <code>iot</code> recreado desde cero, los namespaces <code>argocd</code>/<code>dev</code>, la Application CRD (<code>source</code>/<code>destination</code>/<code>syncPolicy</code>) y el desplegable v1→v2.</p>
+        <p><strong>Decisiones a justificar:</strong></p>
+        <ul>
+          <li><strong>K3d en vez de K3s</strong>: cluster desechable dentro de Docker, reproducción en un minuto; el subject p3 pide "without Vagrant".</li>
+          <li><strong><code>kubectl apply --server-side</code></strong> para instalar Argo CD: las CRDs grandes superan el límite de 262144 bytes de la anotación <code>last-applied-configuration</code>.</li>
+          <li><strong><code>--dry-run=client -o yaml | kubectl apply -f -</code></strong> para namespaces: hace el <code>create</code> idempotente.</li>
+          <li><strong><code>prune</code> + <code>selfHeal</code></strong>: Git manda; borrar en Git limpia el cluster, editar a mano se revierte.</li>
+          <li><strong>Los manifests de la app viven en el repo remoto</strong> (GitOps): editar local no despliega.</li>
+        </ul>
+        <p><strong>Verificación (la más visual):</strong> cambiar <code>v1</code> → <code>v2</code> en <code>deployment.yaml</code>, push, sync manual (<code>patch --operation</code>) y <code>curl localhost:8888</code> devuelve <code>v2</code>; <code>kubectl get application -n argocd</code> muestra <code>Synced</code>/<code>Healthy</code>.</p>
+
+        <h3>3.4 bonus — GitLab local</h3>
+        <p><strong>Qué enseñar:</strong> GitLab como pod dentro de K3d (namespace <code>gitlab</code>), PVCs + <code>Recreate</code>, la automatización vía API en <code>gitlab.sh</code> y la Application con el repoURL interno.</p>
+        <p><strong>Decisiones a justificar:</strong></p>
+        <ul>
+          <li><strong><code>repoURL</code> = DNS del Service</strong> (<code>gitlab.gitlab.svc.cluster.local</code>) <strong>y no <code>localhost:8081</code></strong>: Argo CD corre dentro del cluster; el port-forward solo existe en tu host. (Pregunta estrella.)</li>
+          <li><strong><code>strategy: Recreate</code></strong>: PVCs <code>ReadWriteOnce</code> → un solo escritor; <code>RollingUpdate</code> montaría el mismo disco en dos pods.</li>
+          <li><strong>Idempotencia</strong>: extrae y reusa el token de API de un Secret; reusa el cluster <code>iot</code> en vez de recrearlo. "Parte 3 más GitLab", no un segundo lab.</li>
+          <li><strong><code>gitlab.sh</code> hace todo por API</strong> (token con Rails runner, proyecto público, push de manifests): sin clicks en la UI.</li>
+        </ul>
+        <p><strong>Verificación:</strong> imprimir el <code>spec.source.repoURL</code> de la Application y cambiar v1→v2 <strong>desde GitLab</strong> (clone + push) para ver el mismo flujo sin GitHub.</p>
+
+        <h2>4. Cómo se cambia el comportamiento principal (por parte)</h2>
+        <table>
+          <thead><tr><th>"Si quisiera..."</th><th>Fichero que tocar</th></tr></thead>
+          <tbody>
+            <tr><td>...otro hostname de VM</td><td class="mono">p1/Vagrantfile (LOGIN) · p2/Vagrantfile</td></tr>
+            <tr><td>...otra IP de red privada</td><td class="mono">p1/p2 Vagrantfile (SERVER_IP)</td></tr>
+            <tr><td>...cambiar 3 réplicas a 5 en p2</td><td class="mono">p2/confs/app2.yaml (spec.replicas)</td></tr>
+            <tr><td>...una app con más/otra imagen</td><td class="mono">p2/confs/appN.yaml (Deployment)</td></tr>
+            <tr><td>...más reglas de Host</td><td class="mono">p2/confs/ingress.yaml</td></tr>
+            <tr><td>...otra app además de playground en p3</td><td class="mono">p3/confs/manifests/* + repo remoto</td></tr>
+            <tr><td>...degradar/actualizar la app</td><td class="mono">p3 o bonus confs/manifests/deployment.yaml (tag v1/v2) y push</td></tr>
+            <tr><td>...que Argo CD mire otra rama</td><td class="mono">application.yaml (targetRevision)</td></tr>
+            <tr><td>...cambiar el origen de GitOps (GitHub↔GitLab)</td><td class="mono">la Application: spec.source.repoURL (+ path)</td></tr>
+            <tr><td>...más espacio de GitLab</td><td class="mono">bonus/confs/gitlab.yaml (PVC sizes)</td></tr>
+          </tbody>
+        </table>
+
+        <h2>5. Troubleshooting — los 7 escenarios del plan</h2>
+        <p>Cada escenario: síntoma → diagnóstico en orden → causa → arreglo. <strong>Prioridad 1: mirar eventos y status antes de "reinstalar todo".</strong></p>
+
+        <h3>5.1 El worker de p1 no aparece como <code>Ready</code></h3>
+        <pre class="code">síntoma: kubectl get nodes  →  ravazquesw  NotReady / falta el nodo</pre>
+        <pre class="code">vagrant ssh ravazqueS  -c "kubectl get nodes -o wide"
+vagrant ssh ravazqueSW -c "systemctl status k3s-agent"        # ¿arrancó?
+vagrant ssh ravazqueSW -c "journalctl -u k3s-agent -n 50"      # ¿por qué falla?</pre>
+        <ul>
+          <li><strong>¿No existe el nodo?</strong> el agente no llegó a registrarse → mirar logs de <code>k3s-agent</code>; token incorrecto → <code>403/401 (Bootstrap already done?)</code> en journal.</li>
+          <li><strong>¿Existe pero <code>NotReady</code>?</strong> el kubelet no está listo → IP/interfaz mal (<code>--node-ip</code> no coincide con la red privada, o <code>--flannel-iface</code> apunta a <code>eth0</code>/NAT en vez de a la privada).</li>
+          <li><strong>¿<code>connection refused</code> al API server desde el worker?</strong> la IP del server no es alcanzable por la red privada o no se usó <code>--tls-san</code>.</li>
+        </ul>
+
+        <h3>5.2 <code>kubectl</code> da <code>connection refused</code> (o el API server no responde)</h3>
+        <ul>
+          <li>En p1/p2: ¿VM viva? (<code>vagrant status</code>, <code>vagrant up</code>) ¿K3s corriendo? (<code>systemctl status k3s</code>). ¿<code>KUBECONFIG</code> apunta a <code>/etc/rancher/k3s/k3s.yaml</code>? ¿El certificado válido para la IP? (<code>--tls-san</code>).</li>
+          <li>En p3/bonus: ¿cluster <code>iot</code> existe? (<code>k3d cluster list</code>) ¿contexto correcto? (<code>kubectl config current-context</code> — <code>k3d kubeconfig merge ... --kubeconfig-switch-context</code>). ¿Docker arriba? (sin Docker, el cluster K3d no arranca).</li>
+        </ul>
+        <pre class="code">vagrant status                        # p1/p2: ¿VMs Running?
+k3d cluster list                       # p3/bonus: ¿existe iot?
+kubectl config current-context         # ¿estoy contra el cluster esperado?
+docker info                            # p3/bonus: base de K3d</pre>
+
+        <h3>5.3 p2 devuelve 404</h3>
+        <pre class="code">síntoma: curl -H "Host: appX.com" http://192.168.56.110 → 404</pre>
+        <pre class="code">kubectl describe ingress apps          # ¿existe la regla para ese Host?
+kubectl get ingress -o yaml            # ¿faltó el catch-all (regla sin host)?</pre>
+        <p><strong>404 = regla que falta</strong> (no backend roto). Host sin <code>host</code> en el Ingress y sin default → Traefik no sabe a dónde; 404 es su respuesta honesta.</p>
+
+        <h3>5.4 p2 devuelve 502 o 503</h3>
+        <pre class="code">kubectl get pods -o wide               # ¿Pods Running? ¿CrashLoop?
+kubectl get endpoints                  # ¿el Service tiene IPs detrás?
+kubectl describe svc appX              # selector del Service
+kubectl -n kube-system rollout status deploy/traefik</pre>
+        <p><strong>502 = el backend existe pero falla</strong> (Pods rotos, imagen no disponible, Traefik aún instalándose). <strong>503 = el backend no existe</strong> (Service sin Endpoints: selector que no coincide con ningún Pod). Regla mental: <code>404 regla</code> · <code>502 backend roto</code> · <code>503 sin endpoints</code>.</p>
+
+        <h3>5.5 Argo CD queda en <code>OutOfSync</code> o <code>ComparisonError</code></h3>
+        <pre class="code">kubectl -n argocd get application playground -o yaml   # status.operationState, conditions
+kubectl -n argocd get application playground            # Sync/Health compacto
+kubectl logs -n argocd deploy/argocd-repo-server --tail=50</pre>
+        <ul>
+          <li><strong><code>OutOfSync</code></strong> = cambio en el repo aún no aplicado (normal tras un push sin sync manual) → <code>kubectl -n argocd patch application playground --type merge -p '{"operation":{"sync":{"revision":"HEAD"}}}'</code> o esperar el poll (~3 min).</li>
+          <li><strong><code>ComparisonError</code></strong> = Argo CD no puede <strong>leer</strong> el repo: <code>repoURL</code> mal, <code>path</code> que no existe (ojo: relativo a la raíz del repo), rama mal (p3 usa <code>HEAD</code>, bonus <code>main</code>), repo privado sin credenciales, o el repo (GitLab bonus) no está aún sano. → arreglar <code>application.yaml</code> y reaplicar.</li>
+        </ul>
+
+        <h3>5.6 GitLab tarda demasiado o reinicia</h3>
+        <pre class="code">kubectl -n gitlab get pods              # ¿Starting / CrashLoopBackOff?
+kubectl -n gitlab logs deploy/gitlab --tail=50
+kubectl -n gitlab describe pod gitlab-xxx   # eventos: ¿OOM? ¿migraciones?
+free -h; docker info                   # ¿RAM/Docker suficiente?</pre>
+        <ul>
+          <li>Primer boot = reconfigure + migraciones (10-20 min; el <code>rollout status</code> espera 30 min). Sobreesperar es normal, <strong>no es un bug</strong>.</li>
+          <li>Reinicios por <strong>OOMKilled</strong> → falta RAM (el script avisa por debajo de 8 GiB). Reinicios por probes → revisar <code>monitoring_whitelist</code> (si <code>/-/health</code> da 403/404, el kubelet nunca ve al pod Ready).</li>
+          <li>Reusar el cluster: si <code>k3d cluster start iot</code> tras un stop, GitLab tarda varios minutos en volver a estar healthy.</li>
+        </ul>
+
+        <h3>5.7 Docker no responde</h3>
+        <pre class="code">docker info                            # ¿Daemon reachable?
+systemctl status docker                # ¿servicio arriba?
+sudo systemctl start docker            # si está parado
+sudo usermod -aG docker $USER          # si error de permisos → cerrar sesión</pre>
+        <p>p3 y bonus <strong>requieren</strong> Docker; sin él <code>k3d cluster create</code> falla. El preflight de <code>install.sh</code> ya avisa con mensajes orientativos. Los errores de permisos son del grupo <code>docker</code> (re-login).</p>
+
+        <h2>Predicciones y ejercicios</h2>
+
+        <h3>Ejercicio 6.1 — Worker NotReady</h3>
+        <p>El worker de p1 existe como nodo pero está <code>NotReady</code>. Nombra las 3 causas más probables y cómo probarlas sin reinstalar.</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <ol>
+                <li><strong>Interface equivocada en Flannel</strong> (<code>--flannel-iface</code> sobre el NIC de NAT en vez de la red privada) → el pod network no converge. Mirar <code>journalctl -u k3s-agent</code> y verificar la IP: <code>ip -o -4 addr show</code>.</li>
+                <li><strong><code>--node-ip</code> que no coincide con el rango de la red privada</strong> → el kubelet se registra con una IP inalcanzable para el server.</li>
+                <li><strong>Recursos mínimos</strong> (1 CPU/1 GiB, o el host saturado) → el kubelet no termina de arrancar.</li>
+              </ol>
+              <p>Prueba sin reinstalar: <code>vagrant ssh ravazqueSW -c "systemctl status k3s-agent"</code> + logs; en el server <code>kubectl describe node ravazquesw</code> para ver las conditions/mensajes; <code>kubectl get node ravazquesw -o yaml</code> para ver <code>NodeAddresses</code> y <code>kubeletReady</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Ejercicio 6.2 — 404 vs 502 vs 503 en p2</h3>
+        <p>Un evaluador te pide: "rompe un selector y muéstrame qué pasa". ¿Qué comando y qué respuesta esperas?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>Cambiar <code>Service.spec.selector</code> a una label que ningún Pod tiene y reaplicar:</p>
+              <pre class="code">kubectl -n dev edit svc app2   # selector.app: app2 → app2-wrong
+curl -H "Host: app2.com" http://192.168.56.110   # 503 Service Unavailable
+kubectl get endpoints app2      # Endpoints vacío (la prueba definitiva)
+kubectl get pods -l app=app2    # confirmar que los Pods NO llevan esa label</pre>
+              <p>Es 503 (backend no existe), no 502. Recordar: <code>prune</code>/<code>selfHeal</code> no aplican en p2 (no hay Argo CD): el cambio a mano <strong>permanece</strong> hasta que restaures el selector — es el contraste perfecto con p3.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Ejercicio 6.3 — 502 con pods Running</h3>
+        <p>En p2 todos los pods están <code>Running</code> y el Service tiene Endpoints, pero <code>curl app1.com</code> devuelve 502. ¿Qué revisas?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>502 = "hay backend pero falla el enrutado/proxy". Primero a <strong>Traefik</strong>: <code>kubectl -n kube-system rollout status deploy/traefik</code> y logs (<code>kubectl -n kube-system logs deploy/...</code>). Si Traefik acabó de instalarse, puede tardar en <code>Ready</code>. Segundo, comprobar que el <code>targetPort</code> coincide con el puerto del contenedor (<code>port</code> del Service vs <code>containerPort</code>): un desajuste da 502 porque el proxy fija el backend pero el Pod no escucha en ese puerto. Tercero, verificar que el pod responde internamente: <code>kubectl exec deploy/app1 -- wget -qO- http://localhost/</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Ejercicio 6.4 — Argo CD OutOfSync "para siempre"</h3>
+        <p>Cambié v1→v2 en el repo, el push fue bien, pero <code>kubectl get application</code> muestra <code>OutOfSync</code> y nunca pasa. ¿Qué hago en orden?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <ol>
+                <li>Comprobar que el push llegó <strong>al repo correcto y a la rama correcta</strong> (<code>git remote -v</code>; <code>targetRevision</code> = <code>HEAD</code> en p3 → rama default, <code>main</code> en bonus). Un push a una rama que Argo no mira = eterno OutOfSync.</li>
+                <li>Forzar el sync: <code>kubectl -n argocd patch application playground --type merge -p '{"operation":{"sync":{"revision":"HEAD"}}}'</code>.</li>
+                <li>Mirar <code>status.operationState</code> en <code>-o yaml</code> para ver el error del último intento (mensajes de git, del manifests deseado...).</li>
+                <li>Si sigue, <code>argocd app get playground -n argocd</code> (CLI) suele dar la diff y el error con más contexto; y <code>kubectl logs argocd-repo-server</code>.</li>
+              </ol>
+              <p>Regla mental: <code>OutOfSync</code> con intención ≠ rotura; es Argo diciendo "hay estado deseado distinto". Rotura sería <code>ComparisonError</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Ejercicio 6.5 — demo GitOps con <code>selfHeal</code></h3>
+        <p>Muéstrame que Argo CD "manda" en el cluster. ¿Qué hago y qué debería pasar?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <ol>
+                <li><code>kubectl -n dev scale deploy playground --replicas=5</code> (o <code>kubectl edit</code>).</li>
+                <li>Esperar al siguiente ciclo de Argo (≤ ~3 min): <code>kubectl get deploy playground -n dev -w</code> (verás 5 → vuelta a 1).</li>
+                <li>Autoridad de diagnóstico: la Application es <code>Synced</code> y <code>selfHeal: true</code> → el controlador revierte la deriva a lo que Git dice (<code>replicas: 1</code>).</li>
+              </ol>
+              <p>En el mismo momento puedes demostrar <code>prune</code>: borra el Deployment desde el cluster y Argo lo recrea; borra un objeto del repo remoto y Argo lo elimina del cluster. Git es la única fuente de verdad.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Ejercicio 6.6 — La pregunta abierta de "estructura del repo"</h3>
+        <p>¿Por qué p1/p2 tienen Vagrantfile, p3/bonus no, y por qué <code>confs</code> y <code>scripts</code> separados?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <ul>
+                <li><strong>Vagrantfile solo en p1/p2</strong>: el subject obliga a VMs (Vagrant) en las partes 1 y 2; p3 y el bonus van <strong>sin Vagrant</strong> (K3d sobre Docker, "without this time"), solo scripts. Mantenerlos separados deja ver esa frontera de arquitectura.</li>
+                <li><strong><code>scripts</code> vs <code>confs</code></strong>: scripts = <em>comportamiento</em> (instalación, esperas, API); confs = <em>declaración</em> (YAML de los objetos). El subject exige ambas carpetas ("Any scripts you need... The configuration files in a confs folder") y facilita el copy/paste de manifiestos a un repo GitOps (p3/bonus) sin arrastrar lógica.</li>
+                <li><strong><code>srcs/</code> raíz</strong>: el subject pide <code>p1</code>, <code>p2</code>, <code>p3</code>, <code>bonus</code> en la raíz del repo; este repo los agrupa bajo <code>srcs/</code> respetando esos cuatro nombres (la defensa muestra <code>find -maxdepth 2</code>).</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <h3>Ejercicio 6.7 — La demo "todo desde cero"</h3>
+        <p>El evaluador pide levantar todo de nuevo. ¿En qué orden y qué depende de qué?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <ol>
+                <li><strong>p1</strong> (VMs server+worker) → <code>vagrant up --provider=libvirt</code> (o virtualbox) desde <code>srcs/p1</code>. Verificar 2 nodos. <code>vagrant destroy -f</code> al terminar si siguen p2/bonus (recursos).</li>
+                <li><strong>p2</strong> (1 VM) → <code>vagrant up</code> desde <code>srcs/p2</code>. Verificar curls por Host. <code>vagrant destroy -f</code> antes de bonus (RAM).</li>
+                <li><strong>p3</strong> (host, Docker) → <code>./scripts/install.sh</code> (borra y recrea <code>iot</code>). Verificar ns + app + v1.</li>
+                <li><strong>bonus</strong> (host, Docker) → <code>./scripts/install.sh</code> (reusa <code>iot</code> si existe, crea ns <code>gitlab</code>, instala/reusa Argo). Verificar repoURL + v1→v2 desde GitLab.</li>
+              </ol>
+              <p>Dependencias: p1 y p2 <strong>no</strong> dependen de nada previo (se levantan solas); p3 no necesita las VMs; el bonus asume Docker y puede reusar el cluster dejado por p3. Con p1/p2 encendidas + Docker + bonus => memoria justa: el README del bonus pide destruir las VMs primero.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Errores frecuentes en defensa</span>
+          <ul>
+            <li><strong>Confundir p3 y bonus en la demo</strong>: si vas a defender bonus, haz el flujo v1→v2 <strong>desde GitLab</strong>, no reusando GitHub.</li>
+            <li><strong>Correr p1/p2 a la vez que bonus</strong>: la RAM se agota y GitLab muere por OOM; destruye las VMs.</li>
+            <li><strong>No tocar el repo en p3</strong>: "cambiar en local" en la defensa no despliega; hay que hacer push (o sync manual del cambio ya subido).</li>
+            <li><strong>Diagnosticar sin mirar status/events</strong>: <code>kubectl describe</code> y <code>journalctl</code> contestan antes que reinstalar.</li>
+            <li><strong>Leer de apuntes</strong>: si el evaluador pide "muéstrame dónde está el token", saber decir "en el Vagrantfile de p1, y lo paso como variable de entorno" sin abrir el fichero.</li>
+            <li><strong>Creer que el 404 es DNS</strong>: en p2 no hay DNS; es falta de regla en el Ingress (o catch-all).</li>
+            <li><strong>No justificar balances de p3/bonus</strong>: la demo v1→v2 tiene que terminar en el <code>curl</code> mostrando el tag nuevo, no en "intenté el sync".</li>
+          </ul>
+        </div>
+
+        <h2>Preguntas tipo defensa</h2>
+        <p>Responde en voz alta, sin mirar los apuntes:</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>Explica la diferencia entre K3s, K3d y kubectl, y cuándo usas cada uno.</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>¿Por qué el worker de p1 se une sin copiar el <code>node-token</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>Una IP (<code>192.168.56.110</code>) sirve 3 apps en p2: ¿cómo?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>¿Cómo demuestras el balanceo de p2 y qué hay detrás (kube-proxy)?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d5"><span>¿Por qué <code>kubectl apply --server-side</code> en p3 y no el clásico?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d6"><span>¿Qué es GitOps y qué campo de la Application lo define realmente? (<code>repoURL</code> + <code>path</code> + syncPolicy)</span></label>
+          <label class="chk"><input type="checkbox" data-id="d7"><span><code>selfHeal</code> vs <code>prune</code>: ¿qué hace cada uno y cómo lo demuestras?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d8"><span>¿Por qué <code>localhost:8081</code> no puede ser el repoURL del bonus?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d9"><span>Diagnostica: notas <code>NotReady</code>, <code>404/502/503</code>, <code>OutOfSync/ComparisonError</code>, GitLab <code>CrashLoop</code>, Docker parado.</span></label>
+          <label class="chk"><input type="checkbox" data-id="d10"><span>¿Cuál es el primer comando que corres ante cada uno de esos síntomas?</span></label>
+        </div>
+
+        <h2>Criterio de finalización</h2>
+        <p>Marca cada ítem cuando lo digas "sin apuntes":</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Defender cada parte en orden con su comando de prueba (p1→bonus).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Justificar las ~4 decisiones de diseño por parte (token, catch-all/Recreate, <code>--server-side</code>, repoURL interno).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Diagnosticar los 7 escenarios con su primer comando (worker NotReady, connection refused, 404/502/503, OutOfSync/ComparisonError, GitLab lento, Docker).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Distinguir <code>OutOfSync</code> (intención) de <code>ComparisonError</code> (rotura).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Hacer la demo v1→v2 tanto en p3 (GitHub) como en bonus (GitLab) hasta ver el <code>curl</code> con el tag nuevo.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c6"><span>Explicar el flujo completo de tráfico en p2 y el flujo GitOps en p3/bonus sin mirar los ficheros.</span></label></li>
+        </ol>
+
+        <h2>Has aprendido que</h2>
+        <ul>
+          <li>La defensa es <strong>reproducibilidad en vivo</strong>: un comando de arranque, uno de verificación y uno de limpieza por parte, explicables en una frase.</li>
+          <li>El orden de demo ideal es p1 → p2 → p3 → bonus (el mismo del subject), con atención a recursos entre VMs y bonus.</li>
+          <li>Cada parte tiene <strong>decisiones llamativas</strong> listas para justificar (token fijo, ingress catch-all, <code>--server-side</code>, repoURL interno + <code>Recreate</code>).</li>
+          <li>Los 7 escenarios de troubleshooting tienen <strong>un primer comando pactado</strong>: nada de reinstalar sin mirar status/logs.</li>
+          <li><code>404</code>=regla · <code>502</code>=backend roto · <code>503</code>=sin endpoints serán casi seguro preguntados.</li>
+          <li>En GitOps, <code>OutOfSync</code> es intención (syncable) y <code>ComparisonError</code> es rotura (hay que arreglar el source).</li>
+        </ul>
+
+        <p>Con la clase 6 cierras las <strong>6 clases del plan</strong>. Para el repaso final antes de la defensa, relee la <strong>clase 1</strong> (mapa mental) y esta clase (diagnóstico).</p>
+      </section>
+
+      <!-- ============ ENGLISH ============ -->
+      <section lang="en">
+        <div class="objective">
+          <span class="label">Objective</span>
+          <p>Close the course by integrating everything: defend the whole project <strong>in order</strong>, know what to teach and justify in each part, and diagnose the failures an evaluator may trigger or that happen live. By the end, move from "reproducing commands" to <strong>explaining the why behind each layer</strong>.</p>
+        </div>
+
+        <h2>1. The golden rule of the defense</h2>
+        <div class="panel">
+          <span class="label">Starting point</span>
+          <p>The evaluator has the subject in front of them and <strong>your repo</strong>. The evaluation runs live on your machine. Everything you show must come from running the repo from scratch.</p>
+        </div>
+        <ul>
+          <li><strong>Reproducibility above all:</strong> each part has one start command, one verification command and one cleanup command. If it "works but I do not know why", that is a risk; if it "fails but I can diagnose it", that is a point in your favor.</li>
+          <li><strong>Do not read from notes:</strong> every verification must be explainable in one sentence (what I run and what I expect).</li>
+          <li><strong>Name the design decisions:</strong> each part has striking decisions (they answer the evaluator's "why is it built this way?").</li>
+        </ul>
+
+        <h2>2. Recommended demonstration order</h2>
+        <pre class="code">1. p1   → 2 K3s nodes with Vagrant, join proof
+2. p2   → 3 apps + Ingress, balancing proof
+3. p3   → K3d + Argo CD + GitHub, v1→v2 proof
+4. bonus→ local GitLab, repoURL proof + v1→v2 from GitLab   (if applicable)</pre>
+        <p>It is the same order as the subject (IV.1 → IV.2 → IV.3 → V). Each part <strong>leaves the environment alive</strong> for the next when it applies (bonus reuses p3's cluster; p2 shares IP 110 with p1; but beware: p1 and p2 cannot coexist if resources are tight — the bonus README asks for <code>vagrant destroy -f</code> of p1/p2 before bonus).</p>
+        <table>
+          <thead><tr><th>Part</th><th>What to demonstrate</th><th>Signature test command</th></tr></thead>
+          <tbody>
+            <tr><td><strong>p1</strong></td><td>2 VMs, 2-node cluster</td><td class="mono">kubectl get nodes -o wide (2 Ready nodes, lowercase names)</td></tr>
+            <tr><td><strong>p2</strong></td><td>One IP, 3 apps by Host header</td><td class="mono">curl -H "Host: app2.com" http://192.168.56.110 in a loop (balancing)</td></tr>
+            <tr><td><strong>p3</strong></td><td>GitOps from GitHub</td><td class="mono">cat deployment.yaml | grep v1 + curl localhost:8888 → v1</td></tr>
+            <tr><td><strong>bonus</strong></td><td>GitOps from local GitLab</td><td class="mono">kubectl get application playground -o jsonpath='{.spec.source.repoURL}' (GitLab URL)</td></tr>
+          </tbody>
+        </table>
+
+        <h2>3. What to teach in each part (+ justifications)</h2>
+
+        <h3>3.1 p1 — K3s and Vagrant</h3>
+        <p><strong>What to teach:</strong> the Vagrantfile (2 VMs, <code>config.vm.define</code>, fixed private network, box <code>generic/ubuntu2204</code>), the shared token instead of copying the <code>node-token</code>, and the K3s flags.</p>
+        <p><strong>Decisions to justify:</strong></p>
+        <ul>
+          <li><strong>Fixed token in the Vagrantfile</strong>: the worker joins <strong>without reading the <code>node-token</code> file</strong> generated by K3s (<code>/var/lib/rancher/k3s/server/node-token</code>). An identical token is defined on both and passed via an environment variable.</li>
+          <li><strong><code>--flannel-iface</code> resolved from the IP, not hardcoded</strong>: the private-network NIC has a different name per provider (<code>eth1</code>, <code>enp0s8</code>...), so the interface is looked up from the fixed IP (<code>ip -o -4 addr show | grep -w $IP</code>).</li>
+          <li><strong><code>--node-ip</code>, <code>--advertise-address</code>, <code>--tls-san</code>, <code>--write-kubeconfig-mode=644</code></strong>: each flag solves a real problem (know "without it what breaks/fails").</li>
+          <li><strong>Synced folders disabled</strong>: the <code>file</code>/<code>shell</code> provisioners upload what the guest needs; there is no <code>/vagrant</code>.</li>
+        </ul>
+        <p><strong>Verification:</strong> <code>vagrant ssh ravazqueS -c "kubectl get nodes -o wide"</code> → <code>ravazques</code> and <code>ravazquesw</code>, both <code>Ready</code>. <strong>You do not need to ask permission</strong>: the verification is done by asking "show me 2 nodes".</p>
+
+        <h3>3.2 p2 — 3 apps + Ingress</h3>
+        <p><strong>What to teach:</strong> the 3 objects of each <code>appN.yaml</code> (ConfigMap = config/page, Deployment → ReplicaSet → Pod, ClusterIP Service), labels/selectors, and the Ingress rule <strong>without a host</strong> for app3.</p>
+        <p><strong>Decisions to justify:</strong></p>
+        <ul>
+          <li><strong>The page lives in an nginx ConfigMap</strong> (<code>return 200</code> + <code>$hostname</code>): no custom image or HTML volume needed, and <code>$hostname</code> shows the Pod name → proves the balancing.</li>
+          <li><strong>Ingress without <code>host</code> = default backend</strong> (app3, "any other Host"): it is not a bug or DNS, it is the design the subject asks for.</li>
+          <li><strong>app2 with 3 replicas</strong> (subject: "one with 3 replicas"); the others with 1.</li>
+          <li><strong>The script's waits</strong>: <code>kubectl wait node</code> and <code>rollout status</code> because K3s returns control before it is ready and Traefik is installed by a Helm Job at startup.</li>
+        </ul>
+        <p><strong>Verification:</strong> loop curls to <code>app2.com</code> and show the pod changes on each response (real round-robin via kube-proxy, not "configured").</p>
+
+        <h3>3.3 p3 — K3d + Argo CD + GitHub</h3>
+        <p><strong>What to teach:</strong> K3s vs K3d, the <code>iot</code> cluster recreated from scratch, the <code>argocd</code>/<code>dev</code> namespaces, the Application CRD (<code>source</code>/<code>destination</code>/<code>syncPolicy</code>) and the v1→v2 deployable.</p>
+        <p><strong>Decisions to justify:</strong></p>
+        <ul>
+          <li><strong>K3d instead of K3s</strong>: a disposable cluster inside Docker, reproduced in a minute; p3's subject says "without Vagrant".</li>
+          <li><strong><code>kubectl apply --server-side</code></strong> to install Argo CD: the big CRDs overflow the 262144-byte limit of the <code>last-applied-configuration</code> annotation.</li>
+          <li><strong><code>--dry-run=client -o yaml | kubectl apply -f -</code></strong> for namespaces: makes the <code>create</code> idempotent.</li>
+          <li><strong><code>prune</code> + <code>selfHeal</code></strong>: Git rules; deleting in Git cleans the cluster, manual edits get reverted.</li>
+          <li><strong>The app manifests live in the remote repo</strong> (GitOps): editing locally does not deploy.</li>
+        </ul>
+        <p><strong>Verification (the most visual):</strong> change <code>v1</code> → <code>v2</code> in <code>deployment.yaml</code>, push, manual sync (<code>patch --operation</code>) and <code>curl localhost:8888</code> returns <code>v2</code>; <code>kubectl get application -n argocd</code> shows <code>Synced</code>/<code>Healthy</code>.</p>
+
+        <h3>3.4 bonus — local GitLab</h3>
+        <p><strong>What to teach:</strong> GitLab as a pod inside K3d (namespace <code>gitlab</code>), PVCs + <code>Recreate</code>, the API automation in <code>gitlab.sh</code> and the Application with the internal repoURL.</p>
+        <p><strong>Decisions to justify:</strong></p>
+        <ul>
+          <li><strong><code>repoURL</code> = Service DNS</strong> (<code>gitlab.gitlab.svc.cluster.local</code>) <strong>and not <code>localhost:8081</code></strong>: Argo CD runs inside the cluster; the port-forward only exists on your host. (Star question.)</li>
+          <li><strong><code>strategy: Recreate</code></strong>: PVCs are <code>ReadWriteOnce</code> → a single writer; <code>RollingUpdate</code> would mount the same disk in two pods.</li>
+          <li><strong>Idempotency</strong>: it extracts and reuses the API token from a Secret; it reuses cluster <code>iot</code> instead of recreating it. "Part 3 plus GitLab", not a second lab.</li>
+          <li><strong><code>gitlab.sh</code> does everything via API</strong> (token with the Rails runner, public project, manifests push): no UI clicks.</li>
+        </ul>
+        <p><strong>Verification:</strong> print the Application's <code>spec.source.repoURL</code> and change v1→v2 <strong>from GitLab</strong> (clone + push) to see the same flow without GitHub.</p>
+
+        <h2>4. How to change the main behavior (per part)</h2>
+        <table>
+          <thead><tr><th>"If I wanted to..."</th><th>File to touch</th></tr></thead>
+          <tbody>
+            <tr><td>...change a VM hostname</td><td class="mono">p1/Vagrantfile (LOGIN) · p2/Vagrantfile</td></tr>
+            <tr><td>...change a private network IP</td><td class="mono">p1/p2 Vagrantfile (SERVER_IP)</td></tr>
+            <tr><td>...change 3 replicas to 5 in p2</td><td class="mono">p2/confs/app2.yaml (spec.replicas)</td></tr>
+            <tr><td>...an app with more/another image</td><td class="mono">p2/confs/appN.yaml (Deployment)</td></tr>
+            <tr><td>...more Host rules</td><td class="mono">p2/confs/ingress.yaml</td></tr>
+            <tr><td>...another app besides playground in p3</td><td class="mono">p3/confs/manifests/* + remote repo</td></tr>
+            <tr><td>...downgrade/upgrade the app</td><td class="mono">p3 or bonus confs/manifests/deployment.yaml (tag v1/v2) and push</td></tr>
+            <tr><td>...make Argo CD watch another branch</td><td class="mono">application.yaml (targetRevision)</td></tr>
+            <tr><td>...change the GitOps source (GitHub↔GitLab)</td><td class="mono">the Application: spec.source.repoURL (+ path)</td></tr>
+            <tr><td>...more GitLab space</td><td class="mono">bonus/confs/gitlab.yaml (PVC sizes)</td></tr>
+          </tbody>
+        </table>
+
+        <h2>5. Troubleshooting — the 7 scenarios of the plan</h2>
+        <p>Each scenario: symptom → diagnosis in order → cause → fix. <strong>Priority 1: look at events and status before "reinstalling everything".</strong></p>
+
+        <h3>5.1 The p1 worker does not show as <code>Ready</code></h3>
+        <pre class="code">symptom: kubectl get nodes  →  ravazquesw  NotReady / node missing</pre>
+        <pre class="code">vagrant ssh ravazqueS  -c "kubectl get nodes -o wide"
+vagrant ssh ravazqueSW -c "systemctl status k3s-agent"        # did it start?
+vagrant ssh ravazqueSW -c "journalctl -u k3s-agent -n 50"      # why does it fail?</pre>
+        <ul>
+          <li><strong>Node missing?</strong> the agent never registered → look at the <code>k3s-agent</code> logs; wrong token → <code>403/401 (Bootstrap already done?)</code> in the journal.</li>
+          <li><strong>Exists but <code>NotReady</code>?</strong> the kubelet is not ready → wrong IP/interface (<code>--node-ip</code> not matching the private network, or <code>--flannel-iface</code> pointing at <code>eth0</code>/NAT instead of the private one).</li>
+          <li><strong><code>connection refused</code> to the API server from the worker?</strong> the server IP is not reachable over the private network or <code>--tls-san</code> was not used.</li>
+        </ul>
+
+        <h3>5.2 <code>kubectl</code> gives <code>connection refused</code> (or the API server does not answer)</h3>
+        <ul>
+          <li>In p1/p2: is the VM alive? (<code>vagrant status</code>, <code>vagrant up</code>) Is K3s running? (<code>systemctl status k3s</code>). Does <code>KUBECONFIG</code> point to <code>/etc/rancher/k3s/k3s.yaml</code>? Is the certificate valid for the IP? (<code>--tls-san</code>).</li>
+          <li>In p3/bonus: does cluster <code>iot</code> exist? (<code>k3d cluster list</code>) Is the context right? (<code>kubectl config current-context</code> — <code>k3d kubeconfig merge ... --kubeconfig-switch-context</code>). Is Docker up? (without Docker the K3d cluster does not start).</li>
+        </ul>
+        <pre class="code">vagrant status                        # p1/p2: VMs Running?
+k3d cluster list                       # p3/bonus: does iot exist?
+kubectl config current-context         # am I against the expected cluster?
+docker info                            # p3/bonus: the base of K3d</pre>
+
+        <h3>5.3 p2 returns 404</h3>
+        <pre class="code">symptom: curl -H "Host: appX.com" http://192.168.56.110 → 404</pre>
+        <pre class="code">kubectl describe ingress apps          # does a rule exist for that Host?
+kubectl get ingress -o yaml            # is the catch-all (hostless rule) missing?</pre>
+        <p><strong>404 = a missing rule</strong> (not a broken backend). A Host with no rule in the Ingress and no default → Traefik does not know where to go; 404 is its honest answer.</p>
+
+        <h3>5.4 p2 returns 502 or 503</h3>
+        <pre class="code">kubectl get pods -o wide               # Pods Running? CrashLoop?
+kubectl get endpoints                  # does the Service have IPs behind it?
+kubectl describe svc appX              # Service selector
+kubectl -n kube-system rollout status deploy/traefik</pre>
+        <p><strong>502 = the backend exists but fails</strong> (broken Pods, unavailable image, Traefik still installing). <strong>503 = the backend does not exist</strong> (Service without Endpoints: a selector matching no Pod). Mental rule: <code>404 rule</code> · <code>502 broken backend</code> · <code>503 no endpoints</code>.</p>
+
+        <h3>5.5 Argo CD stuck in <code>OutOfSync</code> or <code>ComparisonError</code></h3>
+        <pre class="code">kubectl -n argocd get application playground -o yaml   # status.operationState, conditions
+kubectl -n argocd get application playground            # compact Sync/Health
+kubectl logs -n argocd deploy/argocd-repo-server --tail=50</pre>
+        <ul>
+          <li><strong><code>OutOfSync</code></strong> = a change in the repo not applied yet (normal after a push without manual sync) → <code>kubectl -n argocd patch application playground --type merge -p '{"operation":{"sync":{"revision":"HEAD"}}}'</code> or wait for the poll (~3 min).</li>
+          <li><strong><code>ComparisonError</code></strong> = Argo CD cannot <strong>read</strong> the repo: wrong <code>repoURL</code>, <code>path</code> that does not exist (note: relative to the repo root), wrong branch (p3 uses <code>HEAD</code>, bonus <code>main</code>), private repo without credentials, or the repo (bonus GitLab) not healthy yet. → fix <code>application.yaml</code> and reapply.</li>
+        </ul>
+
+        <h3>5.6 GitLab is too slow or restarts</h3>
+        <pre class="code">kubectl -n gitlab get pods              # Starting / CrashLoopBackOff?
+kubectl -n gitlab logs deploy/gitlab --tail=50
+kubectl -n gitlab describe pod gitlab-xxx   # events: OOM? migrations?
+free -h; docker info                   # enough RAM/Docker?</pre>
+        <ul>
+          <li>First boot = reconfigure + migrations (10-20 min; the <code>rollout status</code> waits 30 min). Over-waiting is normal, <strong>not a bug</strong>.</li>
+          <li>Restarts from <strong>OOMKilled</strong> → not enough RAM (the script warns below 8 GiB). Restarts from probes → check <code>monitoring_whitelist</code> (if <code>/-/health</code> gives 403/404, the kubelet never sees the pod as Ready).</li>
+          <li>Reusing the cluster: after <code>k3d cluster start iot</code> following a stop, GitLab takes several minutes to become healthy again.</li>
+        </ul>
+
+        <h3>5.7 Docker does not respond</h3>
+        <pre class="code">docker info                            # is the daemon reachable?
+systemctl status docker                # is the service up?
+sudo systemctl start docker            # if it is stopped
+sudo usermod -aG docker $USER          # on permission errors → re-login</pre>
+        <p>p3 and bonus <strong>require</strong> Docker; without it <code>k3d cluster create</code> fails. <code>install.sh</code>'s preflight already warns with helpful messages. Permission errors come from the <code>docker</code> group (re-login).</p>
+
+        <h2>Predictions and exercises</h2>
+
+        <h3>Exercise 6.1 — Worker NotReady</h3>
+        <p>The p1 worker exists as a node but is <code>NotReady</code>. Name the 3 most likely causes and how to test them without reinstalling.</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <ol>
+                <li><strong>Wrong Flannel interface</strong> (<code>--flannel-iface</code> on the NAT NIC instead of the private network) → the pod network never converges. Look at <code>journalctl -u k3s-agent</code> and verify the IP: <code>ip -o -4 addr show</code>.</li>
+                <li><strong><code>--node-ip</code> not matching the private network range</strong> → the kubelet registers with an IP the server cannot reach.</li>
+                <li><strong>Minimum resources</strong> (1 CPU/1 GiB, or a saturated host) → the kubelet never finishes starting.</li>
+              </ol>
+              <p>Test without reinstalling: <code>vagrant ssh ravazqueSW -c "systemctl status k3s-agent"</code> + logs; on the server <code>kubectl describe node ravazquesw</code> to see conditions/messages; <code>kubectl get node ravazquesw -o yaml</code> for <code>NodeAddresses</code> and <code>kubeletReady</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Exercise 6.2 — 404 vs 502 vs 503 in p2</h3>
+        <p>An evaluator asks: "break a selector and show me what happens". Which command and which response do you expect?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>Change <code>Service.spec.selector</code> to a label no Pod has and reapply:</p>
+              <pre class="code">kubectl -n dev edit svc app2   # selector.app: app2 → app2-wrong
+curl -H "Host: app2.com" http://192.168.56.110   # 503 Service Unavailable
+kubectl get endpoints app2      # empty Endpoints (the definitive proof)
+kubectl get pods -l app=app2    # confirm the Pods do NOT carry that label</pre>
+              <p>It is 503 (backend missing), not 502. Remember: <code>prune</code>/<code>selfHeal</code> do not apply in p2 (no Argo CD): the manual change <strong>persists</strong> until you restore the selector — the perfect contrast with p3.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Exercise 6.3 — 502 with Running pods</h3>
+        <p>In p2 all pods are <code>Running</code> and the Service has Endpoints, but <code>curl app1.com</code> returns 502. What do you check?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>502 = "there is a backend but routing/proxy fails". First, <strong>Traefik</strong>: <code>kubectl -n kube-system rollout status deploy/traefik</code> and logs (<code>kubectl -n kube-system logs deploy/...</code>). If Traefik just installed, it may take time to be <code>Ready</code>. Second, check that <code>targetPort</code> matches the container port (Service <code>port</code> vs <code>containerPort</code>): a mismatch gives 502 because the proxy fixes the backend but the Pod does not listen on that port. Third, verify the pod answers internally: <code>kubectl exec deploy/app1 -- wget -qO- http://localhost/</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Exercise 6.4 — Argo CD stuck "forever" in OutOfSync</h3>
+        <p>You changed v1→v2 in the repo, the push went well, but <code>kubectl get application</code> shows <code>OutOfSync</code> and never progresses. What do you do in order?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <ol>
+                <li>Check the push landed <strong>on the right repo and the right branch</strong> (<code>git remote -v</code>; <code>targetRevision</code> = <code>HEAD</code> in p3 → default branch, <code>main</code> in bonus). A push to a branch Argo does not watch = eternal OutOfSync.</li>
+                <li>Force the sync: <code>kubectl -n argocd patch application playground --type merge -p '{"operation":{"sync":{"revision":"HEAD"}}}'</code>.</li>
+                <li>Look at <code>status.operationState</code> with <code>-o yaml</code> to see the last attempt's error (git messages, desired manifests...).</li>
+                <li>If it persists, <code>argocd app get playground -n argocd</code> (CLI) usually gives the diff and the error with more context; and <code>kubectl logs argocd-repo-server</code>.</li>
+              </ol>
+              <p>Mental rule: <code>OutOfSync</code> with intent ≠ breakage; it is Argo saying "there is a different desired state". Breakage would be <code>ComparisonError</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Exercise 6.5 — GitOps demo with <code>selfHeal</code></h3>
+        <p>Show me that Argo CD "rules" the cluster. What do I do and what should happen?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <ol>
+                <li><code>kubectl -n dev scale deploy playground --replicas=5</code> (or <code>kubectl edit</code>).</li>
+                <li>Wait for Argo's next cycle (≤ ~3 min): <code>kubectl get deploy playground -n dev -w</code> (you will see 5 → back to 1).</li>
+                <li>Diagnostic authority: the Application is <code>Synced</code> and <code>selfHeal: true</code> → the controller reverts the drift to what Git says (<code>replicas: 1</code>).</li>
+              </ol>
+              <p>In the same moment you can demonstrate <code>prune</code>: delete the Deployment from the cluster and Argo recreates it; delete an object from the remote repo and Argo removes it from the cluster. Git is the only source of truth.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Exercise 6.6 — The open "repo structure" question</h3>
+        <p>Why do p1/p2 have a Vagrantfile and p3/bonus do not, and why are <code>confs</code> and <code>scripts</code> separated?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <ul>
+                <li><strong>Vagrantfile only in p1/p2</strong>: the subject mandates VMs (Vagrant) in parts 1 and 2; p3 and bonus go <strong>without Vagrant</strong> (K3d over Docker, "without this time"), scripts only. Keeping them apart exposes that architecture boundary.</li>
+                <li><strong><code>scripts</code> vs <code>confs</code></strong>: scripts = <em>behavior</em> (installation, waits, API); confs = <em>declaration</em> (the objects' YAML). The subject demands both folders ("Any scripts you need... The configuration files in a confs folder") and eases copy/pasting manifests into a GitOps repo (p3/bonus) without dragging logic.</li>
+                <li><strong><code>srcs/</code> root</strong>: the subject asks for <code>p1</code>, <code>p2</code>, <code>p3</code>, <code>bonus</code> at the repo root; this repo groups them under <code>srcs/</code> keeping those four names (the defense shows <code>find -maxdepth 2</code>).</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+
+        <h3>Exercise 6.7 — The "everything from scratch" demo</h3>
+        <p>The evaluator asks to bring everything up again. In what order, and what depends on what?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <ol>
+                <li><strong>p1</strong> (server+worker VMs) → <code>vagrant up --provider=libvirt</code> (or virtualbox) from <code>srcs/p1</code>. Verify 2 nodes. <code>vagrant destroy -f</code> when done if p2/bonus follow (resources).</li>
+                <li><strong>p2</strong> (1 VM) → <code>vagrant up</code> from <code>srcs/p2</code>. Verify the per-Host curls. <code>vagrant destroy -f</code> before bonus (RAM).</li>
+                <li><strong>p3</strong> (host, Docker) → <code>./scripts/install.sh</code> (deletes and recreates <code>iot</code>). Verify ns + app + v1.</li>
+                <li><strong>bonus</strong> (host, Docker) → <code>./scripts/install.sh</code> (reuses <code>iot</code> if it exists, creates ns <code>gitlab</code>, installs/reuses Argo). Verify repoURL + v1→v2 from GitLab.</li>
+              </ol>
+              <p>Dependencies: p1 and p2 <strong>do not</strong> depend on anything prior (they come up on their own); p3 does not need the VMs; bonus assumes Docker and may reuse the cluster left by p3. With p1/p2 on + Docker + bonus => tight memory: the bonus README asks you to destroy the VMs first.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Frequent defense mistakes</span>
+          <ul>
+            <li><strong>Confusing p3 and bonus in the demo</strong>: if you are defending bonus, do the v1→v2 flow <strong>from GitLab</strong>, not reusing GitHub.</li>
+            <li><strong>Running p1/p2 at the same time as bonus</strong>: RAM runs out and GitLab dies from OOM; destroy the VMs.</li>
+            <li><strong>Not touching the repo in p3</strong>: "changing locally" in the defense does not deploy; you must push (or manually sync the already-pushed change).</li>
+            <li><strong>Diagnosing without looking at status/events</strong>: <code>kubectl describe</code> and <code>journalctl</code> answer before reinstalling.</li>
+            <li><strong>Reading from notes</strong>: if the evaluator asks "show me where the token is", know how to say "in p1's Vagrantfile, passed as an environment variable" without opening the file.</li>
+            <li><strong>Believing the 404 is DNS</strong>: in p2 there is no DNS; it is a missing Ingress rule (or catch-all).</li>
+            <li><strong>Not justifying the p3/bonus flows</strong>: the v1→v2 demo must end with the <code>curl</code> showing the new tag, not with "I tried the sync".</li>
+          </ul>
+        </div>
+
+        <h2>Defense-style questions</h2>
+        <p>Answer out loud, without notes:</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>Explain the difference between K3s, K3d and kubectl, and when you use each one.</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>Why does the p1 worker join without copying the <code>node-token</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>One IP (<code>192.168.56.110</code>) serves 3 apps in p2: how?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>How do you prove p2's balancing and what is behind it (kube-proxy)?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d5"><span>Why <code>kubectl apply --server-side</code> in p3 and not the classic one?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d6"><span>What is GitOps and which Application field really defines it? (<code>repoURL</code> + <code>path</code> + syncPolicy)</span></label>
+          <label class="chk"><input type="checkbox" data-id="d7"><span><code>selfHeal</code> vs <code>prune</code>: what does each do and how do you demonstrate it?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d8"><span>Why can't <code>localhost:8081</code> be the bonus repoURL?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d9"><span>Diagnose: you see <code>NotReady</code>, <code>404/502/503</code>, <code>OutOfSync/ComparisonError</code>, GitLab <code>CrashLoop</code>, Docker down.</span></label>
+          <label class="chk"><input type="checkbox" data-id="d10"><span>What is the first command you run for each of those symptoms?</span></label>
+        </div>
+
+        <h2>Completion criteria</h2>
+        <p>Check each item when you can say it "without notes":</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Defend every part in order with its test command (p1→bonus).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Justify the ~4 design decisions per part (token, catch-all/Recreate, <code>--server-side</code>, internal repoURL).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Diagnose the 7 scenarios with a first command (worker NotReady, connection refused, 404/502/503, OutOfSync/ComparisonError, slow GitLab, Docker).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Tell <code>OutOfSync</code> (intent) from <code>ComparisonError</code> (breakage).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Demo v1→v2 in both p3 (GitHub) and bonus (GitLab) up to the <code>curl</code> with the new tag.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c6"><span>Explain p2's full traffic flow and p3/bonus's GitOps flow without looking at the files.</span></label></li>
+        </ol>
+
+        <h2>You have learned that</h2>
+        <ul>
+          <li>The defense is <strong>live reproducibility</strong>: one start command, one verification command and one cleanup command per part, each explainable in one sentence.</li>
+          <li>The ideal demo order is p1 → p2 → p3 → bonus (the same as the subject), watching resources between the VMs and bonus.</li>
+          <li>Each part has <strong>striking decisions</strong> ready to justify (fixed token, ingress catch-all, <code>--server-side</code>, internal repoURL + <code>Recreate</code>).</li>
+          <li>The 7 troubleshooting scenarios have <strong>an agreed first command</strong>: never reinstall before looking at status/logs.</li>
+          <li><code>404</code>=rule · <code>502</code>=broken backend · <code>503</code>=no endpoints will almost certainly be asked.</li>
+          <li>In GitOps, <code>OutOfSync</code> is intent (syncable) and <code>ComparisonError</code> is breakage (fix the source).</li>
+        </ul>
+
+        <p>With class 6 you close the <strong>6-class plan</strong>. For the final review before the defense, reread <strong>class 1</strong> (mental map) and this class (diagnosis).</p>
+      </section>
+    </div>
+
+    <nav class="pager">
+      <a href="clase-05.html">
+        <small data-i18n="prev.class">Clase anterior</small>
+        <strong><span lang="es">Clase 5 · Bonus: GitLab local</span><span lang="en">Class 5 · Bonus: local GitLab</span></strong>
+      </a>
+      <a class="next" href="index.html">
+        <small data-i18n="back.project">Volver al proyecto</small>
+        <strong data-i18n="p.inception_of_things.name">Inception of Things</strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>

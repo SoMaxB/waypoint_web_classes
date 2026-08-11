@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clase 5 · Bonus: GitLab local — Inception of Things</title>
+  <meta name="description" content="GitLab CE omnibus dentro de K3d: namespace gitlab, PVCs y persistencia, estrategia Recreate, probes, token de API, proyecto público, port-forward temporal y por qué el repoURL debe ser el DNS interno del Service y no localhost:8081.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="inception_of_things/clase-05">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <label class="visually-hidden" for="site-search" data-i18n="search.label">Buscar proyecto</label>
+        <input id="site-search" type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="index.html" data-i18n="p.inception_of_things.name">Inception of Things</a><span class="sep">/</span>
+        <span><span lang="es">Clase 5</span><span lang="en">Class 5</span></span>
+      </nav>
+
+      <h1><span lang="es">Clase 5 · Bonus: GitLab local</span><span lang="en">Class 5 · Bonus: local GitLab</span></h1>
+
+      <div class="class-toolbar">
+        <label class="complete-toggle">
+          <input type="checkbox" data-complete="inception_of_things/clase-05">
+          <span data-i18n="btn.complete">Marcar clase como completada</span>
+        </label>
+        <span class="toolbar-hint mono">GitLab CE · PVC · Recreate · repoURL · probes</span>
+      </div>
+    </div>
+
+    <div class="prose">
+
+      <!-- ============ ESPAÑOL ============ -->
+      <section lang="es">
+        <div class="objective">
+          <span class="label">Objetivo</span>
+          <p>Entender cómo se cierra el flujo GitOps <strong>sin salir del cluster</strong>: un GitLab CE corriendo dentro de K3d (namespace <code>gitlab</code>), desplegado con PVCs, pod único y estrategia <code>Recreate</code>; y Argo CD leyendo desde ese <strong>GitLab local</strong> en vez de GitHub. En especial, la práctica del plan: <strong>por qué <code>localhost:8081</code> no sirve como <code>repoURL</code></strong> y por qué hay que usar la URL interna del Service.</p>
+        </div>
+
+        <h2>1. Qué pide el bonus</h2>
+        <p>El subject es corto y exige:</p>
+        <ul>
+          <li>Tu instancia de GitLab debe correr <strong>localmente</strong>.</li>
+          <li>Ha de estar <strong>configurada para funcionar con tu cluster</strong>.</li>
+          <li>Un <strong>namespace dedicado</strong> llamado <code>gitlab</code>.</li>
+          <li><strong>Todo lo de la Parte 3 debe funcionar con tu GitLab local</strong> (el mismo flujo GitOps, pero con GitLab como fuente).</li>
+          <li>Carpeta nueva <strong><code>bonus</code></strong> en la raíz del repo.</li>
+          <li>Se espera la <strong>última versión de GitLab</strong> del sitio oficial → <code>gitlab/gitlab-ce:latest</code>.</li>
+        </ul>
+        <div class="panel">
+          <span class="label">Condición</span>
+          <p>El bonus solo se evalúa si la parte obligatoria está "flawless" — imperativo tener p1, p2 y p3 impecables antes de defender esto.</p>
+        </div>
+
+        <h2>2. La topología de bonus — ficheros</h2>
+        <pre class="code">srcs/bonus/
+├── scripts/
+│   ├── install.sh              ← orquesta: cluster + gitlab.sh + argocd.sh
+│   ├── gitlab.sh               ← imagen, deploy, token, proyecto, push de manifests
+│   └── argocd.sh               ← Argo CD + Application apuntando al GitLab local
+└── confs/
+    ├── gitlab.yaml             ← Secret root + 2 PVCs + Deployment + Service
+    ├── application.yaml        ← misma idea que p3, pero repoURL = GitLab interno
+    └── manifests/              ← la app (v1/v2), se PUSHEAN a GitLab
+        ├── deployment.yaml
+        └── service.yaml</pre>
+        <div class="panel">
+          <span class="label">Los roles de cada fichero</span>
+          <table>
+            <thead><tr><th>Fichero</th><th>Rol</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">scripts/install.sh</td><td>Preflight (Docker + RAM), reusa o crea el cluster <code>iot</code>, 3 namespaces, llama a <code>gitlab.sh</code> y <code>argocd.sh</code>.</td></tr>
+              <tr><td class="mono">scripts/gitlab.sh</td><td>Toda la parte GitLab vía API: imagen, deploy, esperas, token, proyecto público, push de <code>manifests/</code>.</td></tr>
+              <tr><td class="mono">scripts/argocd.sh</td><td>Instala/reusa Argo CD y aplica la Application que apunta al GitLab interno.</td></tr>
+              <tr><td class="mono">confs/gitlab.yaml</td><td>El "stack" GitLab en YAML: Secret, PVCs, Deployment y Service.</td></tr>
+              <tr><td class="mono">confs/application.yaml</td><td>Application con <code>repoURL: http://gitlab.gitlab.svc.cluster.local/...</code>.</td></tr>
+              <tr><td class="mono">confs/manifests/*</td><td>Los manifests que <code>gitlab.sh</code> sube a GitLab bajo <code>manifests/</code>.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Diferencia de arquitectura con p3</h3>
+        <pre class="code">p3:     GitHub (externo) ──► Argo CD ──► dev
+bonus:  GitLab (dentro del cluster) ──► Argo CD ──► dev
+        GitLab corre en el MISMO cluster, namespace gitlab</pre>
+        <p>El bonus "es p3 + GitLab": <strong>reusa el cluster <code>iot</code></strong> si ya existe (no crea un segundo lab) y <strong>reescribe la misma Application</strong> <code>playground</code> cambiando solo el <code>repoURL</code>.</p>
+
+        <h2>3. <code>install.sh</code> — lo nuevo frente a p3</h2>
+        <pre class="code">MEM_GB=$(awk '/MemTotal/{print $2/1048576}' /proc/meminfo)
+[ "$MEM_GB" -lt 8 ] &amp;&amp; echo "WARNING: GitLab wants ~4 GiB; close VMs first."</pre>
+        <ul>
+          <li>Añade un <strong>aviso de RAM</strong>: GitLab CE es pesado (necesita unos 4 GiB). No aborta, solo advierte.</li>
+          <li><strong>Reutiliza el cluster</strong> en vez de borrarlo:
+            <pre class="code">if k3d cluster list iot; then k3d cluster start iot; else k3d cluster create iot; fi
+k3d kubeconfig merge iot --kubeconfig-switch-context</pre>
+          </li>
+        </ul>
+        <div class="panel">
+          <span class="label">Deliberado y notable</span>
+          <p>p3 <em>borra y recrea</em> el cluster en cada run; el bonus <em>lo reusa</em> porque es "p3 más GitLab", no una infra paralela. <code>install.sh</code> no llama a los componentes en línea: <strong>delega</strong> en <code>gitlab.sh</code> y luego <code>argocd.sh</code> (el orden importa: primero debe existir el repo en GitLab para que Argo CD pueda sincronizar).</p>
+        </div>
+
+        <h2>4. <code>gitlab.sh</code> — todo el ciclo GitLab automatizado</h2>
+
+        <h3>4.1 La imagen</h3>
+        <pre class="code">if ! docker image inspect gitlab/gitlab-ce:latest; then docker pull ... ; fi
+k3d image import gitlab/gitlab-ce:latest -c iot</pre>
+        <ul>
+          <li>La imagen se baja <strong>en el host</strong> (Docker local) y luego se <strong>importa al cluster K3d</strong>. Así, si se borra el cluster, no se vuelve a descargar la imagen (~3.5 GB).</li>
+          <li>"Latest" cumple la "última versión oficial" del subject.</li>
+        </ul>
+
+        <h3>4.2 El deploy y la espera</h3>
+        <pre class="code">kubectl apply -f confs/gitlab.yaml
+kubectl -n gitlab rollout status deploy/gitlab --timeout=1800s</pre>
+        <p><code>--timeout=1800s</code> (30 min): el primer arranque de GitLab corre reconfigure completo + migraciones de base de datos.</p>
+
+        <h3>4.3 Port-forward temporal</h3>
+        <pre class="code">kubectl -n gitlab port-forward svc/gitlab 8081:80 &amp;   # puerto libre dinámico</pre>
+        <p>El script se comunica con <strong>su propio cluster</strong> a través de un port-forward <strong>temporal</strong> (lo mata con <code>trap</code> al salir). Nadie publica GitLab en el host: todo se hace vía API local.</p>
+
+        <h3>4.4 Token de API para root</h3>
+        <pre class="code">PAT=$(kubectl -n gitlab exec deploy/gitlab -- gitlab-rails runner "...")
+kubectl -n gitlab create secret generic gitlab-api-token --from-literal=token=$PAT ...</pre>
+        <ul>
+          <li>Se crea un <strong>personal access token</strong> para <code>root</code> con <code>gitlab-rails runner</code> (consola Ruby de Rails dentro del pod).</li>
+          <li>Scopes: <code>api</code> y <code>write_repository</code> (crear el proyecto y poder hacer push).</li>
+          <li>Se guarda en un <strong>Secret</strong> de Kubernetes → las siguientes ejecuciones <strong>reusan</strong> el token en vez de crear otro. Esto convierte el script en idempotente.</li>
+        </ul>
+
+        <h3>4.5 El proyecto público, creado por API</h3>
+        <pre class="code">curl -X POST -H "PRIVATE-TOKEN: $PAT" "$API/projects"
+     -d name=... -d path=... -d visibility=public</pre>
+        <ul>
+          <li>Crea <code>root/Inception-of-Things_ravazque</code> con <code>visibility=public</code>.</li>
+          <li>Público es obligatorio: <strong>Argo CD clonará sin credenciales</strong> (recordar: no hay repo URL con password en la Application).</li>
+        </ul>
+
+        <h3>4.6 Push de los manifests (v1)</h3>
+        <pre class="code">mkdir WORK/manifests &amp;&amp; cp confs/manifests/*.yaml WORK/manifests/
+git init -b main; git add -A; git commit -m "IoT app manifests (v1)"
+git push "http://oauth2:$PAT@127.0.0.1:$PORT/root/Inception-of-Things_ravazque.git" main</pre>
+        <ul>
+          <li>Crea un repo local temporal, copia SOLO los dos manifests de <code>confs/manifests/</code> y hace <strong>push a GitLab</strong> con el token como credencial <code>oauth2</code>.</li>
+          <li>Se suben bajo <code>manifests/</code> — exactamente el <code>path</code> que la Application vigilará.</li>
+          <li>La rama es <code>main</code> explícita (la Application usa <code>targetRevision: main</code>).</li>
+        </ul>
+        <div class="panel warn">
+          <span class="label">Gotcha del plan</span>
+          <p>Los manifests de <code>bonus/confs/manifests/</code> que ves en el repo <strong>no son la fuente de verdad</strong> — son la plantilla local que el script copia y <em>empuja</em> a GitLab. Cambiar el YAML local después del install <strong>no</strong> cambia nada hasta que vuelvas a ejecutar el script o hagas push a GitLab tú mismo.</p>
+        </div>
+
+        <h2>5. <code>gitlab.yaml</code> — el stack GitLab en YAML</h2>
+        <p>Cuatro objetos (con <code>---</code>):</p>
+
+        <h3>5.1 Secret <code>gitlab-root</code></h3>
+        <pre class="code">stringData:
+  password: "Iot-Kubernetes-2026"</pre>
+        <p>La contraseña inicial de <code>root</code>; se inyecta al pod vía <code>env</code> (<code>GITLAB_ROOT_PASSWORD</code>). Local only: GitLab no se publica fuera del cluster.</p>
+
+        <h3>5.2 PVCs — persistencia</h3>
+        <pre class="code">gitlab-config   1Gi   ReadWriteOnce
+gitlab-data    12Gi   ReadWriteOnce</pre>
+        <ul>
+          <li>GitHub está fuera; aquí GitLab ES los datos. Si el pod muere o el cluster se apaga, el repo, la config y la BD deben seguir existiendo → <strong>PVCs</strong> (K3d provisiona volúmenes locales automáticamente).</li>
+          <li><code>config</code> → <code>/etc/gitlab</code> (configuración) · <code>data</code> → <code>/var/opt/gitlab</code> (DB, repos, gitaly).</li>
+          <li>Los <code>logs</code> van a un <code>emptyDir</code> (efímeros) y <code>/dev/shm</code> es un <code>emptyDir medium: Memory</code> de 256 MiB (PostgreSQL necesita más de los 64 MiB por defecto).</li>
+        </ul>
+
+        <h3>5.3 Deployment — pod único y <code>Recreate</code></h3>
+        <pre class="code">replicas: 1
+strategy:
+  type: Recreate</pre>
+        <ul>
+          <li><strong><code>Recreate</code></strong> y no <code>RollingUpdate</code>: los PVCs son <strong>single-writer</strong> (un solo pod a la vez). Con RollingUpdate, el pod nuevo arrancaría antes de que el viejo muera, y ambos montarían el mismo disco → corrupción. <code>Recreate</code> mata el pod actual <em>antes</em> de crear el nuevo.</li>
+          <li>Env omnibus:
+            <ul>
+              <li><code>external_url 'http://gitlab.gitlab.svc.cluster.local'</code> → GitLab se configura para responder a la <strong>URL interna del Service</strong>, no a <code>localhost</code>.</li>
+              <li><code>nginx['listen_https'] = false</code> → HTTP plano dentro del cluster.</li>
+              <li><code>monitoring_whitelist = ['0.0.0.0/0']</code> → las probes de Kubernetes vienen de la IP del nodo y <code>/-/health</code> solo escucha en localhost por defecto: hay que abrirlo o las probes fallan.</li>
+              <li>Se apagan componentes sobrantes (prometheus, registry, kas) para un solo nodo.</li>
+            </ul>
+          </li>
+        </ul>
+
+        <h3>5.4 Probes — <code>startupProbe</code>, <code>readinessProbe</code></h3>
+        <pre class="code">startupProbe:  /-/health  periodSeconds 10  failureThreshold 120
+readinessProbe:/-/health  periodSeconds 15  failureThreshold 6</pre>
+        <ul>
+          <li>El primer boot tarda mucho → <strong>startupProbe</strong> tolerante (hasta 120×10s = 20 min de margen antes de que el kubelet empiece a matar).</li>
+          <li>La <strong>readiness</strong> decide cuándo el Service envía tráfico; sin ella, un GitLab aún migrando no recibiría el pull de Argo CD.</li>
+          <li><code>resources: memory 2Gi</code> → justifica el aviso de RAM del install.</li>
+        </ul>
+
+        <h3>5.5 Service</h3>
+        <pre class="code">selector: app: gitlab
+port: 80 → targetPort: http</pre>
+        <p><code>ClusterIP</code> estándar. Es <strong>este</strong> Service quien da el nombre DNS interno al resto del cluster.</p>
+
+        <h2>6. La práctica del plan — por qué NO <code>localhost:8081</code></h2>
+        <p>La Application:</p>
+        <pre class="code">source:
+  repoURL: http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_ravazque.git
+  targetRevision: main
+  path: manifests</pre>
+        <p>Dos motivos clave por los que el <code>repoURL</code> <strong>no puede</strong> ser <code>http://localhost:8081</code>:</p>
+        <ol>
+          <li><strong>Dónde corre Argo CD:</strong> Argo CD es un pod <strong>dentro del cluster</strong> (namespace <code>argocd</code>). <code>localhost</code> dentro de ese pod es el propio pod, no el host y no el cluster. Aunque publicaras GitLab en el host, el pod de Argo CD no tiene "host" — su red es la del cluster.</li>
+          <li><strong>Qué resuelve <code>localhost:8081</code>:</strong> el port-forward solo existe en <strong>tu</strong> máquina (y en el proceso <code>kubectl port-forward</code>). No es direccionable desde otros pods, no es estable, y muere cuando cierras el comando.</li>
+        </ol>
+        <p>Por eso GitLab da su <code>external_url</code> a <code>http://gitlab.gitlab.svc.cluster.local</code> (apartado 5): es el <strong>nombre DNS de su propio Service</strong>, que Kubernetes resuelve dentro de cualquier pod del cluster. Argo CD "habla" con GitLab usando la red interna del cluster, sin pasar por el host ni por ningún puerto.</p>
+        <pre class="code">kubectl -n argocd get application playground -o jsonpath='{.spec.source.repoURL}'
+# http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_ravazque.git</pre>
+        <div class="panel">
+          <span class="label">El port-forward 8081</span>
+          <p>El port-forward <code>8081</code> solo existe para que el <code>install.sh</code> (que corre en el host) pueda usar la <strong>API de GitLab</strong> durante la instalación y para que tú abras la UI en <code>http://localhost:8081</code> desde el navegador. El tráfico de GitOps (repo → Argo CD) no lo usa en absoluto.</p>
+        </div>
+
+        <h2>7. <code>argocd.sh</code> — Argo CD lee del GitLab local</h2>
+        <pre class="code">kubectl apply --server-side -n argocd -f https://.../argo-cd/stable/manifests/install.yaml
+kubectl -n argocd rollout status deploy/argocd-repo-server --timeout=300s
+kubectl -n argocd rollout status deploy/argocd-server      --timeout=300s
+kubectl apply -f confs/application.yaml</pre>
+        <ul>
+          <li><strong>Idempotente:</strong> si <code>argocd-server</code> ya existe, lo reusa (no re-instala).</li>
+          <li>Reusa <code>--server-side</code> por la razón de p3 (límite de 262144 bytes de las CRDs).</li>
+          <li>Al aplicar <code>application.yaml</code>, la Application <code>playground</code> ya existente (si venías de p3) <strong>reescribe su <code>repoURL</code></strong> al GitLab interno: eso es exactamente lo que pide el bonus ("todo lo de p3 debe funcionar con tu GitLab").</li>
+          <li>Espera <code>Synced</code> + <code>Healthy</code> leyendo el status de la Application.</li>
+        </ul>
+
+        <h2>8. El flujo completo (la foto de memoria)</h2>
+        <pre class="code">        [dentro del cluster iot · K3d]
+GitLab pod (ns gitlab)              Argo CD (ns argocd)
+  ├─ PVC: config+data (persisten)      └─ Application "playground"
+  └─ Service gitlab 80/http                 │  repoURL = gitlab.gitlab... git
+       │ DNS interno                         │  path: manifests · dest: dev
+       │ http://gitlab.gitlab.svc...         ▼
+       └────────────►  Argo CD clona/pollea ─►  sync ─►  Deployment+Service → ns dev
+                                                          │
+                                              port-forward 8888:8888 → curl → v1/v2
+
+[en el host, solo para instalar/ver]
+  kubectl port-forward svc/gitlab 8081:80  →  navegador http://localhost:8081</pre>
+
+        <h2>9. Diagnóstico rápido</h2>
+        <table>
+          <thead><tr><th>Síntoma en bonus</th><th>Causa</th><th>Primer comando</th></tr></thead>
+          <tbody>
+            <tr><td>GitLab no arranca / CrashLoop</td><td>Migración lenta en el primer boot</td><td class="mono">kubectl -n gitlab logs deploy/gitlab + kubectl -n gitlab get pods</td></tr>
+            <tr><td>Rollout timeout tras 30 min</td><td>RAM insuficiente / imagen sin cache</td><td class="mono">kubectl -n gitlab describe pod gitlab-... (eventos) · comprobar free -h</td></tr>
+            <tr><td>Application <strong>ComparisonError</strong></td><td>GitLab aún no responde, repo vacío, o rama incorrecta</td><td class="mono">kubectl get application playground -n argocd -o yaml</td></tr>
+            <tr><td>Application <strong>OutOfSync</strong> y no avanza</td><td>Push a GitLab no hecho / poll sin pasar</td><td class="mono">kubectl -n gitlab port-forward ... + git pull del repo en local</td></tr>
+            <tr><td><code>curl</code> 8888 no responde</td><td>Port-forward 8888 cerrado</td><td class="mono">kubectl -n dev port-forward svc/playground 8888:8888</td></tr>
+            <tr><td>UI GitLab 502/503 en localhost:8081</td><td>El servicio no ha pasado readiness</td><td class="mono">kubectl -n gitlab get pods (Ready?)</td></tr>
+            <tr><td>Pérdida de datos al borrar cluster</td><td>Los PVC persisten mientras el cluster exista; al borrarlo, los volúmenes K3d se van. Las secrets (token/root pass) también.</td><td class="mono">kubectl get pvc -n gitlab antes de k3d cluster delete</td></tr>
+            <tr><td>Tras crear cluster nuevo, token/root viejo</td><td><code>kubectl create secret ...</code> en cada run crea una Secret nueva SOLO si la anterior no existe válida</td><td class="mono">re-ejecutar ./scripts/install.sh (idempotente)</td></tr>
+          </tbody>
+        </table>
+        <div class="panel">
+          <span class="label">Chequeo de defensa</span>
+          <p>Para la defensa: el chequeo canónico de que "Argo CD lee de GitLab" es imprimir el <code>spec.source.repoURL</code> de la Application (apartado 6).</p>
+        </div>
+
+        <h2>Predicciones y ejercicios</h2>
+
+        <h3>Ejercicio 5.1 — La práctica oficial del plan</h3>
+        <p>¿Por qué <code>localhost:8081</code> no sirve como <code>repoURL</code> para Argo CD, y por qué debe usarse la URL interna del Service?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>Argo CD corre dentro del cluster como un pod en el namespace <code>argocd</code>. Para él, <code>localhost</code> es su propio pod; y el <code>8081</code> ni siquiera existe fuera del comando <code>kubectl port-forward</code> que corriste en el host. <code>http://localhost:8081</code> es direccionable solo donde se ejecuta el port-forward (tu máquina), no desde el pod.</p>
+              <p>La URL interna <code>http://gitlab.gitlab.svc.cluster.local</code> es el <strong>nombre DNS del Service <code>gitlab</code> en el namespace <code>gitlab</code></strong>. Kubernetes lo resuelve desde cualquier pod del cluster y apunta directo al Service (ClusterIP) → al pod de GitLab. Además es <strong>estable</strong>: no depende de un puerto publicado, de <code>/etc/hosts</code> ni de que un port-forward esté activo. El port-forward <code>8081</code> solo lo usan el instalador (para la API) y tu navegador (para la UI).</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Ejercicio 5.2 — PVC y <code>Recreate</code></h3>
+        <p>¿Por qué el Deployment de GitLab usa <code>strategy: Recreate</code> con <code>replicas: 1</code>, y qué pasaría con <code>RollingUpdate</code>?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>Los PVCs se montan con <code>ReadWriteOnce</code> (un solo pod puede escribirlos a la vez). <code>RollingUpdate</code> crea el pod nuevo <strong>antes</strong> de eliminar el viejo: dos pods desplegados a la vez, ambos montando el mismo <code>gitlab-config</code>+<code>gitlab-data</code> → escrituras concurrentes → corrupción de la configuración/base de datos de GitLab. <code>Recreate</code> elimina primero el pod actual y solo entonces crea el siguiente, garantizando un único escritor en todo momento. <code>replicas: 1</code> es coherente con eso: GitLab es un monolito omnibus en un solo pod.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Ejercicio 5.3 — ¿Por qué el token y el proyecto los hace <code>gitlab.sh</code>?</h3>
+        <p>En p3 la fuente es GitHub y no configuras nada con tokens. ¿Qué obliga aquí a crear token y proyecto por API y no en la UI?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>GitLab corre dentro del cluster y el subject exige que <strong>todo funcione por sí solo</strong> ("everything you did in Part 3 must work with your local GitLab"). Nada de clicks: para que Argo CD sincronice hace falta 1) un repo existente (<code>root/Inception-of-Things_ravazque</code>) y 2) poder escribir en él (push de <code>manifests/</code>). El token de <code>root</code> (scopes <code>api</code> + <code>write_repository</code>) se genera con el Rails runner y se guarda en un Secret para ser reutilizado en ejecuciones siguientes; el proyecto público se crea con un <code>POST</code> a <code>/api/v4/projects</code>. Todo reproducible y sin dependencia de la UI.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Ejercicio 5.4 — Cambiar una versión en el bonus</h3>
+        <p>Editas <code>bonus/confs/manifests/deployment.yaml</code> a <code>v2</code> en tu repo local. ¿Despliega algo? ¿Cómo lo harías correctamente?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>No despliega nada. En p3 el manifest <em>era</em> la fuente (Argo lo lee de GitHub); en bonus la fuente es <strong>el repo dentro de GitLab</strong>, al que <code>gitlab.sh</code> subió una copia. Editar el fichero local solo cambia la plantilla que el script copiará la próxima vez.</p>
+              <p>La vía correcta (la del README): clonar <code>http://oauth2:$TOKEN@127.0.0.1:8081/root/Inception-of-Things_ravazque.git</code>, editar <code>manifests/deployment.yaml</code> a <code>v2</code> y hacer <code>git push</code>; o volver a lanzar <code>./scripts/install.sh</code> (que copia el YAML local y lo empuja). Luego, poll (~3 min) o sync manual (<code>patch --operation</code>), y <code>curl localhost:8888</code> → <code>{"message": "v2"}</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Ejercicio 5.5 — La pregunta girada de defensa</h3>
+        <p>"¿Cómo demuestro que Argo CD usa GitLab y no GitHub?"</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>Comando directo sobre la Application:</p>
+              <pre class="code">kubectl -n argocd get application playground -o jsonpath='{.spec.source.repoURL}{"\n"}'
+# http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_ravazque.git</pre>
+              <p>Complemento: mostrar que el proyecto vive dentro del cluster (<code>kubectl get pods -n gitlab</code> con el pod <code>gitlab-...</code> Running), que los pods en <code>dev</code> existen (<code>kubectl -n dev get pods</code>), y que un cambio hecho <strong>en GitLab</strong> (web UI o clone+push) se refleja en <code>curl http://localhost:8888</code>. La cadena completa demuestra "Part 3 funcionando con GitLab local".</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Ejercicio 5.6 — El puerto del Service y <code>targetPort: http</code></h3>
+        <p>El Service de GitLab declara <code>port: 80</code> y <code>targetPort: http</code>. ¿Qué es <code>http</code> y por qué funciona?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p><code>http</code> es el <strong>nombre</strong> del port del contenedor declarado en el Deployment (<code>ports: [{ name: http, containerPort: 80 }]</code>). En lugar de repetir el número, <code>targetPort</code> puede referirse al nombre: Kubernetes resuelve el puerto por nombre automáticamente. Ventaja: si cambiara el <code>containerPort</code> del contenedor, el Service no necesita edición. En la práctica es lo mismo que <code>targetPort: 80</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Errores frecuentes</span>
+          <ul>
+            <li>Intentar usar <code>localhost:8081</code> como <code>repoURL</code> de Argo CD (es la pregunta estrella: Argo está dentro del cluster, no ve tu host).</li>
+            <li>Pensar que los manifests de <code>bonus/confs/manifests/</code> son la fuente de verdad → solo son la plantilla que <code>gitlab.sh</code> copia y <strong>empuja</strong> a GitLab.</li>
+            <li>No entender por qué <code>Recreate</code>: dos pods con el mismo PVC <code>ReadWriteOnce</code> a la vez = corrupción de datos.</li>
+            <li>Olvidar <code>monitoring_whitelist</code>: las probes kubelet fallan en <code>/-/health</code> porque GitLab por defecto solo escucha en localhost, y el pod nunca pasa Ready.</li>
+            <li>Cambiar el YAML local tras el install y esperar un despliegue → hay que volver a correr el script o hacer push a GitLab.</li>
+            <li>Creer que el bonus "es otra Parte 3" con GitHub → el bonus <strong>reescribe</strong> la misma Application para leer de GitLab.</li>
+            <li>Esperar rapidez: primer boot de GitLab son 10-20 min (imagen ~3.5 GB + migraciones), y 8 GB de RAM son mínimos.</li>
+            <li>Confundir el port-forward (tu navegador/instalador) con la ruta GitOps del tráfico (solo red interna del cluster).</li>
+          </ul>
+        </div>
+
+        <h2>Preguntas tipo defensa</h2>
+        <p>Responde en voz alta, sin mirar los apuntes:</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>¿Por qué el bonus reusa el cluster <code>iot</code> en vez de crear otro?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>¿Cómo desplegarías GitLab de forma persistente (PVCs) y por qué <code>Recreate</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>¿Por qué <code>localhost:8081</code> no puede ser el <code>repoURL</code> de Argo CD?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>¿Qué exactamente "pone en funcionamiento" Argo CD con GitLab? (<code>gitlab.sh</code> → repo con <code>manifests/</code> → Application con <code>repoURL</code> interno)</span></label>
+          <label class="chk"><input type="checkbox" data-id="d5"><span>¿Cómo demuestras que Argo CD lee del GitLab local y no de GitHub?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d6"><span>Si cierras el port-forward 8081, ¿sigue funcionando el GitOps de Argo CD? ¿Por qué?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d7"><span>¿Para qué sirven los 3 namespaces y qué componente vive en cada uno?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d8"><span>¿Qué pasa con la aplicación si editas solo el YAML local de <code>bonus/confs/manifests/</code>?</span></label>
+        </div>
+
+        <h2>Criterio de finalización</h2>
+        <p>Marca cada ítem cuando lo digas "sin apuntes":</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Explicar la arquitectura: GitLab como pod en K3d, <code>argocd</code>/<code>dev</code>/<code>gitlab</code>, todo en el cluster <code>iot</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Justificar los PVCs y la estrategia <code>Recreate</code> (ReadWriteOnce, un solo escritor).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Explicar la práctica estrella: por qué el <code>repoURL</code> es el DNS del Service y no <code>localhost:8081</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Recitar el flujo de <code>gitlab.sh</code>: imagen → deploy → wait → token → proyecto público → push manifests (v1).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Demostrar el cambio v1→v2 desde GitLab y el chequeo del repoURL.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c6"><span>Diagnosticar <code>ComparisonError</code> / pod GitLab no Ready / app sin sync.</span></label></li>
+        </ol>
+
+        <h2>Has aprendido que</h2>
+        <ul>
+          <li>El bonus es <strong>"p3 + GitLab local"</strong>: mismo cluster <code>iot</code>, mismos namespaces <code>argocd</code>/<code>dev</code>, y uno nuevo <code>gitlab</code>.</li>
+          <li><strong>GitLab corre como pod</strong> dentro de K3d con 2 PVCs, <code>Recreate</code>, pod único y probes tolerantes al primer boot.</li>
+          <li>La fuente de GitOps se cambia <strong>solo en el <code>repoURL</code></strong> de la Application: de GitHub a <code>gitlab.gitlab.svc.cluster.local</code>.</li>
+          <li><code>gitlab.sh</code> automatiza todo por <strong>API</strong> (token Rails runner, proyecto público, push de manifests) y guarda el token en un Secret para idempotencia.</li>
+          <li>El nombre DNS interno del Service es la forma correcta de que Argo CD hable con GitLab; el port-forward es solo para instalación/UI.</li>
+          <li>Las probes: <code>startupProbe</code> aguanta el boot largo; <code>readinessProbe</code> decide cuándo el Service sirve tráfico.</li>
+          <li>Chequeo de defensa: <code>kubectl get application playground -o jsonpath='{.spec.source.repoURL}'</code>.</li>
+        </ul>
+
+        <p><strong>Siguiente clase:</strong> la clase 6 cierra el curso: <strong>Defensa y troubleshooting</strong> — el orden de demostración del proyecto completo, qué enseñar y justificar en cada parte, y cómo diagnosticar los fallos que un evaluador puede provocar.</p>
+      </section>
+
+      <!-- ============ ENGLISH ============ -->
+      <section lang="en">
+        <div class="objective">
+          <span class="label">Objective</span>
+          <p>Understand how the GitOps flow closes <strong>without leaving the cluster</strong>: a GitLab CE running inside K3d (namespace <code>gitlab</code>), deployed with PVCs, a single pod and the <code>Recreate</code> strategy; and Argo CD reading from that <strong>local GitLab</strong> instead of GitHub. In particular, the plan's practice: <strong>why <code>localhost:8081</code> does not work as a <code>repoURL</code></strong> and why the Service's internal URL must be used.</p>
+        </div>
+
+        <h2>1. What the bonus asks for</h2>
+        <p>The subject is short and demands:</p>
+        <ul>
+          <li>Your GitLab instance must run <strong>locally</strong>.</li>
+          <li>It must be <strong>configured to work with your cluster</strong>.</li>
+          <li>A <strong>dedicated namespace</strong> called <code>gitlab</code>.</li>
+          <li><strong>Everything from Part 3 must work with your local GitLab</strong> (the same GitOps flow, but with GitLab as the source).</li>
+          <li>A new <strong><code>bonus</code></strong> folder at the repo root.</li>
+          <li>The <strong>latest GitLab</strong> from the official site is expected → <code>gitlab/gitlab-ce:latest</code>.</li>
+        </ul>
+        <div class="panel">
+          <span class="label">Condition</span>
+          <p>The bonus is only evaluated if the mandatory part is "flawless" — you must have p1, p2 and p3 impeccable before defending this.</p>
+        </div>
+
+        <h2>2. The bonus topology — files</h2>
+        <pre class="code">srcs/bonus/
+├── scripts/
+│   ├── install.sh              ← orchestrates: cluster + gitlab.sh + argocd.sh
+│   ├── gitlab.sh               ← image, deploy, token, project, push manifests
+│   └── argocd.sh               ← Argo CD + Application pointing at the local GitLab
+└── confs/
+    ├── gitlab.yaml             ← root Secret + 2 PVCs + Deployment + Service
+    ├── application.yaml        ← same idea as p3, but repoURL = internal GitLab
+    └── manifests/              ← the app (v1/v2), PUSHED to GitLab
+        ├── deployment.yaml
+        └── service.yaml</pre>
+        <div class="panel">
+          <span class="label">Roles of the files</span>
+          <table>
+            <thead><tr><th>File</th><th>Role</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">scripts/install.sh</td><td>Preflight (Docker + RAM), reuses or creates cluster <code>iot</code>, 3 namespaces, calls <code>gitlab.sh</code> then <code>argocd.sh</code>.</td></tr>
+              <tr><td class="mono">scripts/gitlab.sh</td><td>All the GitLab side via API: image, deploy, waits, token, public project, push of <code>manifests/</code>.</td></tr>
+              <tr><td class="mono">scripts/argocd.sh</td><td>Installs/reuses Argo CD and applies the Application pointing at the internal GitLab.</td></tr>
+              <tr><td class="mono">confs/gitlab.yaml</td><td>The GitLab "stack" in YAML: Secret, PVCs, Deployment and Service.</td></tr>
+              <tr><td class="mono">confs/application.yaml</td><td>Application with <code>repoURL: http://gitlab.gitlab.svc.cluster.local/...</code>.</td></tr>
+              <tr><td class="mono">confs/manifests/*</td><td>The manifests <code>gitlab.sh</code> pushes to GitLab under <code>manifests/</code>.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Architecture difference versus p3</h3>
+        <pre class="code">p3:     GitHub (external) ──► Argo CD ──► dev
+bonus:  GitLab (inside the cluster) ──► Argo CD ──► dev
+        GitLab runs in the SAME cluster, namespace gitlab</pre>
+        <p>The bonus "is p3 + GitLab": it <strong>reuses cluster <code>iot</code></strong> if it exists (no second lab) and <strong>rewrites the same Application</strong> <code>playground</code> changing only the <code>repoURL</code>.</p>
+
+        <h2>3. <code>install.sh</code> — what is new versus p3</h2>
+        <pre class="code">MEM_GB=$(awk '/MemTotal/{print $2/1048576}' /proc/meminfo)
+[ "$MEM_GB" -lt 8 ] &amp;&amp; echo "WARNING: GitLab wants ~4 GiB; close VMs first."</pre>
+        <ul>
+          <li>Adds a <strong>RAM warning</strong>: GitLab CE is heavy (needs ~4 GiB). It does not abort, it only warns.</li>
+          <li><strong>Reuses the cluster</strong> instead of deleting it:
+            <pre class="code">if k3d cluster list iot; then k3d cluster start iot; else k3d cluster create iot; fi
+k3d kubeconfig merge iot --kubeconfig-switch-context</pre>
+          </li>
+        </ul>
+        <div class="panel">
+          <span class="label">Deliberate and noteworthy</span>
+          <p>p3 <em>deletes and recreates</em> the cluster on every run; the bonus <em>reuses it</em> because it is "p3 plus GitLab", not parallel infrastructure. <code>install.sh</code> does not call components inline: it <strong>delegates</strong> to <code>gitlab.sh</code> and then <code>argocd.sh</code> (order matters: the repo must exist in GitLab first so Argo CD can sync).</p>
+        </div>
+
+        <h2>4. <code>gitlab.sh</code> — the whole GitLab cycle automated</h2>
+
+        <h3>4.1 The image</h3>
+        <pre class="code">if ! docker image inspect gitlab/gitlab-ce:latest; then docker pull ... ; fi
+k3d image import gitlab/gitlab-ce:latest -c iot</pre>
+        <ul>
+          <li>The image is pulled <strong>on the host</strong> (local Docker) and then <strong>imported into the K3d cluster</strong>. That way, if the cluster is deleted, the image (~3.5 GB) is not downloaded again.</li>
+          <li>"Latest" fulfills the subject's "latest official version".</li>
+        </ul>
+
+        <h3>4.2 The deploy and the wait</h3>
+        <pre class="code">kubectl apply -f confs/gitlab.yaml
+kubectl -n gitlab rollout status deploy/gitlab --timeout=1800s</pre>
+        <p><code>--timeout=1800s</code> (30 min): GitLab's first boot runs a full reconfigure plus database migrations.</p>
+
+        <h3>4.3 Temporary port-forward</h3>
+        <pre class="code">kubectl -n gitlab port-forward svc/gitlab 8081:80 &amp;   # dynamic free port</pre>
+        <p>The script talks to <strong>its own cluster</strong> through a <strong>temporary</strong> port-forward (killed via <code>trap</code> on exit). GitLab is never published on the host: everything happens through the local API.</p>
+
+        <h3>4.4 API token for root</h3>
+        <pre class="code">PAT=$(kubectl -n gitlab exec deploy/gitlab -- gitlab-rails runner "...")
+kubectl -n gitlab create secret generic gitlab-api-token --from-literal=token=$PAT ...</pre>
+        <ul>
+          <li>A <strong>personal access token</strong> for <code>root</code> is created with <code>gitlab-rails runner</code> (the Rails Ruby console inside the pod).</li>
+          <li>Scopes: <code>api</code> and <code>write_repository</code> (create the project and push).</li>
+          <li>It is stored in a Kubernetes <strong>Secret</strong> → later runs <strong>reuse</strong> the token instead of creating another. This makes the script idempotent.</li>
+        </ul>
+
+        <h3>4.5 The public project, created via API</h3>
+        <pre class="code">curl -X POST -H "PRIVATE-TOKEN: $PAT" "$API/projects"
+     -d name=... -d path=... -d visibility=public</pre>
+        <ul>
+          <li>Creates <code>root/Inception-of-Things_ravazque</code> with <code>visibility=public</code>.</li>
+          <li>Public is mandatory: <strong>Argo CD will clone without credentials</strong> (remember: no password in the Application's repo URL).</li>
+        </ul>
+
+        <h3>4.6 Pushing the manifests (v1)</h3>
+        <pre class="code">mkdir WORK/manifests &amp;&amp; cp confs/manifests/*.yaml WORK/manifests/
+git init -b main; git add -A; git commit -m "IoT app manifests (v1)"
+git push "http://oauth2:$PAT@127.0.0.1:$PORT/root/Inception-of-Things_ravazque.git" main</pre>
+        <ul>
+          <li>Creates a temporary local repo, copies ONLY the two manifests from <code>confs/manifests/</code> and <strong>pushes to GitLab</strong> using the token as <code>oauth2</code> credential.</li>
+          <li>They land under <code>manifests/</code> — exactly the <code>path</code> the Application will watch.</li>
+          <li>The branch is explicitly <code>main</code> (the Application uses <code>targetRevision: main</code>).</li>
+        </ul>
+        <div class="panel warn">
+          <span class="label">The plan's gotcha</span>
+          <p>The manifests you see under <code>bonus/confs/manifests/</code> <strong>are not the source of truth</strong> — they are the local template the script copies and <em>pushes</em> to GitLab. Editing the local YAML after the install changes <strong>nothing</strong> until you rerun the script or push to GitLab yourself.</p>
+        </div>
+
+        <h2>5. <code>gitlab.yaml</code> — the GitLab stack in YAML</h2>
+        <p>Four objects (separated by <code>---</code>):</p>
+
+        <h3>5.1 Secret <code>gitlab-root</code></h3>
+        <pre class="code">stringData:
+  password: "Iot-Kubernetes-2026"</pre>
+        <p>Initial <code>root</code> password; injected into the pod via <code>env</code> (<code>GITLAB_ROOT_PASSWORD</code>). Local only: GitLab is never published outside the cluster.</p>
+
+        <h3>5.2 PVCs — persistence</h3>
+        <pre class="code">gitlab-config   1Gi   ReadWriteOnce
+gitlab-data    12Gi   ReadWriteOnce</pre>
+        <ul>
+          <li>GitHub is outside; here GitLab IS the data. If the pod dies or the cluster goes down, the repo, config and DB must survive → <strong>PVCs</strong> (K3d provisions local volumes automatically).</li>
+          <li><code>config</code> → <code>/etc/gitlab</code> (configuration) · <code>data</code> → <code>/var/opt/gitlab</code> (DB, repos, gitaly).</li>
+          <li>The <code>logs</code> go to an <code>emptyDir</code> (ephemeral) and <code>/dev/shm</code> is an <code>emptyDir medium: Memory</code> of 256 MiB (PostgreSQL needs more than the default 64 MiB).</li>
+        </ul>
+
+        <h3>5.3 Deployment — single pod and <code>Recreate</code></h3>
+        <pre class="code">replicas: 1
+strategy:
+  type: Recreate</pre>
+        <ul>
+          <li><strong><code>Recreate</code></strong> and not <code>RollingUpdate</code>: the PVCs are <strong>single-writer</strong> (only one pod at a time). With RollingUpdate the new pod would start before the old one dies, and both would mount the same disk → corruption. <code>Recreate</code> kills the current pod <em>before</em> creating the new one.</li>
+          <li>Omnibus env:
+            <ul>
+              <li><code>external_url 'http://gitlab.gitlab.svc.cluster.local'</code> → GitLab is configured to answer the Service's <strong>internal URL</strong>, not <code>localhost</code>.</li>
+              <li><code>nginx['listen_https'] = false</code> → plain HTTP inside the cluster.</li>
+              <li><code>monitoring_whitelist = ['0.0.0.0/0']</code> → kubelet probes come from the node IP and <code>/-/health</code> only listens on localhost by default: it must be opened or the probes fail.</li>
+              <li>Unneeded components (prometheus, registry, kas) are disabled for a single node.</li>
+            </ul>
+          </li>
+        </ul>
+
+        <h3>5.4 Probes — <code>startupProbe</code>, <code>readinessProbe</code></h3>
+        <pre class="code">startupProbe:  /-/health  periodSeconds 10  failureThreshold 120
+readinessProbe:/-/health  periodSeconds 15  failureThreshold 6</pre>
+        <ul>
+          <li>The first boot takes long → a tolerant <strong>startupProbe</strong> (up to 120×10s = 20 min of margin before the kubelet starts killing).</li>
+          <li>The <strong>readiness</strong> decides when the Service sends traffic; without it, a GitLab still migrating would not receive Argo CD's pull.</li>
+          <li><code>resources: memory 2Gi</code> → justifies the install's RAM warning.</li>
+        </ul>
+
+        <h3>5.5 Service</h3>
+        <pre class="code">selector: app: gitlab
+port: 80 → targetPort: http</pre>
+        <p>Standard <code>ClusterIP</code>. It is <strong>this</strong> Service that gives the cluster its internal DNS name.</p>
+
+        <h2>6. The plan's practice — why NOT <code>localhost:8081</code></h2>
+        <p>The Application:</p>
+        <pre class="code">source:
+  repoURL: http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_ravazque.git
+  targetRevision: main
+  path: manifests</pre>
+        <p>Two key reasons the <code>repoURL</code> <strong>cannot</strong> be <code>http://localhost:8081</code>:</p>
+        <ol>
+          <li><strong>Where Argo CD runs:</strong> Argo CD is a pod <strong>inside the cluster</strong> (namespace <code>argocd</code>). For it, <code>localhost</code> is its own pod, not the host and not the cluster. Even if you published GitLab on the host, Argo CD's pod has no "host" — its network is the cluster's.</li>
+          <li><strong>What <code>localhost:8081</code> resolves to:</strong> the port-forward only exists on <strong>your</strong> machine (in the <code>kubectl port-forward</code> process). It is not reachable from other pods, it is not stable, and it dies when you close the command.</li>
+        </ol>
+        <p>That is why GitLab sets its <code>external_url</code> to <code>http://gitlab.gitlab.svc.cluster.local</code> (section 5): it is the <strong>DNS name of its own Service</strong>, which Kubernetes resolves inside any pod of the cluster. Argo CD "talks" to GitLab over the cluster's internal network, without going through the host or any port.</p>
+        <pre class="code">kubectl -n argocd get application playground -o jsonpath='{.spec.source.repoURL}'
+# http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_ravazque.git</pre>
+        <div class="panel">
+          <span class="label">The 8081 port-forward</span>
+          <p>The <code>8081</code> port-forward only exists so <code>install.sh</code> (which runs on the host) can use GitLab's <strong>API</strong> during installation and so you can open the UI at <code>http://localhost:8081</code> in the browser. The GitOps traffic (repo → Argo CD) does not use it at all.</p>
+        </div>
+
+        <h2>7. <code>argocd.sh</code> — Argo CD reads from the local GitLab</h2>
+        <pre class="code">kubectl apply --server-side -n argocd -f https://.../argo-cd/stable/manifests/install.yaml
+kubectl -n argocd rollout status deploy/argocd-repo-server --timeout=300s
+kubectl -n argocd rollout status deploy/argocd-server      --timeout=300s
+kubectl apply -f confs/application.yaml</pre>
+        <ul>
+          <li><strong>Idempotent:</strong> if <code>argocd-server</code> already exists, it is reused (no reinstall).</li>
+          <li>Reuses <code>--server-side</code> for the p3 reason (the 262144-byte CRD limit).</li>
+          <li>Applying <code>application.yaml</code> makes the already-existing Application <code>playground</code> (if you came from p3) <strong>rewrite its <code>repoURL</code></strong> to the internal GitLab: that is exactly what the bonus asks ("everything in p3 must work with your GitLab").</li>
+          <li>Waits for <code>Synced</code> + <code>Healthy</code> reading the Application status.</li>
+        </ul>
+
+        <h2>8. The complete flow (the memory picture)</h2>
+        <pre class="code">        [inside cluster iot · K3d]
+GitLab pod (ns gitlab)              Argo CD (ns argocd)
+  ├─ PVC: config+data (persist)      └─ Application "playground"
+  └─ Service gitlab 80/http                 │  repoURL = gitlab.gitlab... git
+       │ internal DNS                        │  path: manifests · dest: dev
+       │ http://gitlab.gitlab.svc...         ▼
+       └────────────►  Argo CD clones/polls ─►  sync ─►  Deployment+Service → ns dev
+                                                          │
+                                              port-forward 8888:8888 → curl → v1/v2
+
+[on the host, only to install/view]
+  kubectl port-forward svc/gitlab 8081:80  →  browser http://localhost:8081</pre>
+
+        <h2>9. Quick diagnosis</h2>
+        <table>
+          <thead><tr><th>Symptom in bonus</th><th>Cause</th><th>First command</th></tr></thead>
+          <tbody>
+            <tr><td>GitLab does not start / CrashLoop</td><td>Slow migration on first boot</td><td class="mono">kubectl -n gitlab logs deploy/gitlab + kubectl -n gitlab get pods</td></tr>
+            <tr><td>Rollout timeout after 30 min</td><td>Not enough RAM / uncached image</td><td class="mono">kubectl -n gitlab describe pod gitlab-... (events) · check free -h</td></tr>
+            <tr><td>Application <strong>ComparisonError</strong></td><td>GitLab not answering yet, empty repo, or wrong branch</td><td class="mono">kubectl get application playground -n argocd -o yaml</td></tr>
+            <tr><td>Application <strong>OutOfSync</strong> that never advances</td><td>Push to GitLab not done / poll not fired</td><td class="mono">kubectl -n gitlab port-forward ... + git pull of the local repo</td></tr>
+            <tr><td><code>curl</code> 8888 not answering</td><td>Closed 8888 port-forward</td><td class="mono">kubectl -n dev port-forward svc/playground 8888:8888</td></tr>
+            <tr><td>GitLab UI 502/503 at localhost:8081</td><td>The service has not passed readiness</td><td class="mono">kubectl -n gitlab get pods (Ready?)</td></tr>
+            <tr><td>Data loss when the cluster is deleted</td><td>The PVCs persist while the cluster exists; when deleted, the K3d volumes go away. The secrets (token/root pass) too.</td><td class="mono">kubectl get pvc -n gitlab before k3d cluster delete</td></tr>
+            <tr><td>Old token/root after a new cluster</td><td><code>kubectl create secret ...</code> on each run only creates a new Secret if the previous one is not valid</td><td class="mono">re-run ./scripts/install.sh (idempotent)</td></tr>
+          </tbody>
+        </table>
+        <div class="panel">
+          <span class="label">Defense check</span>
+          <p>For the defense: the canonical proof that "Argo CD reads from GitLab" is printing the Application's <code>spec.source.repoURL</code> (section 6).</p>
+        </div>
+
+        <h2>Predictions and exercises</h2>
+
+        <h3>Exercise 5.1 — The official practice of the plan</h3>
+        <p>Why does <code>localhost:8081</code> not work as a <code>repoURL</code> for Argo CD, and why must the Service's internal URL be used?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>Argo CD runs inside the cluster as a pod in the <code>argocd</code> namespace. For it, <code>localhost</code> is its own pod; and <code>8081</code> does not even exist outside the <code>kubectl port-forward</code> command you ran on the host. <code>http://localhost:8081</code> is reachable only where the port-forward runs (your machine), not from the pod.</p>
+              <p>The internal URL <code>http://gitlab.gitlab.svc.cluster.local</code> is the <strong>DNS name of the <code>gitlab</code> Service in the <code>gitlab</code> namespace</strong>. Kubernetes resolves it from any pod in the cluster and points straight to the Service (ClusterIP) → to GitLab's pod. It is also <strong>stable</strong>: it does not depend on a published port, on <code>/etc/hosts</code>, or on a port-forward being active. The <code>8081</code> tunnel is only used by the installer (for the API) and your browser (for the UI).</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Exercise 5.2 — PVC and <code>Recreate</code></h3>
+        <p>Why does GitLab's Deployment use <code>strategy: Recreate</code> with <code>replicas: 1</code>, and what would happen with <code>RollingUpdate</code>?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>The PVCs are mounted with <code>ReadWriteOnce</code> (only one pod may write them at a time). <code>RollingUpdate</code> creates the new pod <strong>before</strong> deleting the old one: two pods up at once, both mounting the same <code>gitlab-config</code>+<code>gitlab-data</code> → concurrent writes → corruption of GitLab's configuration/database. <code>Recreate</code> deletes the current pod first and only then creates the next, guaranteeing a single writer at all times. <code>replicas: 1</code> is consistent with that: GitLab is an omnibus monolith in a single pod.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Exercise 5.3 — Why does <code>gitlab.sh</code> do the token and the project?</h3>
+        <p>In p3 the source is GitHub and you configure nothing with tokens. What forces creating the token and project via API here instead of the UI?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>GitLab runs inside the cluster and the subject demands that <strong>everything works on its own</strong> ("everything you did in Part 3 must work with your local GitLab"). No clicks: for Argo CD to sync you need 1) an existing repo (<code>root/Inception-of-Things_ravazque</code>) and 2) write access to it (push of <code>manifests/</code>). The <code>root</code> token (scopes <code>api</code> + <code>write_repository</code>) is generated with the Rails runner and stored in a Secret for reuse on later runs; the public project is created with a <code>POST</code> to <code>/api/v4/projects</code>. All reproducible, with no dependency on the UI.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Exercise 5.4 — Changing a version in the bonus</h3>
+        <p>You edit <code>bonus/confs/manifests/deployment.yaml</code> to <code>v2</code> in your local repo. Does it deploy anything? How would you do it correctly?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>It deploys nothing. In p3 the manifest <em>was</em> the source (Argo reads it from GitHub); in bonus the source is <strong>the repo inside GitLab</strong>, where <code>gitlab.sh</code> pushed a copy. Editing the local file only changes the template the script will copy next time.</p>
+              <p>The correct path (from the README): clone <code>http://oauth2:$TOKEN@127.0.0.1:8081/root/Inception-of-Things_ravazque.git</code>, edit <code>manifests/deployment.yaml</code> to <code>v2</code> and <code>git push</code>; or rerun <code>./scripts/install.sh</code> (which copies the local YAML and pushes it). Then poll (~3 min) or manual sync (<code>patch --operation</code>), and <code>curl localhost:8888</code> → <code>{"message": "v2"}</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Exercise 5.5 — The flipped defense question</h3>
+        <p>"How do I prove that Argo CD uses GitLab and not GitHub?"</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>A direct command on the Application:</p>
+              <pre class="code">kubectl -n argocd get application playground -o jsonpath='{.spec.source.repoURL}{"\n"}'
+# http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_ravazque.git</pre>
+              <p>Complement: show the project lives inside the cluster (<code>kubectl get pods -n gitlab</code> with the <code>gitlab-...</code> pod Running), that the pods in <code>dev</code> exist (<code>kubectl -n dev get pods</code>), and that a change made <strong>in GitLab</strong> (web UI or clone+push) shows up in <code>curl http://localhost:8888</code>. The full chain proves "Part 3 working with local GitLab".</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Exercise 5.6 — The Service port and <code>targetPort: http</code></h3>
+        <p>GitLab's Service declares <code>port: 80</code> and <code>targetPort: http</code>. What is <code>http</code> and why does it work?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p><code>http</code> is the <strong>name</strong> of the container port declared in the Deployment (<code>ports: [{ name: http, containerPort: 80 }]</code>). Instead of repeating the number, <code>targetPort</code> can refer to the name: Kubernetes resolves the port by name automatically. Advantage: if the container's <code>containerPort</code> changed, the Service would not need editing. In practice it is the same as <code>targetPort: 80</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Frequent mistakes</span>
+          <ul>
+            <li>Trying to use <code>localhost:8081</code> as Argo CD's <code>repoURL</code> (the star question: Argo is inside the cluster, it does not see your host).</li>
+            <li>Thinking the manifests in <code>bonus/confs/manifests/</code> are the source of truth → they are only the template <code>gitlab.sh</code> copies and <strong>pushes</strong> to GitLab.</li>
+            <li>Not understanding why <code>Recreate</code>: two pods with the same <code>ReadWriteOnce</code> PVC at once = data corruption.</li>
+            <li>Forgetting <code>monitoring_whitelist</code>: kubelet probes fail on <code>/-/health</code> because GitLab only listens on localhost by default, and the pod never becomes Ready.</li>
+            <li>Changing the local YAML after the install and expecting a deploy → rerun the script or push to GitLab.</li>
+            <li>Believing the bonus "is another Part 3" with GitHub → the bonus <strong>rewrites</strong> the same Application to read from GitLab.</li>
+            <li>Expecting speed: GitLab's first boot takes 10-20 min (image ~3.5 GB + migrations), and 8 GB of RAM is a minimum.</li>
+            <li>Confusing the port-forward (your browser/installer) with the GitOps traffic path (only the cluster's internal network).</li>
+          </ul>
+        </div>
+
+        <h2>Defense-style questions</h2>
+        <p>Answer out loud, without notes:</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>Why does the bonus reuse cluster <code>iot</code> instead of creating another?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>How would you deploy GitLab persistently (PVCs) and why <code>Recreate</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>Why can't <code>localhost:8081</code> be Argo CD's <code>repoURL</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>What exactly makes Argo CD work with GitLab? (<code>gitlab.sh</code> → repo with <code>manifests/</code> → Application with internal <code>repoURL</code>)</span></label>
+          <label class="chk"><input type="checkbox" data-id="d5"><span>How do you prove Argo CD reads from the local GitLab and not GitHub?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d6"><span>If you close the 8081 port-forward, does Argo CD's GitOps keep working? Why?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d7"><span>What are the 3 namespaces for and which component lives in each?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d8"><span>What happens to the app if you only edit the local YAML in <code>bonus/confs/manifests/</code>?</span></label>
+        </div>
+
+        <h2>Completion criteria</h2>
+        <p>Check each item when you can say it "without notes":</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Explain the architecture: GitLab as a pod in K3d, <code>argocd</code>/<code>dev</code>/<code>gitlab</code>, all inside cluster <code>iot</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Justify the PVCs and the <code>Recreate</code> strategy (ReadWriteOnce, single writer).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Explain the star practice: why the <code>repoURL</code> is the Service DNS and not <code>localhost:8081</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Recite the <code>gitlab.sh</code> flow: image → deploy → wait → token → public project → push manifests (v1).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Demo the v1→v2 change from GitLab and the repoURL check.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c6"><span>Diagnose <code>ComparisonError</code> / GitLab pod not Ready / app not syncing.</span></label></li>
+        </ol>
+
+        <h2>You have learned that</h2>
+        <ul>
+          <li>The bonus is <strong>"p3 + local GitLab"</strong>: same cluster <code>iot</code>, same <code>argocd</code>/<code>dev</code> namespaces, plus a new <code>gitlab</code> one.</li>
+          <li><strong>GitLab runs as a pod</strong> inside K3d with 2 PVCs, <code>Recreate</code>, a single pod and first-boot-tolerant probes.</li>
+          <li>The GitOps source changes <strong>only in the Application's <code>repoURL</code></strong>: from GitHub to <code>gitlab.gitlab.svc.cluster.local</code>.</li>
+          <li><code>gitlab.sh</code> automates everything via <strong>API</strong> (Rails-runner token, public project, manifests push) and stores the token in a Secret for idempotency.</li>
+          <li>The Service's internal DNS name is the correct way for Argo CD to talk to GitLab; the port-forward is only for installation/UI.</li>
+          <li>The probes: <code>startupProbe</code> absorbs the long boot; <code>readinessProbe</code> decides when the Service serves traffic.</li>
+          <li>Defense check: <code>kubectl get application playground -o jsonpath='{.spec.source.repoURL}'</code>.</li>
+        </ul>
+
+        <p><strong>Next class:</strong> class 6 closes the course: <strong>Defense and troubleshooting</strong> — the demo order for the whole project, what to teach and justify in each part, and how to diagnose the failures an evaluator may trigger.</p>
+      </section>
+    </div>
+
+    <nav class="pager">
+      <a href="clase-04.html">
+        <small data-i18n="prev.class">Clase anterior</small>
+        <strong><span lang="es">Clase 4 · K3d, Argo CD y GitOps con p3</span><span lang="en">Class 4 · K3d, Argo CD and GitOps with p3</span></strong>
+      </a>
+      <a class="next" href="clase-06.html">
+        <small data-i18n="next.class">Siguiente clase</small>
+        <strong><span lang="es">Clase 6 · Defensa y troubleshooting</span><span lang="en">Class 6 · Defense and troubleshooting</span></strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>

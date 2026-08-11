@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clase 4 · K3d, Argo CD y GitOps con p3 — Inception of Things</title>
+  <meta name="description" content="K3s vs K3d, namespaces argocd y dev, la Application CRD de Argo CD (repoURL, targetRevision, path, destination), sync automático con prune y selfHeal, por qué instalar Argo CD necesita --server-side, y el desplegable v1→v2 desde GitHub.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="inception_of_things/clase-04">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <label class="visually-hidden" for="site-search" data-i18n="search.label">Buscar proyecto</label>
+        <input id="site-search" type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="index.html" data-i18n="p.inception_of_things.name">Inception of Things</a><span class="sep">/</span>
+        <span><span lang="es">Clase 4</span><span lang="en">Class 4</span></span>
+      </nav>
+
+      <h1><span lang="es">Clase 4 · K3d, Argo CD y GitOps con p3</span><span lang="en">Class 4 · K3d, Argo CD and GitOps with p3</span></h1>
+
+      <div class="class-toolbar">
+        <label class="complete-toggle">
+          <input type="checkbox" data-complete="inception_of_things/clase-04">
+          <span data-i18n="btn.complete">Marcar clase como completada</span>
+        </label>
+        <span class="toolbar-hint mono">K3s · K3d · Argo CD · GitOps · Application CRD</span>
+      </div>
+    </div>
+
+    <div class="prose">
+
+      <!-- ============ ESPAÑOL ============ -->
+      <section lang="es">
+        <div class="objective">
+          <span class="label">Objetivo</span>
+          <p>Entender cómo se despliega una aplicación <strong>desde GitHub sin tocar el cluster</strong>: K3d vs K3s, los namespaces <code>argocd</code> y <code>dev</code>, la <strong>Application CRD</strong> de Argo CD (<code>repoURL</code>, <code>targetRevision</code>, <code>path</code>, <code>destination</code>), el sync automático con <code>prune</code> y <code>selfHeal</code>, por qué el install de Argo CD necesita <code>--server-side</code>, y sobre todo <strong>por qué cambiar <code>deployment.yaml</code> solo en local no basta</strong>.</p>
+        </div>
+
+        <h2>1. La topología de p3 — ficheros</h2>
+        <pre class="code">srcs/p3/
+├── scripts/
+│   └── install.sh            ← único script: cluster + Argo CD + Application
+└── confs/
+    ├── application.yaml      ← la "orden" de Argo CD (se aplica al cluster)
+    └── manifests/            ← la app que Argo CD vigila (vive en GitHub)
+        ├── deployment.yaml   (wil42/playground:v1 o v2)
+        └── service.yaml</pre>
+        <div class="panel">
+          <span class="label">Los roles de cada fichero</span>
+          <table>
+            <thead><tr><th>Fichero</th><th>Rol</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">scripts/install.sh</td><td>Preflight Docker, instala <code>kubectl</code>/<code>k3d</code>/<code>argocd</code> en <code>~/.local/bin</code>, recrea el cluster <code>iot</code>, crea namespaces, instala Argo CD y aplica la Application.</td></tr>
+              <tr><td class="mono">confs/application.yaml</td><td>CRD <code>Application</code>: le dice a Argo CD qué repo vigilar, qué path y en qué namespace desplegar.</td></tr>
+              <tr><td class="mono">confs/manifests/deployment.yaml</td><td>Manifiesto de la app (con <code>image: wil42/playground:v1</code>) — <strong>la fuente de verdad de Argo CD</strong>.</td></tr>
+              <tr><td class="mono">confs/manifests/service.yaml</td><td>Service <code>ClusterIP</code> que expone el puerto 8888 dentro del cluster.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>La diferencia de arquitectura frente a p1 y p2</h3>
+        <pre class="code">p1/p2:  Vagrant + VM(generic/ubuntu2204) + K3s dentro de la VM
+p3:     Docker + K3d (K3s dentro de un contenedor) + Argo CD + un repo GitHub</pre>
+        <p>Nada de esto corre en una VM: <code>install.sh</code> se ejecuta <strong>en el host</strong>. No hace falta <code>sudo</code> porque las herramientas se instalan en <code>~/.local/bin</code>; el único requisito previo es <strong>Docker arrancado y accesible</strong> (<code>docker info</code>).</p>
+
+        <h2>2. K3s vs K3d — la pregunta que el subject obliga a saber</h2>
+        <table>
+          <thead><tr><th></th><th>K3s</th><th>K3d</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Qué es</strong></td><td>Distribución ligera de Kubernetes, 1 binario</td><td><strong>K3s corriendo dentro de Docker</strong> (cada nodo es un contenedor)</td></tr>
+            <tr><td><strong>Para qué</strong></td><td>Correr un cluster real en una máquina (o VM)</td><td>Tener un cluster rápido y desechable <strong>en desarrollo</strong></td></tr>
+            <tr><td><strong>Runtime</strong></td><td>Procesos nativos en el SO</td><td>Contenedores Docker orquestados por k3d</td></tr>
+            <tr><td><strong>Nodos</strong></td><td>Metal/VM: server y agentes</td><td>Contenedores <code>k3d-iot-server-0</code>, <code>...-agent-0</code></td></tr>
+            <tr><td><strong>Sysadmin</strong></td><td>Instalación con script de K3s</td><td><code>k3d cluster create</code></td></tr>
+          </tbody>
+        </table>
+        <div class="panel">
+          <span class="label">Clave</span>
+          <p>K3d no es "otra Kubernetes": es <strong>K3s empaquetado en contenedores Docker</strong>. El cluster que ves con <code>kubectl get nodes</code> es el mismo K3s que en p1/p2, pero sin VM: lo que el subject pide es que sepas <strong>cuándo usar cada uno</strong>.</p>
+        </div>
+
+        <h2>3. El flujo completo de p3</h2>
+        <pre class="code">  GitHub (repo público, manifiestos en srcs/p3/confs/manifests, tag v1/v2)
+                  │
+     Argo CD pollea el repo cada ~3 min  (sync automático)  ── o sync manual
+                  ▼
+   Argo CD (namespace argocd)
+     └─ Application CRD "playground"  ──sync──►  aplica manifests al cluster
+                  ▼
+   K3d cluster "iot" · namespace dev
+     ├─ Deployment playground  (wil42/playground:v1|v2)
+     └─ Service    playground  (ClusterIP, 8888)
+                  ▲
+      kubectl -n dev port-forward svc/playground 8888:8888</pre>
+        <p>El punto clave de GitOps: <strong>nadie aplica manifiestos a mano</strong>. El cluster se "declara en Git" y Argo CD se encarga de que la realidad coincida con esa declaración.</p>
+
+        <h2>4. <code>install.sh</code> sección a sección</h2>
+
+        <h3>4.1 Preflight — Docker obligatorio</h3>
+        <pre class="code">[ -x docker ] || exit                      # ¿está instalado?
+docker info   || exit                      # ¿el daemon responde?</pre>
+        <p>K3d <strong>no funciona sin Docker</strong>: cada nodo del cluster es un contenedor. Los errores de permisos se arreglan con <code>sudo usermod -aG docker $USER</code> y volver a iniciar sesión.</p>
+
+        <h3>4.2 Tooling sin sudo en <code>~/.local/bin</code></h3>
+        <pre class="code">kubectl  ← descargado   de dl.k8s.io (versión stable)
+k3d      ← instalador oficial de k3d
+argocd   ← CLI binario de argo-cd releases (solo útil para sync/login opcional)
+export PATH="${BIN}:${PATH}"</pre>
+        <p>Nada necesita paquetes del sistema: todo termina en <code>HOME/.local/bin</code>, así el evaluador solo necesita Docker.</p>
+
+        <h3>4.3 El cluster, desde cero</h3>
+        <pre class="code">k3d cluster delete iot  &gt;/dev/null 2&gt;&amp;1 || true
+k3d cluster create iot  --wait</pre>
+        <p>Cada ejecución <strong>borra y recrea</strong> el cluster (estado conocido, reproducible). <code>--wait</code> espera a que el cluster esté listo antes de seguir.</p>
+
+        <h3>4.4 Namespaces</h3>
+        <pre class="code">kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace dev    --dry-run=client -o yaml | kubectl apply -f -</pre>
+        <ul>
+          <li><code>argocd</code> → el controlador (componentes de Argo CD).</li>
+          <li><code>dev</code> → la aplicación (donde aterrizan los manifiestos de GitHub).</li>
+          <li>El <code>--dry-run=client -o yaml | apply -f -</code> convierte el comando en <strong>idempotente</strong>: se puede repetir sin error.</li>
+        </ul>
+
+        <h3>4.5 Argo CD, instalar con <code>--server-side</code></h3>
+        <pre class="code">kubectl apply --server-side -n argocd \
+  -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl -n argocd rollout status deploy/argocd-repo-server --timeout=300s
+kubectl -n argocd rollout status deploy/argocd-server      --timeout=300s</pre>
+        <ul>
+          <li>El <code>install.yaml</code> es el manifiesto oficial: instala todos los componentes Argo CD en el namespace <code>argocd</code>.</li>
+          <li><strong>Por qué <code>--server-side</code>:</strong> <code>kubectl apply</code> normal anota cada objeto con la configuración aplicada (<code>last-applied-configuration</code>), y esa anotación tiene un <strong>límite de 262144 bytes</strong>. Los CRDs de Argo CD (los tipos <code>Application</code> y <code>AppProject</code>) superan ese tamaño en metadatos; con <code>--server-side</code> el servidor gestiona la reconciliación en el propio modelo de Kubernetes y se evita el límite.</li>
+          <li>Las dos esperas son los componentes que importan para el sync del repo: <code>argocd-repo-server</code> (lee el Git) y <code>argocd-server</code> (API + UI).</li>
+        </ul>
+
+        <h3>4.6 La Application — el corazón GitOps</h3>
+        <pre class="code">kubectl apply -f "${CONFS}/application.yaml"</pre>
+        <p>Esto <strong>no es</strong> un manifiesto de la app: le dice a Argo CD <strong>qué repo vigilar, en qué path y hacia dónde sincronizar</strong>. A partir de aquí es el propio controller quien despliega.</p>
+
+        <h3>4.7 Esperar el primer sync</h3>
+        <pre class="code">for _ in $(seq 1 60); do
+  SYNC="$(kubectl -n argocd get application playground -o jsonpath='{.status.sync.status}' ...)"
+  HEALTH="$(kubectl -n argocd get application playground -o jsonpath='{.status.health.status}' ...)"
+  [ "${SYNC}" = "Synced" ] &amp;&amp; [ "${HEALTH}" = "Healthy" ] &amp;&amp; break
+  sleep 5
+done</pre>
+        <p>Lee el <strong>status de la Application</strong> hasta que queda <code>Synced</code> y <code>Healthy</code> — la señal de que Argo CD ya aplicó los manifests desde GitHub.</p>
+
+        <h3>4.8 Info final</h3>
+        <ul>
+          <li>Imprime el password de admin (<code>argocd-initial-admin-secret</code>, en base64).</li>
+          <li>Recuerda los dos port-forwards: UI (<code>8080:443</code>) y app (<code>8888:8888</code>).</li>
+          <li>Avisa si <code>~/.local/bin</code> no está en el <code>PATH</code>.</li>
+        </ul>
+
+        <h2>5. La Application CRD, campo a campo</h2>
+        <p><code>confs/application.yaml</code> <strong>no se lee desde Git</strong> (aunque vive en el repo): se aplica una vez al cluster y es la declaración de intenciones de Argo CD.</p>
+        <pre class="code">apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: playground
+  namespace: argocd        # el controller vive aquí
+spec:
+  project: default         # qué AppProject (política) la gestiona
+  source:                  # ← DE DÓNDE mirar
+    repoURL: https://github.com/ravazque/Inception-of-Things_ravazque.git
+    targetRevision: HEAD   # rama/commit a seguir (HEAD = default)
+    path: srcs/p3/confs/manifests
+  destination:             # ← DÓNDE aplicar
+    server: https://kubernetes.default.svc   # el propio cluster
+    namespace: dev
+  syncPolicy:              # ← CUÁNDO y CÓMO sync
+    automated:
+      prune: true          # borra del cluster lo que borras en Git
+      selfHeal: true       # revierte cambios hechos a mano en el cluster
+    syncOptions:
+      - CreateNamespace=true   # crea el ns destino si no existe</pre>
+        <table>
+          <thead><tr><th>Campo</th><th>Qué decide</th><th>Analogía</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">source.repoURL</td><td>Qué repo Git vigila Argo CD</td><td>"de dónde saco la receta"</td></tr>
+            <tr><td class="mono">source.path</td><td>Qué subcarpeta del repo usa</td><td>"qué receta de este libro"</td></tr>
+            <tr><td class="mono">source.targetRevision</td><td>Qué rama/commit — <code>HEAD</code></td><td>"sigue la última versión"</td></tr>
+            <tr><td class="mono">destination.namespace</td><td>Dónde crea los objetos</td><td>"en qué cocina la aplico"</td></tr>
+            <tr><td class="mono">destination.server</td><td>Qué cluster — el suyo (<code>kubernetes.default.svc</code>)</td><td>"en esta cocina"</td></tr>
+            <tr><td class="mono">automated.prune</td><td>¿Borrar lo que ya no está en Git?</td><td>"retira lo que sobra"</td></tr>
+            <tr><td class="mono">automated.selfHeal</td><td>¿Deshacer ediciones manuales?</td><td>"la receta manda por encima de mis manos"</td></tr>
+          </tbody>
+        </table>
+        <div class="panel">
+          <span class="label">Alcance del subject</span>
+          <p>La práctica del subject de p3 pide <strong>solo esto</strong>: dos namespaces, una app en <code>dev</code> desplegada por Argo CD desde GitHub, y que cambiar el <strong>tag de la imagen en Git</strong> basta para desplegar.</p>
+        </div>
+
+        <h2>6. Continuous deployment — v1 → v2</h2>
+        <ol>
+          <li>El <code>deployment.yaml</code> <strong>existe en dos sitios</strong>: en el repo (GitHub) y en el cluster (copiado por Argo CD). <strong>Git es la fuente de verdad</strong>, la copia del cluster es un reflejo.</li>
+          <li>Cambias el tag en tu repo y haces push:
+            <pre class="code">sed -i 's|playground:v1|playground:v2|' srcs/p3/confs/manifests/deployment.yaml
+git add + commit + push</pre>
+          </li>
+          <li>Argo CD <strong>pollea</strong> el repo cada ~3 minutos y ve el cambio → aplica → crea un Deployment con la imagen <code>v2</code> (rollout: el pod viejo va saliendo, entra el nuevo).</li>
+          <li>Si no quieres esperar al poll, ordenas un sync manual:
+            <pre class="code">kubectl -n argocd patch application playground --type merge \
+  -p '{"operation":{"sync":{"revision":"HEAD"}}}'</pre>
+          </li>
+          <li>Compruebas el resultado:
+            <pre class="code">curl http://localhost:8888/
+# {"status":"ok", "message": "v2"}</pre>
+          </li>
+        </ol>
+        <div class="panel warn">
+          <span class="label">Por qué "cambiar solo en local no basta"</span>
+          <p>El <code>deployment.yaml</code> local es un borrador; Argo CD solo lee el <strong>remoto</strong>. Mientras el commit no se suba, el repo que vigila Argo CD no cambia y no hay nada que sincronizar. GitOps = el cluster converge hacia lo que hay en <strong>el repo remoto</strong>, no hacia tu disco.</p>
+        </div>
+
+        <h2>7. Diagnóstico rápido</h2>
+        <table>
+          <thead><tr><th>Síntoma en p3</th><th>Causa</th><th>Primer comando</th></tr></thead>
+          <tbody>
+            <tr><td><strong>OutOfSync</strong></td><td>El repo tiene un cambio que Argo CD aún no aplica (normal justo tras un push sin sync manual)</td><td class="mono">kubectl get application playground -n argocd</td></tr>
+            <tr><td><strong>ComparisonError</strong></td><td><code>repoURL</code> erróneo, <code>path</code> inexistente, repo privado sin credenciales, rama mal</td><td class="mono">kubectl get application playground -n argocd -o yaml (status.operationState)</td></tr>
+            <tr><td>App <strong>no aparece</strong> en <code>dev</code></td><td>Application sin <code>Synced</code>, o ns mal en <code>destination</code>, o sync fallido</td><td class="mono">kubectl get application -n argocd + kubectl get pods -n dev</td></tr>
+            <tr><td><code>playground</code> no responde en 8888</td><td>Port-forward cerrado, Service sin endpoints, pod CrashLoop</td><td class="mono">kubectl -n dev get pods / kubectl -n dev get endpoints</td></tr>
+            <tr><td>Pods de Argo CD <strong>CrashLoop / Pending</strong></td><td>Cluster recién creado sin <code>--wait</code>, o falta de recursos en Docker</td><td class="mono">kubectl -n argocd get pods</td></tr>
+            <tr><td>Argo CD queda en <strong>HealthMissing</strong></td><td>Aplicación aún demasiado nueva (status todavía no calculado)</td><td class="mono">esperar + kubectl get application -n argocd</td></tr>
+            <tr><td>El evaluador quiere repetir todo</td><td><code>install.sh</code> ya borra y recrea el cluster</td><td class="mono">./scripts/install.sh</td></tr>
+          </tbody>
+        </table>
+        <p>Fallo "bonito" de GitOps para defender: editar el Pod/Deployment <strong>a mano</strong> con <code>kubectl edit</code> y ver cómo <code>selfHeal</code> lo revierte solo en el siguiente poll (3 min).</p>
+
+        <h2>Predicciones y ejercicios</h2>
+
+        <h3>Ejercicio 4.1 — La práctica oficial del plan</h3>
+        <p>¿Por qué cambiar <code>deployment.yaml</code> solo en local <strong>no</strong> despliega nada, y por qué Argo CD necesita leer el cambio del remoto?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>Porque Argo CD <strong>no mira tu disco</strong>: su Application apunta a un <code>repoURL</code> concreto y sincroniza contra el estado de ese repo. Tu <code>deployment.yaml</code> local es solo la fuente para hacer un commit. Hasta que el commit no viaja al remoto (<code>git push</code>), el contenido que Argo CD compara sigue igual → no ve ningún cambio → no sync. Y aunque lo viera, solo aplica manifiestos que vienen del <code>path</code> indicado en el repo, no ficheros locales.</p>
+              <pre class="code">git add + commit                  # prepara el borrador
+git push                          #  ← aquí el cambio entra en la fuente de verdad
+kubectl get application -n argocd # Synced vs OutOfSync</pre>
+            </div>
+          </details>
+        </div>
+
+        <h3>Ejercicio 4.2 — Por qué <code>--server-side</code></h3>
+        <p>¿Por qué <code>kubectl apply</code> normal podría fallar al instalar Argo CD, y qué hace <code>--server-side</code>?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p><code>kubectl apply</code> clásico guarda la configuración aplicada en la anotación <code>kubectl.kubernetes.io/last-applied-configuration</code>, limitada a <strong>262144 bytes</strong>. Los CRDs de Argo CD (<code>Application</code>, <code>AppProject</code>) tienen esquemas enormes que superan ese límite → aplicar falla. Con <code>--server-side</code> el API server asume la reconciliación (campo <code>managedFields</code>) y el límite de la anotación deja de importar.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Ejercicio 4.3 — La Application no se lee de Git</h3>
+        <p>¿La <code>application.yaml</code> de p3 la aplica Argo CD? Justifica.</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>No. Es el <strong>cliente</strong> quien la aplica (<code>kubectl apply -f confs/application.yaml</code>, paso 4.6 del script). Es un objeto CRD <code>Application</code> que <strong>configura</strong> a Argo CD: le dice qué repo y path vigilar y hacia qué namespace. Argo CD ejecuta lo que ese objeto indica, pero <strong>no</strong> puede verse a sí mismo leyéndolo de Git — sin la Application aplicada, Argo CD está instalado pero no sabe qué desplegar.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Ejercicio 4.4 — <code>selfHeal</code> en acción</h3>
+        <p>Un evaluador ejecuta <code>kubectl -n dev scale deploy playground --replicas=5</code> y espera 5 pods. ¿Qué pasa realmente?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>La Application tiene <code>automated.selfHeal: true</code>, así que Argo CD considera el estado del cluster como "deriva" frente a Git (donde <code>replicas: 1</code>) y <strong>lo revierte</strong> en el siguiente ciclo (≤3 min por el poll). Puede que veas brevemente 5 pods y luego vuelvan a 1. La prueba es que Git manda: la edición manual no sobrevive. (La misma lógica protegería borrar el Deployment: <code>prune</code>/<code>selfHeal</code> lo restauran.)</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Ejercicio 4.5 — La pregunta girada de defensa</h3>
+        <p>"Después de un <code>git push</code> la app nunca cambia de versión. ¿Qué compruebas?"</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <ol>
+                <li>Que el push fue al repo correcto (<code>git remote -v</code>) y la rama coincide con <code>targetRevision</code> (<code>HEAD</code> → la rama por defecto).</li>
+                <li>Estado de la Application: <code>kubectl get application playground -n argocd</code> ↔ <code>OutOfSync</code>/<code>ComparisonError</code>.</li>
+                <li>Si está <code>OutOfSync</code>, Argo CD aún no ha hecho el poll → sync manual con el <code>patch --operation</code>. Si <code>ComparisonError</code>, revisar <code>repoURL</code>, <code>path</code> y credenciales.</li>
+                <li>Si <code>Synced</code> pero la imagen vieja, ver el rollout: <code>kubectl -n dev rollout status deploy/playground</code> y el tag: <code>kubectl get deploy playground -n dev -o jsonpath='{.spec.template.spec.containers[0].image}'</code>.</li>
+              </ol>
+            </div>
+          </details>
+        </div>
+
+        <h3>Ejercicio 4.6 — Namespaces y destino</h3>
+        <p>¿Qué pasaría si <code>destination.namespace: dev</code> no existiera y la Application no tuviera <code>CreateNamespace=true</code>?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>La sincronización fallaría: Argo CD no puede crear un Deployment en un namespace que no existe. Por eso el script crea <code>dev</code> explícitamente <em>y</em> la Application añade <code>syncOptions: [CreateNamespace=true]</code> — doble garantía. El error aparecería en <code>status.operationState.message</code> tipo <code>namespaces "dev" not found</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Errores frecuentes</span>
+          <ul>
+            <li>Confundir <code>application.yaml</code> con un manifiesto de la app: es la <strong>configuración de Argo CD</strong>, se aplica al cluster.</li>
+            <li>Creer que editar el <code>deployment.yaml</code> local ya despliega → no, falta <code>git push</code> (y el poll de Argo CD).</li>
+            <li>Escribir <code>repoURL</code>/<code>path</code> mal → <code>ComparisonError</code>. El path es <strong>relativo a la raíz del repo</strong>: <code>srcs/p3/confs/manifests</code>.</li>
+            <li>Aplicar los manifests de la app a mano con <code>kubectl apply</code> y luego "no entender por qué se revierten" → es <code>selfHeal</code>, el cluster manda a Git.</li>
+            <li>Instalar Argo CD con <code>kubectl apply</code> normal → falla por el límite de las anotaciones; se necesita <code>--server-side</code>.</li>
+            <li>Olvidar el port-forward: el Service es <code>ClusterIP</code>, no hay IP pública de la app en p3 — se accede con <code>port-forward</code>.</li>
+            <li>Tratar de usar el cluster de p1/p2: p3 es un cluster <strong>K3d</strong> distinto; los contextos de <code>kubectl</code> son diferentes.</li>
+            <li>No saber distinguir K3s de K3d (pregunta expresa del subject).</li>
+          </ul>
+        </div>
+
+        <h2>Preguntas tipo defensa</h2>
+        <p>Responde en voz alta, sin mirar los apuntes:</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>¿Cuál es la diferencia entre K3s y K3d, y por qué p3 usa K3d?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>¿Quién aplica <code>application.yaml</code> y contra qué lo hace?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>¿Dónde están los manifiestos <em>reales</em> de la app y quién los lee?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>Cambias <code>image: v1</code> a <code>v2</code>: detalla, en orden, qué pasa hasta que <code>curl</code> devuelve v2.</span></label>
+          <label class="chk"><input type="checkbox" data-id="d5"><span>¿Qué pasa si alguien edita el cluster a mano con <code>kubectl edit</code>? ¿Y con qué comando lo demuestras?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d6"><span>¿Por qué <code>kubectl apply --server-side</code> para Argo CD y no el clásico?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d7"><span>¿Con qué comando fuerzas el sync sin esperar los 3 minutos?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d8"><span>¿Cómo accedes a la app si el Service es ClusterIP?</span></label>
+        </div>
+
+        <h2>Criterio de finalización</h2>
+        <p>Marca cada ítem cuando lo digas "sin apuntes":</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Distinguir K3s vs K3d y decir qué necesita p3 (Docker) y qué no necesita (Vagrant/VM).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Explicar el flujo: GitHub → Argo CD → Application CRD → namespace dev → Deployment/Service.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Nombrar los 4 campos de la Application y qué decide cada uno.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Explicar por qué <code>--server-side</code> es obligatorio para los CRDs de Argo CD.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Justificar por qué "cambiar en local no basta" y qué hace falta (<code>git push</code> + poll/sync manual).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c6"><span>Demostrar GitOps con <code>selfHeal</code>/<code>prune</code> (editas a mano → Argo CD lo revierte).</span></label></li>
+        </ol>
+
+        <h2>Has aprendido que</h2>
+        <ul>
+          <li><strong>K3d = K3s dentro de Docker</strong>: cluster desechable para desarrollo; K3s nativo para metal/VM.</li>
+          <li><strong>GitOps</strong>: nadie toca el cluster a mano; Git (<code>repoURL</code> + <code>path</code>) es la fuente de verdad y Argo CD hace converger el cluster.</li>
+          <li><strong>Application CRD</strong>: <code>source</code> (de dónde) + <code>destination</code> (dónde) + <code>syncPolicy</code> (cuándo y con qué garantías).</li>
+          <li><strong><code>--server-side</code></strong> evita el límite de anotación del <code>kubectl apply</code> para los CRDs grandes de Argo CD.</li>
+          <li><strong>Cambiar el tag en Git y push</strong> es el desplegable; el poll (~3 min) o el sync manual (<code>patch --operation</code>) materializan el cambio.</li>
+          <li><strong><code>prune</code></strong> limpia lo borrado en Git y <strong><code>selfHeal</code></strong> revierte ediciones manuales — dos pruebas vivas de GitOps en la defensa.</li>
+        </ul>
+
+        <p><strong>Siguiente clase:</strong> la clase 5 cubre el <strong>bonus: GitLab local</strong> — cómo se cierra el flujo GitOps sin salir del cluster: un GitLab CE corriendo dentro de K3d con PVCs, y Argo CD leyendo desde el GitLab local en vez de GitHub.</p>
+      </section>
+
+      <!-- ============ ENGLISH ============ -->
+      <section lang="en">
+        <div class="objective">
+          <span class="label">Objective</span>
+          <p>Understand how an app is deployed <strong>from GitHub without touching the cluster</strong>: K3d vs K3s, the <code>argocd</code> and <code>dev</code> namespaces, Argo CD's <strong>Application CRD</strong> (<code>repoURL</code>, <code>targetRevision</code>, <code>path</code>, <code>destination</code>), automated sync with <code>prune</code> and <code>selfHeal</code>, why installing Argo CD needs <code>--server-side</code>, and above all <strong>why changing <code>deployment.yaml</code> locally alone is not enough</strong>.</p>
+        </div>
+
+        <h2>1. The p3 topology — files</h2>
+        <pre class="code">srcs/p3/
+├── scripts/
+│   └── install.sh            ← single script: cluster + Argo CD + Application
+└── confs/
+    ├── application.yaml      ← Argo CD's "order" (applied to the cluster)
+    └── manifests/            ← the app Argo CD watches (lives on GitHub)
+        ├── deployment.yaml   (wil42/playground:v1 or v2)
+        └── service.yaml</pre>
+        <div class="panel">
+          <span class="label">Roles of the files</span>
+          <table>
+            <thead><tr><th>File</th><th>Role</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">scripts/install.sh</td><td>Docker preflight, installs <code>kubectl</code>/<code>k3d</code>/<code>argocd</code> into <code>~/.local/bin</code>, recreates cluster <code>iot</code>, creates namespaces, installs Argo CD and applies the Application.</td></tr>
+              <tr><td class="mono">confs/application.yaml</td><td><code>Application</code> CRD: tells Argo CD which repo to watch, which path, and into which namespace.</td></tr>
+              <tr><td class="mono">confs/manifests/deployment.yaml</td><td>The app manifest (with <code>image: wil42/playground:v1</code>) — <strong>Argo CD's source of truth</strong>.</td></tr>
+              <tr><td class="mono">confs/manifests/service.yaml</td><td><code>ClusterIP</code> Service exposing port 8888 inside the cluster.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>The architecture difference versus p1 and p2</h3>
+        <pre class="code">p1/p2:  Vagrant + VM(generic/ubuntu2204) + K3s inside the VM
+p3:     Docker + K3d (K3s inside a container) + Argo CD + a GitHub repo</pre>
+        <p>None of this runs in a VM: <code>install.sh</code> runs <strong>on the host</strong>. No <code>sudo</code> is needed because the tools land in <code>~/.local/bin</code>; the only prerequisite is <strong>Docker running and reachable</strong> (<code>docker info</code>).</p>
+
+        <h2>2. K3s vs K3d — the question the subject forces you to know</h2>
+        <table>
+          <thead><tr><th></th><th>K3s</th><th>K3d</th></tr></thead>
+          <tbody>
+            <tr><td><strong>What it is</strong></td><td>Lightweight Kubernetes distribution, 1 binary</td><td><strong>K3s running inside Docker</strong> (each node is a container)</td></tr>
+            <tr><td><strong>Purpose</strong></td><td>Run a real cluster on a machine (or VM)</td><td>Get a fast, disposable cluster <strong>for development</strong></td></tr>
+            <tr><td><strong>Runtime</strong></td><td>Native OS processes</td><td>Docker containers orchestrated by k3d</td></tr>
+            <tr><td><strong>Nodes</strong></td><td>Metal/VM: server and agents</td><td>Containers <code>k3d-iot-server-0</code>, <code>...-agent-0</code></td></tr>
+            <tr><td><strong>Sysadmin</strong></td><td>Installation via the K3s script</td><td><code>k3d cluster create</code></td></tr>
+          </tbody>
+        </table>
+        <div class="panel">
+          <span class="label">Key idea</span>
+          <p>K3d is not "another Kubernetes": it is <strong>K3s packaged into Docker containers</strong>. The cluster you see with <code>kubectl get nodes</code> is the same K3s as in p1/p2, but without a VM: the subject asks you to know <strong>when to use each one</strong>.</p>
+        </div>
+
+        <h2>3. The complete p3 flow</h2>
+        <pre class="code">  GitHub (public repo, manifests in srcs/p3/confs/manifests, tag v1/v2)
+                  │
+     Argo CD polls the repo every ~3 min  (automated sync)  ── or manual sync
+                  ▼
+   Argo CD (namespace argocd)
+     └─ Application CRD "playground"  ──sync──►  applies manifests to the cluster
+                  ▼
+   K3d cluster "iot" · namespace dev
+     ├─ Deployment playground  (wil42/playground:v1|v2)
+     └─ Service    playground  (ClusterIP, 8888)
+                  ▲
+      kubectl -n dev port-forward svc/playground 8888:8888</pre>
+        <p>The key point of GitOps: <strong>nobody applies manifests by hand</strong>. The cluster is "declared in Git" and Argo CD makes reality match that declaration.</p>
+
+        <h2>4. <code>install.sh</code> section by section</h2>
+
+        <h3>4.1 Preflight — Docker required</h3>
+        <pre class="code">[ -x docker ] || exit                      # is it installed?
+docker info   || exit                      # does the daemon respond?</pre>
+        <p>K3d <strong>does not work without Docker</strong>: every cluster node is a container. Permission errors are fixed with <code>sudo usermod -aG docker $USER</code> and re-login.</p>
+
+        <h3>4.2 Tooling without sudo in <code>~/.local/bin</code></h3>
+        <pre class="code">kubectl  ← downloaded from dl.k8s.io (stable version)
+k3d      ← official k3d installer
+argocd   ← argo-cd releases binary CLI (only for optional sync/login)
+export PATH="${BIN}:${PATH}"</pre>
+        <p>No system packages needed: everything ends up in <code>HOME/.local/bin</code>, so the evaluator only needs Docker.</p>
+
+        <h3>4.3 The cluster, from scratch</h3>
+        <pre class="code">k3d cluster delete iot  &gt;/dev/null 2&gt;&amp;1 || true
+k3d cluster create iot  --wait</pre>
+        <p>Every run <strong>deletes and recreates</strong> the cluster (known, reproducible state). <code>--wait</code> blocks until the cluster is ready.</p>
+
+        <h3>4.4 Namespaces</h3>
+        <pre class="code">kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace dev    --dry-run=client -o yaml | kubectl apply -f -</pre>
+        <ul>
+          <li><code>argocd</code> → the controller (Argo CD components).</li>
+          <li><code>dev</code> → the application (where the GitHub manifests land).</li>
+          <li>The <code>--dry-run=client -o yaml | apply -f -</code> trick makes the command <strong>idempotent</strong>: safe to repeat.</li>
+        </ul>
+
+        <h3>4.5 Argo CD, installed with <code>--server-side</code></h3>
+        <pre class="code">kubectl apply --server-side -n argocd \
+  -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl -n argocd rollout status deploy/argocd-repo-server --timeout=300s
+kubectl -n argocd rollout status deploy/argocd-server      --timeout=300s</pre>
+        <ul>
+          <li><code>install.yaml</code> is the official manifest: it installs all Argo CD components in the <code>argocd</code> namespace.</li>
+          <li><strong>Why <code>--server-side</code>:</strong> plain <code>kubectl apply</code> annotates every object with the applied config (<code>last-applied-configuration</code>), and that annotation has a <strong>262144-byte limit</strong>. Argo CD's CRDs (the <code>Application</code> and <code>AppProject</code> types) exceed that size in metadata; with <code>--server-side</code> the API server owns the reconciliation (the <code>managedFields</code> field) and the annotation limit stops mattering.</li>
+          <li>The two waits are the components that matter for repo sync: <code>argocd-repo-server</code> (reads Git) and <code>argocd-server</code> (API + UI).</li>
+        </ul>
+
+        <h3>4.6 The Application — the GitOps heart</h3>
+        <pre class="code">kubectl apply -f "${CONFS}/application.yaml"</pre>
+        <p>This is <strong>not</strong> an app manifest: it tells Argo CD <strong>which repo to watch, at which path, and where to sync to</strong>. From here on the controller itself deploys.</p>
+
+        <h3>4.7 Waiting for the first sync</h3>
+        <pre class="code">for _ in $(seq 1 60); do
+  SYNC="$(kubectl -n argocd get application playground -o jsonpath='{.status.sync.status}' ...)"
+  HEALTH="$(kubectl -n argocd get application playground -o jsonpath='{.status.health.status}' ...)"
+  [ "${SYNC}" = "Synced" ] &amp;&amp; [ "${HEALTH}" = "Healthy" ] &amp;&amp; break
+  sleep 5
+done</pre>
+        <p>It reads the <strong>Application status</strong> until it becomes <code>Synced</code> and <code>Healthy</code> — the signal that Argo CD has already applied the manifests from GitHub.</p>
+
+        <h3>4.8 Final info</h3>
+        <ul>
+          <li>Prints the admin password (<code>argocd-initial-admin-secret</code>, base64).</li>
+          <li>Reminds the two port-forwards: UI (<code>8080:443</code>) and app (<code>8888:8888</code>).</li>
+          <li>Warns if <code>~/.local/bin</code> is not on the <code>PATH</code>.</li>
+        </ul>
+
+        <h2>5. The Application CRD, field by field</h2>
+        <p><code>confs/application.yaml</code> is <strong>not read from Git</strong> (even though it lives in the repo): it is applied once to the cluster and is Argo CD's statement of intent.</p>
+        <pre class="code">apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: playground
+  namespace: argocd        # the controller lives here
+spec:
+  project: default         # which AppProject (policy) manages it
+  source:                  # ← WHERE TO LOOK
+    repoURL: https://github.com/ravazque/Inception-of-Things_ravazque.git
+    targetRevision: HEAD   # branch/commit to follow (HEAD = default)
+    path: srcs/p3/confs/manifests
+  destination:             # ← WHERE TO APPLY
+    server: https://kubernetes.default.svc   # the cluster itself
+    namespace: dev
+  syncPolicy:              # ← WHEN and HOW to sync
+    automated:
+      prune: true          # delete from the cluster what you delete in Git
+      selfHeal: true       # revert manual changes to the cluster
+    syncOptions:
+      - CreateNamespace=true   # create the target ns if it does not exist</pre>
+        <table>
+          <thead><tr><th>Field</th><th>What it decides</th><th>Analogy</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">source.repoURL</td><td>Which Git repo Argo CD watches</td><td>"where I get the recipe"</td></tr>
+            <tr><td class="mono">source.path</td><td>Which subfolder of the repo it uses</td><td>"which recipe in this book"</td></tr>
+            <tr><td class="mono">source.targetRevision</td><td>Which branch/commit — <code>HEAD</code></td><td>"follow the latest version"</td></tr>
+            <tr><td class="mono">destination.namespace</td><td>Where it creates the objects</td><td>"in which kitchen I apply it"</td></tr>
+            <tr><td class="mono">destination.server</td><td>Which cluster — its own (<code>kubernetes.default.svc</code>)</td><td>"in this kitchen"</td></tr>
+            <tr><td class="mono">automated.prune</td><td>Delete what is no longer in Git?</td><td>"clear away what is extra"</td></tr>
+            <tr><td class="mono">automated.selfHeal</td><td>Undo manual edits?</td><td>"the recipe outranks my hands"</td></tr>
+          </tbody>
+        </table>
+        <div class="panel">
+          <span class="label">Subject scope</span>
+          <p>The p3 practice asks for <strong>only this</strong>: two namespaces, one app in <code>dev</code> deployed by Argo CD from GitHub, and changing the <strong>image tag in Git</strong> being enough to deploy.</p>
+        </div>
+
+        <h2>6. Continuous deployment — v1 → v2</h2>
+        <ol>
+          <li><code>deployment.yaml</code> <strong>exists in two places</strong>: in the repo (GitHub) and in the cluster (copied by Argo CD). <strong>Git is the source of truth</strong>; the cluster copy is a reflection.</li>
+          <li>You change the tag in your repo and push:
+            <pre class="code">sed -i 's|playground:v1|playground:v2|' srcs/p3/confs/manifests/deployment.yaml
+git add + commit + push</pre>
+          </li>
+          <li>Argo CD <strong>polls</strong> the repo every ~3 minutes, sees the change → applies → creates a Deployment with the <code>v2</code> image (rollout: the old pod exits, the new one enters).</li>
+          <li>If you do not want to wait for the poll, you order a manual sync:
+            <pre class="code">kubectl -n argocd patch application playground --type merge \
+  -p '{"operation":{"sync":{"revision":"HEAD"}}}'</pre>
+          </li>
+          <li>You check the result:
+            <pre class="code">curl http://localhost:8888/
+# {"status":"ok", "message": "v2"}</pre>
+          </li>
+        </ol>
+        <div class="panel warn">
+          <span class="label">Why "changing locally alone is not enough"</span>
+          <p>The local <code>deployment.yaml</code> is a draft; Argo CD only reads the <strong>remote</strong>. Until the commit is pushed, the repo Argo CD watches has not changed and there is nothing to sync. GitOps = the cluster converges toward <strong>the remote repo</strong>, not your disk.</p>
+        </div>
+
+        <h2>7. Quick diagnosis</h2>
+        <table>
+          <thead><tr><th>Symptom in p3</th><th>Cause</th><th>First command</th></tr></thead>
+          <tbody>
+            <tr><td><strong>OutOfSync</strong></td><td>The repo has a change Argo CD has not applied yet (normal right after a push without manual sync)</td><td class="mono">kubectl get application playground -n argocd</td></tr>
+            <tr><td><strong>ComparisonError</strong></td><td>Wrong <code>repoURL</code>, missing <code>path</code>, private repo without credentials, wrong branch</td><td class="mono">kubectl get application playground -n argocd -o yaml (status.operationState)</td></tr>
+            <tr><td>App <strong>missing</strong> in <code>dev</code></td><td>Application not <code>Synced</code>, wrong ns in <code>destination</code>, or failed sync</td><td class="mono">kubectl get application -n argocd + kubectl get pods -n dev</td></tr>
+            <tr><td><code>playground</code> not answering on 8888</td><td>Closed port-forward, Service without endpoints, pod CrashLoop</td><td class="mono">kubectl -n dev get pods / kubectl -n dev get endpoints</td></tr>
+            <tr><td>Argo CD pods <strong>CrashLoop / Pending</strong></td><td>Fresh cluster without <code>--wait</code>, or lack of Docker resources</td><td class="mono">kubectl -n argocd get pods</td></tr>
+            <tr><td>Argo CD stuck in <strong>HealthMissing</strong></td><td>Application too new (status not computed yet)</td><td class="mono">wait + kubectl get application -n argocd</td></tr>
+            <tr><td>The evaluator wants a full rerun</td><td><code>install.sh</code> already deletes and recreates the cluster</td><td class="mono">./scripts/install.sh</td></tr>
+          </tbody>
+        </table>
+        <p>A "nice" GitOps failure to show in defense: edit the Pod/Deployment <strong>by hand</strong> with <code>kubectl edit</code> and watch <code>selfHeal</code> revert it on the next poll (3 min).</p>
+
+        <h2>Predictions and exercises</h2>
+
+        <h3>Exercise 4.1 — The official practice of the plan</h3>
+        <p>Why does changing <code>deployment.yaml</code> <strong>only</strong> locally deploy nothing, and why does Argo CD need to read the change from the remote?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>Because Argo CD <strong>does not look at your disk</strong>: its Application points at a specific <code>repoURL</code> and syncs against that repo's state. Your local <code>deployment.yaml</code> is only the source for a commit. Until the commit travels to the remote (<code>git push</code>), the content Argo CD compares stays the same → it sees no change → no sync. And even if it saw it, it only applies manifests coming from the <code>path</code> in the repo, not local files.</p>
+              <pre class="code">git add + commit                  # prepare the draft
+git push                          #  ← here the change enters the source of truth
+kubectl get application -n argocd # Synced vs OutOfSync</pre>
+            </div>
+          </details>
+        </div>
+
+        <h3>Exercise 4.2 — Why <code>--server-side</code></h3>
+        <p>Why could a normal <code>kubectl apply</code> fail when installing Argo CD, and what does <code>--server-side</code> do?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>Classic <code>kubectl apply</code> stores the applied configuration in the <code>kubectl.kubernetes.io/last-applied-configuration</code> annotation, capped at <strong>262144 bytes</strong>. Argo CD's CRDs (<code>Application</code>, <code>AppProject</code>) have huge schemas that overflow that limit → apply fails. With <code>--server-side</code> the API server takes over reconciliation (the <code>managedFields</code> field) and the annotation limit stops mattering.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Exercise 4.3 — The Application is not read from Git</h3>
+        <p>Is p3's <code>application.yaml</code> applied by Argo CD? Justify.</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>No. The <strong>client</strong> applies it (<code>kubectl apply -f confs/application.yaml</code>, step 4.6 of the script). It is an <code>Application</code> CRD that <strong>configures</strong> Argo CD: it tells it which repo and path to watch and toward which namespace. Argo CD executes what that object says, but it <strong>cannot</strong> read itself from Git — without the Application applied, Argo CD is installed but does not know what to deploy.</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Exercise 4.4 — <code>selfHeal</code> in action</h3>
+        <p>An evaluator runs <code>kubectl -n dev scale deploy playground --replicas=5</code> and expects 5 pods. What actually happens?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>The Application has <code>automated.selfHeal: true</code>, so Argo CD treats the cluster state as "drift" against Git (where <code>replicas: 1</code>) and <strong>reverts it</strong> on the next cycle (≤3 min via poll). You may briefly see 5 pods and then back to 1. The proof is that Git wins: the manual edit does not survive. (The same logic would protect against deleting the Deployment: <code>prune</code>/<code>selfHeal</code> restore it.)</p>
+            </div>
+          </details>
+        </div>
+
+        <h3>Exercise 4.5 — The flipped defense question</h3>
+        <p>"After a <code>git push</code> the app never changes version. What do you check?"</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <ol>
+                <li>That the push went to the right repo (<code>git remote -v</code>) and the branch matches <code>targetRevision</code> (<code>HEAD</code> → the default branch).</li>
+                <li>Application status: <code>kubectl get application playground -n argocd</code> ↔ <code>OutOfSync</code>/<code>ComparisonError</code>.</li>
+                <li>If <code>OutOfSync</code>, Argo CD has not polled yet → manual sync with the <code>patch --operation</code>. If <code>ComparisonError</code>, review <code>repoURL</code>, <code>path</code> and credentials.</li>
+                <li>If <code>Synced</code> but the old image, check the rollout: <code>kubectl -n dev rollout status deploy/playground</code> and the tag: <code>kubectl get deploy playground -n dev -o jsonpath='{.spec.template.spec.containers[0].image}'</code>.</li>
+              </ol>
+            </div>
+          </details>
+        </div>
+
+        <h3>Exercise 4.6 — Namespaces and destination</h3>
+        <p>What would happen if <code>destination.namespace: dev</code> did not exist and the Application had no <code>CreateNamespace=true</code>?</p>
+        <div class="exercise">
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>The sync would fail: Argo CD cannot create a Deployment in a namespace that does not exist. That is why the script creates <code>dev</code> explicitly <em>and</em> the Application adds <code>syncOptions: [CreateNamespace=true]</code> — double guarantee. The error would appear in <code>status.operationState.message</code> as <code>namespaces "dev" not found</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Frequent mistakes</span>
+          <ul>
+            <li>Confusing <code>application.yaml</code> with an app manifest: it is <strong>Argo CD's configuration</strong>, applied to the cluster.</li>
+            <li>Believing editing the local <code>deployment.yaml</code> already deploys → no, it needs <code>git push</code> (and Argo CD's poll).</li>
+            <li>Wrong <code>repoURL</code>/<code>path</code> → <code>ComparisonError</code>. The path is <strong>relative to the repo root</strong>: <code>srcs/p3/confs/manifests</code>.</li>
+            <li>Applying the app manifests by hand with <code>kubectl apply</code> and then "not understanding why they get reverted" → it is <code>selfHeal</code>, the cluster follows Git.</li>
+            <li>Installing Argo CD with plain <code>kubectl apply</code> → fails because of the annotation limit; <code>--server-side</code> is required.</li>
+            <li>Forgetting the port-forward: the Service is <code>ClusterIP</code>, the app has no public IP in p3 — you access it via <code>port-forward</code>.</li>
+            <li>Trying to reuse the p1/p2 cluster: p3 is a different <strong>K3d</strong> cluster; the <code>kubectl</code> contexts differ.</li>
+            <li>Not being able to tell K3s from K3d (an explicit subject question).</li>
+          </ul>
+        </div>
+
+        <h2>Defense-style questions</h2>
+        <p>Answer out loud, without notes:</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>What is the difference between K3s and K3d, and why does p3 use K3d?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>Who applies <code>application.yaml</code>, and against what?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>Where are the <em>real</em> app manifests and who reads them?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>You change <code>image: v1</code> to <code>v2</code>: order the events until <code>curl</code> returns v2.</span></label>
+          <label class="chk"><input type="checkbox" data-id="d5"><span>What happens if someone edits the cluster by hand with <code>kubectl edit</code>? And with which command do you show it?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d6"><span>Why <code>kubectl apply --server-side</code> for Argo CD and not the classic one?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d7"><span>Which command forces the sync without waiting 3 minutes?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d8"><span>How do you reach an app whose Service is ClusterIP?</span></label>
+        </div>
+
+        <h2>Completion criteria</h2>
+        <p>Check each item when you can say it "without notes":</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Tell K3s vs K3d apart and say what p3 needs (Docker) and what it does not (Vagrant/VM).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Trace the flow: GitHub → Argo CD → Application CRD → namespace dev → Deployment/Service.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Name the 4 Application fields and what each decides.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Explain why <code>--server-side</code> is mandatory for Argo CD's CRDs.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Justify why "changing locally is not enough" and what is needed (<code>git push</code> + poll/manual sync).</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c6"><span>Demonstrate GitOps with <code>selfHeal</code>/<code>prune</code> (edit by hand → Argo CD reverts it).</span></label></li>
+        </ol>
+
+        <h2>You have learned that</h2>
+        <ul>
+          <li><strong>K3d = K3s inside Docker</strong>: a disposable dev cluster; native K3s for metal/VM.</li>
+          <li><strong>GitOps</strong>: nobody touches the cluster by hand; Git (<code>repoURL</code> + <code>path</code>) is the source of truth and Argo CD converges the cluster.</li>
+          <li><strong>Application CRD</strong>: <code>source</code> (from where) + <code>destination</code> (where) + <code>syncPolicy</code> (when and with what guarantees).</li>
+          <li><strong><code>--server-side</code></strong> bypasses the apply-annotation limit for Argo CD's big CRDs.</li>
+          <li><strong>Tag change in Git + push</strong> is the deployment; the poll (~3 min) or manual sync (<code>patch --operation</code>) materializes the change.</li>
+          <li><strong><code>prune</code></strong> clears what is deleted in Git and <strong><code>selfHeal</code></strong> reverts manual edits — two living proofs of GitOps in the defense.</li>
+        </ul>
+
+        <p><strong>Next class:</strong> class 5 covers the <strong>bonus: local GitLab</strong> — how the GitOps flow closes without leaving the cluster: a GitLab CE running inside K3d with PVCs, and Argo CD reading from the local GitLab instead of GitHub.</p>
+      </section>
+    </div>
+
+    <nav class="pager">
+      <a href="clase-03.html">
+        <small data-i18n="prev.class">Clase anterior</small>
+        <strong><span lang="es">Clase 3 · Kubernetes básico y p2</span><span lang="en">Class 3 · Basic Kubernetes and p2</span></strong>
+      </a>
+      <a class="next" href="clase-05.html">
+        <small data-i18n="next.class">Siguiente clase</small>
+        <strong><span lang="es">Clase 5 · Bonus: GitLab local</span><span lang="en">Class 5 · Bonus: local GitLab</span></strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>

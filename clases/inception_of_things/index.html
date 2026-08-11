@@ -73,7 +73,7 @@
 
 <section class="proj-sub prose">
       <h2 data-i18n="classes.title">Clases</h2>
-      <p class="note"><span lang="es">Este es el plan de las 6 clases. Las clases 1, 2 y 3 ya están publicadas; el resto irá apareciendo aquí con la misma dinámica interactiva que Libasm.</span><span lang="en">This is the plan for the 6 classes. Classes 1, 2 and 3 are already published; the rest will appear here with the same interactive dynamic as Libasm.</span></p>
+      <p class="note"><span lang="es">Este es el plan de las 6 clases, todas publicadas con la misma dinámica interactiva que Libasm.</span><span lang="en">This is the plan for the 6 classes, all published with the same interactive dynamic as Libasm.</span></p>
       <p class="note"><span lang="es">Marca cada clase al completarla; el progreso se actualiza aquí y en la portada.</span><span lang="en">Mark each class when complete; progress updates here and on the front page.</span></p>
 
       <div class="class-list">
@@ -110,27 +110,38 @@
             <span class="status" data-status-for="inception_of_things/clase-03" data-i18n="btn.complete">Marcar clase como completada</span>
           </label>
         </div>
-      </div>
-
-      <h3 class="soon-heading"><span lang="es">Próximamente</span><span lang="en">Coming soon</span></h3>
-      <div class="soon-grid">
-
-        <div class="soon-card">
-          <h4><span lang="es">Clase 4 · K3d, Argo CD y GitOps con p3</span><span lang="en">Class 4 · K3d, Argo CD and GitOps with p3</span></h4>
-          <p><span lang="es">Cómo se despliega una aplicación desde GitHub mediante Argo CD. Conceptos: K3s vs K3d, namespaces <code>argocd</code> y <code>dev</code>, Application CRD, <code>repoURL</code>, <code>targetRevision</code>, <code>path</code>, <code>destination</code>, <code>syncPolicy.automated</code>, prune y selfHeal, por qué <code>kubectl apply --server-side</code> es necesario.</span><span lang="en">How an app is deployed from GitHub through Argo CD. Concepts: K3s vs K3d, <code>argocd</code> and <code>dev</code> namespaces, Application CRD, <code>repoURL</code>, <code>targetRevision</code>, <code>path</code>, <code>destination</code>, <code>syncPolicy.automated</code>, prune and selfHeal, why <code>kubectl apply --server-side</code> is required.</span></p>
-          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        <div class="class-row">
+          <span class="num">04</span>
+          <span class="info">
+            <a href="clase-04.html"><h4><span lang="es">K3d, Argo CD y GitOps con p3</span><span lang="en">K3d, Argo CD and GitOps with p3</span></h4></a>
+            <p><span lang="es">Cómo se despliega una aplicación desde GitHub mediante Argo CD. Conceptos: K3s vs K3d, namespaces <code>argocd</code> y <code>dev</code>, Application CRD, <code>repoURL</code>, <code>targetRevision</code>, <code>path</code>, <code>destination</code>, <code>syncPolicy.automated</code>, prune y selfHeal, por qué <code>kubectl apply --server-side</code> es necesario.</span><span lang="en">How an app is deployed from GitHub through Argo CD. Concepts: K3s vs K3d, <code>argocd</code> and <code>dev</code> namespaces, Application CRD, <code>repoURL</code>, <code>targetRevision</code>, <code>path</code>, <code>destination</code>, <code>syncPolicy.automated</code>, prune and selfHeal, why <code>kubectl apply --server-side</code> is required.</span></p>
+          </span>
+          <label class="complete-toggle">
+            <input type="checkbox" data-complete="inception_of_things/clase-04">
+            <span class="status" data-status-for="inception_of_things/clase-04" data-i18n="btn.complete">Marcar clase como completada</span>
+          </label>
         </div>
-
-        <div class="soon-card">
-          <h4><span lang="es">Clase 5 · Bonus: GitLab local</span><span lang="en">Class 5 · Bonus: local GitLab</span></h4>
-          <p><span lang="es">Cómo se cierra el flujo GitOps con un GitLab dentro del cluster. Conceptos: GitLab CE omnibus, PVCs, estrategia <code>Recreate</code>, probes, Service DNS interno, token de API, port-forward, por qué <code>localhost:8081</code> no sirve como <code>repoURL</code>.</span><span lang="en">How the GitOps flow closes with a GitLab inside the cluster. Concepts: GitLab CE omnibus, PVCs, <code>Recreate</code> strategy, probes, internal DNS Service, API token, port-forward, why <code>localhost:8081</code> does not work as a <code>repoURL</code>.</span></p>
-          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        <div class="class-row">
+          <span class="num">05</span>
+          <span class="info">
+            <a href="clase-05.html"><h4><span lang="es">Bonus: GitLab local</span><span lang="en">Bonus: local GitLab</span></h4></a>
+            <p><span lang="es">Cómo se cierra el flujo GitOps con un GitLab dentro del cluster. Conceptos: GitLab CE omnibus, PVCs, estrategia <code>Recreate</code>, probes, Service DNS interno, token de API, port-forward, por qué <code>localhost:8081</code> no sirve como <code>repoURL</code>.</span><span lang="en">How the GitOps flow closes with a GitLab inside the cluster. Concepts: GitLab CE omnibus, PVCs, <code>Recreate</code> strategy, probes, internal DNS Service, API token, port-forward, why <code>localhost:8081</code> does not work as a <code>repoURL</code>.</span></p>
+          </span>
+          <label class="complete-toggle">
+            <input type="checkbox" data-complete="inception_of_things/clase-05">
+            <span class="status" data-status-for="inception_of_things/clase-05" data-i18n="btn.complete">Marcar clase como completada</span>
+          </label>
         </div>
-
-        <div class="soon-card">
-          <h4><span lang="es">Clase 6 · Defensa y troubleshooting</span><span lang="en">Class 6 · Defense and troubleshooting</span></h4>
-          <p><span lang="es">Practicar la explicación completa y responder preguntas de evaluador. Escenarios: worker que no queda <code>Ready</code>, <code>connection refused</code>, 404, 502/503, Argo CD en <code>OutOfSync</code>, GitLab lento, Docker que no responde. Resultado esperado: defender con fluidez, del requisito a la verificación.</span><span lang="en">Practice the full explanation and answer evaluator questions. Scenarios: worker not becoming <code>Ready</code>, <code>connection refused</code>, 404, 502/503, Argo CD stuck <code>OutOfSync</code>, slow GitLab, Docker not responding. Expected result: defend fluently, from requirement to verification.</span></p>
-          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        <div class="class-row">
+          <span class="num">06</span>
+          <span class="info">
+            <a href="clase-06.html"><h4><span lang="es">Defensa y troubleshooting</span><span lang="en">Defense and troubleshooting</span></h4></a>
+            <p><span lang="es">Practicar la explicación completa y responder preguntas de evaluador. Escenarios: worker que no queda <code>Ready</code>, <code>connection refused</code>, 404, 502/503, Argo CD en <code>OutOfSync</code>, GitLab lento, Docker que no responde. Resultado esperado: defender con fluidez, del requisito a la verificación.</span><span lang="en">Practice the full explanation and answer evaluator questions. Scenarios: worker not becoming <code>Ready</code>, <code>connection refused</code>, 404, 502/503, Argo CD stuck <code>OutOfSync</code>, slow GitLab, Docker not responding. Expected result: defend fluently, from requirement to verification.</span></p>
+          </span>
+          <label class="complete-toggle">
+            <input type="checkbox" data-complete="inception_of_things/clase-06">
+            <span class="status" data-status-for="inception_of_things/clase-06" data-i18n="btn.complete">Marcar clase como completada</span>
+          </label>
         </div>
       </div>
     </section>
