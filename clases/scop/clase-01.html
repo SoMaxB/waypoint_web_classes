@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clase 1 · Subject y pipeline gráfico — Scop</title>
+  <meta name="description" content="Qué pide el subject, cómo un .obj termina en píxeles y el pipeline de vértices, transformaciones, rasterización y fragmentos.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="scop/clase-01">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <label class="visually-hidden" for="site-search" data-i18n="search.label">Buscar proyecto</label>
+        <input id="site-search" type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="index.html" data-i18n="p.scop.name">Scop</a><span class="sep">/</span>
+        <span><span lang="es">Clase 1</span><span lang="en">Class 1</span></span>
+      </nav>
+
+      <h1><span lang="es">Clase 1 · subject y pipeline gráfico</span><span lang="en">Class 1 · subject and graphics pipeline</span></h1>
+
+      <div class="class-toolbar">
+        <span class="toolbar-hint mono">OpenGL · GLFW · GLSL</span>
+      </div>
+    </div>
+
+    <div class="prose">
+
+      <!-- ============ ESPAÑOL ============ -->
+      <section lang="es">
+        <div class="objective">
+          <span class="label">Objetivo</span>
+          <p>Construir el modelo mental mínimo de Scop: entender qué pide exactamente el subject y cómo un archivo <code>.obj</code> termina convertido en píxeles dentro de una ventana. Al terminar esta clase debes poder explicar el pipeline gráfico completo, distinguir geometría de imagen, justificar la triangulación de caras, entender por qué los índices del <code>.obj</code> se adaptan a arrays base cero y explicar la diferencia entre vertex shader y fragment shader.</p>
+        </div>
+        <p>Esta clase es teórica: no se escribe código todavía.</p>
+
+        <h2>1. Qué pide Scop</h2>
+        <p>Scop no consiste solo en conseguir que aparezca un modelo 3D en pantalla. El objetivo es construir un mini-renderizador defendible: cada parte debe estar entendida, implementada y explicada durante la defensa.</p>
+        <p>La parte obligatoria exige:</p>
+        <table>
+          <thead><tr><th>Requisito</th><th>Qué significa en la práctica</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col">Mostrar un objeto desde un <code>.obj</code></td><td>Leer el archivo, extraer vértices/caras y convertirlo a datos útiles para el GPU.</td></tr>
+            <tr><td class="mono-col">Mostrarlo en una ventana</td><td>Crear una ventana, contexto gráfico y bucle de eventos con una librería permitida.</td></tr>
+            <tr><td class="mono-col">Usar perspectiva</td><td>Aplicar una proyección donde lo lejano se vea más pequeño.</td></tr>
+            <tr><td class="mono-col">Rotar y trasladar en los tres ejes</td><td>Mantener transformaciones del objeto controlables por input.</td></tr>
+            <tr><td class="mono-col">Caras distinguibles por colores</td><td>Asignar colores por cara o por triángulo.</td></tr>
+            <tr><td class="mono-col">Alternar textura/color con una tecla</td><td>Cambiar entre color y textura mediante una transición suave, no con un corte brusco.</td></tr>
+            <tr><td class="mono-col">Mostrar el logo de 42 girando sobre su eje central</td><td>Centrar correctamente el modelo para que rote sobre sí mismo y no orbite desde una esquina.</td></tr>
+            <tr><td class="mono-col">No usar librerías externas para <code>.obj</code>, matrices ni shaders</td><td>Implementar esas piezas personalmente sobre la API gráfica elegida.</td></tr>
+            <tr><td class="mono-col">README con uso de IA</td><td>Explicar compilación, recursos y cómo se usó IA sin delegar el liderazgo intelectual.</td></tr>
+          </tbody>
+        </table>
+        <p>Una forma compacta de verlo:</p>
+        <pre class="code">1. Cargo un .obj yo mismo.
+2. Convierto sus caras en triángulos.
+3. Centro el modelo para que rote sobre su eje.
+4. Subo vértices, colores y UV al GPU.
+5. Uso shaders propios cargados por mi programa.
+6. Aplico MVP para verlo en perspectiva.
+7. Dibujo caras distinguibles.
+8. Mezclo color y textura suavemente.
+9. Controlo rotación y traslación con input.
+10. Documento compilación, recursos y uso de IA.</pre>
+
+        <h2>2. Un <code>.obj</code> no es una imagen</h2>
+        <p>Un archivo <code>.obj</code> es texto que describe geometría. No contiene píxeles ya preparados para pantalla.</p>
+        <p>Ejemplo mínimo:</p>
+        <pre class="code">v -0.5 -0.5 0.0
+v  0.5 -0.5 0.0
+v  0.0  0.5 0.0
+f 1 2 3</pre>
+        <p>Las líneas <code>v</code> definen posiciones de vértices. La línea <code>f</code> define una cara usando índices hacia esos vértices.</p>
+        <p>El parser del <code>.obj</code> transforma texto en datos:</p>
+        <pre class="code">texto .obj
+  ↓
+lista de posiciones
+  ↓
+lista de caras
+  ↓
+lista de triángulos
+  ↓
+buffer que el GPU pueda leer</pre>
+        <p>Si el archivo contiene:</p>
+        <pre class="code">v 0 0 0
+v 1 0 0
+v 1 1 0
+v 0 1 0
+f 1 2 3 4</pre>
+        <p>el parser podría producir:</p>
+        <pre class="code">positions:
+  0: (0, 0, 0)
+  1: (1, 0, 0)
+  2: (1, 1, 0)
+  3: (0, 1, 0)
+
+triangles:
+  (0, 1, 2)
+  (0, 2, 3)</pre>
+        <p>Hay dos conversiones importantes:</p>
+        <ul>
+          <li>La cara de cuatro vértices se convierte en dos triángulos.</li>
+          <li>Los índices OBJ, que son base uno, se convierten a índices de array base cero.</li>
+        </ul>
+
+        <h2>3. Caras, triángulos e índices</h2>
+        <p>El GPU suele dibujar con <code>GL_TRIANGLES</code>: cada grupo de tres vértices forma un triángulo. Por eso una cara con cuatro vértices no se puede enviar directamente como si fuera un triángulo.</p>
+        <p>Una conversión típica es la triangulación en abanico:</p>
+        <pre class="code">f 1 2 3 4</pre>
+        <p>se convierte en:</p>
+        <pre class="code">triángulo 1: 1 2 3
+triángulo 2: 1 3 4</pre>
+        <p>Visualmente:</p>
+        <pre class="code">4 ----- 3
+|     / |
+|   /   |
+| /     |
+1 ----- 2</pre>
+        <p>Para una cara con más vértices:</p>
+        <pre class="code">f 1 2 3 4 5</pre>
+        <p>la triangulación en abanico produce:</p>
+        <pre class="code">1 2 3
+1 3 4
+1 4 5</pre>
+        <p>Esto funciona bien para polígonos simples y convexos. Puede fallar con caras cóncavas o no coplanares, que precisamente entran en la frontera de los <code>.obj</code> complejos mencionados en el bonus.</p>
+        <p>El otro detalle crítico es que OBJ usa índices base uno. Si el archivo dice:</p>
+        <pre class="code">f 3 7 10</pre>
+        <p>en un array C/C++/Rust debes leer:</p>
+        <pre class="code">vertices[2]
+vertices[6]
+vertices[9]</pre>
+        <p>Si olvidas restar <code>1</code>, el modelo queda mal conectado o puedes acceder fuera del array.</p>
+
+        <h2>4. Del modelo a la pantalla</h2>
+        <p>Las coordenadas del <code>.obj</code> no van directas a píxeles. Pasan por transformaciones:</p>
+        <pre class="code">posición local del modelo
+  ↓ model
+posición en el mundo
+  ↓ view
+posición vista desde la cámara
+  ↓ projection
+posición en perspectiva
+  ↓ viewport
+píxeles en la ventana</pre>
+        <p>La composición habitual es:</p>
+        <pre class="code">final = Projection * View * Model * Vertex</pre>
+        <p>Cada matriz tiene una responsabilidad:</p>
+        <table>
+          <thead><tr><th>Matriz</th><th>Responsabilidad</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col"><code>Model</code></td><td>Mover, rotar o escalar el objeto desde su espacio local.</td></tr>
+            <tr><td class="mono-col"><code>View</code></td><td>Representar la cámara: desde dónde se mira y hacia dónde.</td></tr>
+            <tr><td class="mono-col"><code>Projection</code></td><td>Aplicar perspectiva para que la profundidad afecte al tamaño aparente.</td></tr>
+          </tbody>
+        </table>
+        <p>En Scop es especialmente importante el centro del objeto. El subject pide que el 42 logo gire sobre su eje central, no sobre una esquina. Si el modelo está lejos del origen y rotas alrededor del origen, el objeto orbita.</p>
+        <p>Para centrar un modelo se puede calcular su caja envolvente:</p>
+        <pre class="code">1. leer todos los vértices
+2. calcular min_x, max_x, min_y, max_y, min_z, max_z
+3. calcular centro:
+   cx = (min_x + max_x) / 2
+   cy = (min_y + max_y) / 2
+   cz = (min_z + max_z) / 2
+4. restar ese centro a cada vértice</pre>
+        <p>Ejemplo:</p>
+        <pre class="code">vértice original: (10, 2, 0)
+centro calculado: (10, 0, 0)
+vértice centrado: (0, 2, 0)</pre>
+        <p>Ahora una rotación alrededor de <code>(0,0,0)</code> hace que el objeto gire sobre su propio centro.</p>
+
+        <h2>5. Perspectiva</h2>
+        <p>Sin perspectiva, una escena puede verse plana: un objeto lejos puede tener el mismo tamaño aparente que uno cercano. En perspectiva, lo lejano se ve más pequeño.</p>
+        <p>La matriz <code>Projection</code> prepara esa transformación. La idea que debes retener ahora es:</p>
+        <pre class="code">más lejos en z
+  ↓
+w más grande
+  ↓
+x/w e y/w más pequeños
+  ↓
+se ve más pequeño</pre>
+        <p>No hace falta memorizar todavía la fórmula completa de una matriz de perspectiva. Lo importante para esta primera clase es entender que Scop pide una proyección en perspectiva real, no solo dibujar coordenadas en pantalla.</p>
+
+        <h2>6. Shaders y framebuffer</h2>
+        <p>En OpenGL moderno, el GPU ejecuta pequeños programas llamados shaders.</p>
+        <p>El <strong>vertex shader</strong> corre una vez por vértice. Su trabajo principal en Scop será transformar la posición:</p>
+        <pre class="code">gl_Position = mvp * vec4(aPos, 1.0);</pre>
+        <p>Traducido:</p>
+        <pre class="code">toma la posición local del vértice
+la convierte en coordenada homogénea
+aplica Model/View/Projection
+devuelve la posición final al pipeline</pre>
+        <p>El <strong>fragment shader</strong> corre después de la rasterización. Su trabajo es decidir el color final de cada fragmento:</p>
+        <pre class="code">FragColor = vec4(0.7, 0.7, 0.7, 1.0);</pre>
+        <p>Más adelante también mezclará color y textura:</p>
+        <pre class="code">FragColor = mix(faceColor, texColor, textureFactor);</pre>
+        <p>Donde:</p>
+        <pre class="code">textureFactor = 0.0  -&gt;  solo color
+textureFactor = 1.0  -&gt;  solo textura
+textureFactor = 0.5  -&gt;  mitad color, mitad textura</pre>
+        <p>La rasterización es la etapa intermedia que convierte triángulos transformados en fragmentos candidatos a píxeles. El framebuffer guarda la imagen final que se mostrará en la ventana.</p>
+
+        <h2>7. Transición suave color/textura</h2>
+        <p>El subject no pide solo una tecla que cambie entre color y textura. Pide una transición suave.</p>
+        <p>Un cambio brusco sería:</p>
+        <pre class="code">frame actual: textureFactor = 0.0
+tecla pulsada
+frame siguiente: textureFactor = 1.0</pre>
+        <p>Eso es un corte. La idea correcta es que la tecla cambie el objetivo, y cada frame acerque el valor actual poco a poco:</p>
+        <pre class="code">textureFactor = 0.00
+textureFactor = 0.08
+textureFactor = 0.16
+textureFactor = 0.24
+...
+textureFactor = 1.00</pre>
+        <p>El fragment shader mezcla con ese factor:</p>
+        <pre class="code">mix(faceColor, texColor, textureFactor)</pre>
+        <p>Así la textura aparece o desaparece progresivamente.</p>
+
+        <h2>8. Predicciones y ejercicios</h2>
+        <p>Conviene intentar cada ejercicio antes de consultar la solución.</p>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 1 · cara de cuatro vértices</span>
+          <p>Si el <code>.obj</code> contiene una cara <code>f 1 2 3 4</code>, ¿qué problema aparece si el GPU dibuja con <code>GL_TRIANGLES</code>?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>La cara tiene cuatro vértices, pero un triángulo tiene tres. Hay que convertirla en triángulos, por ejemplo <code>(1,2,3)</code> y <code>(1,3,4)</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 2 · índices base uno</span>
+          <p>Si el <code>.obj</code> tiene <code>f 3 7 10</code>, ¿qué índices de un array C/C++ debes leer?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>Debes leer <code>2</code>, <code>6</code> y <code>9</code>, porque OBJ usa índices base uno y los arrays normales usan base cero.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 3 · tamaño del triángulo</span>
+          <p>Si cambias los vértices de un triángulo de <code>(0,0,0)</code>, <code>(1,0,0)</code>, <code>(1,1,0)</code> a <code>(0,0,0)</code>, <code>(2,0,0)</code>, <code>(2,2,0)</code>, ¿qué cambia en pantalla?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>El triángulo se hace más grande, porque sus posiciones ocupan más espacio en el sistema de coordenadas.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 4 · modelo descentrado</span>
+          <p>Si un cuadrado tiene su centro real en <code>(10,0,0)</code> y lo rotas alrededor del origen sin centrarlo antes, ¿qué verás?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>El objeto orbitará alrededor del origen, como si estuviera atado a una cuerda. No girará sobre su propio centro.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 5 · tamaño aparente</span>
+          <p>Si dos triángulos tienen el mismo tamaño real, pero uno está más lejos de la cámara, ¿qué debería pasar en perspectiva?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>El triángulo lejano debe verse más pequeño.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 6 · transición en un frame</span>
+          <p>Si al pulsar una tecla cambias <code>textureFactor</code> de <code>0.0</code> a <code>1.0</code> en un solo frame, ¿cumples la transición suave?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>No. Eso es un corte brusco. La tecla debe cambiar el objetivo y el valor actual debe acercarse gradualmente cada frame.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 7 · completa cada etapa</span>
+          <p>Completa con una frase cada etapa:</p>
+          <pre class="code">.obj parser:
+Model matrix:
+View matrix:
+Projection matrix:
+Vertex shader:
+Rasterización:
+Fragment shader:
+Framebuffer:</pre>
+          <details class="solution">
+            <summary>Mostrar solución orientativa</summary>
+            <div class="answer-box">
+              <pre class="code">.obj parser: lee el archivo de texto y extrae vértices, caras, UVs/normales si existen,
+             convirtiendo caras en triángulos útiles para el programa.
+Model matrix: transforma el objeto desde su espacio local: moverlo, rotarlo o escalarlo.
+View matrix: representa la cámara: desde dónde miro la escena y hacia dónde.
+Projection matrix: aplica perspectiva para que la profundidad afecte al tamaño aparente.
+Vertex shader: corre por cada vértice y transforma su posición, normalmente aplicando MVP.
+Rasterización: convierte triángulos ya transformados en fragmentos candidatos a píxeles.
+Fragment shader: decide el color final de cada fragmento: color por cara, textura o mezcla de ambos.
+Framebuffer: guarda la imagen final que se mostrará en la ventana.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Errores frecuentes</span>
+          <ul>
+            <li>Pensar que un <code>.obj</code> es una imagen. Es geometría en texto, no píxeles.</li>
+            <li>Enviar caras de cuatro o más vértices como si fueran triángulos.</li>
+            <li>Olvidar que los índices OBJ son base uno y usarlos directamente como índices de array.</li>
+            <li>Rotar un modelo no centrado y obtener una órbita en vez de un giro sobre su eje.</li>
+            <li>Confundir <code>Model</code>, <code>View</code> y <code>Projection</code> como si fueran una sola transformación indistinta.</li>
+            <li>Creer que dibujar algo en pantalla ya cumple la perspectiva del subject.</li>
+            <li>Cambiar de color a textura en un solo frame y llamarlo transición suave.</li>
+            <li>Usar librerías externas para cargar <code>.obj</code>, crear matrices o cargar shaders, lo cual contradice las restricciones del subject.</li>
+          </ul>
+        </div>
+
+        <h2>Has aprendido que</h2>
+        <ul>
+          <li>Scop es un mini-renderizador defendible, no una demo visual improvisada.</li>
+          <li>Un <code>.obj</code> describe vértices, caras y otros atributos; tu parser lo convierte en datos internos.</li>
+          <li>El GPU suele dibujar triángulos, así que las caras con más vértices deben triangularse.</li>
+          <li>Los índices de OBJ empiezan en <code>1</code>, pero los arrays empiezan en <code>0</code>.</li>
+          <li>El pipeline transforma vértices mediante <code>Model</code>, <code>View</code> y <code>Projection</code> antes de llegar a pantalla.</li>
+          <li>Centrar el modelo es clave para que rote sobre su eje central.</li>
+          <li>La perspectiva hace que lo lejano se vea más pequeño gracias a la proyección y la división por <code>w</code>.</li>
+          <li>El vertex shader transforma vértices; el fragment shader decide colores.</li>
+          <li>Una transición suave color/textura se logra interpolando gradualmente un factor, no con un cambio instantáneo.</li>
+        </ul>
+
+        <h2>Preguntas tipo defensa</h2>
+        <p>Responde en voz alta, sin mirar los apuntes:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="d1"><span>¿Por qué un <code>.obj</code> no se puede mostrar directamente como si fuera una imagen?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d2"><span>¿Por qué hay que convertir caras de cuatro o más vértices en triángulos?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d3"><span>¿Qué error aparece si usas índices OBJ directamente como índices de array?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d4"><span>¿Por qué hay que centrar el modelo antes de rotarlo?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d5"><span>¿Cuál es la diferencia entre vertex shader y fragment shader?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d6"><span>¿Qué papel tiene la matriz <code>Projection</code> en la perspectiva?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d7"><span>¿Por qué una transición color/textura en un solo frame no cumple la idea de suavidad?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d8"><span>¿Qué partes prohíbe el subject delegar a librerías externas?</span></label></li>
+        </ol>
+
+        <h2>Criterio de finalización</h2>
+        <p>La clase está completada cuando puedes:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Enumerar los requisitos obligatorios de Scop sin mirar la guía.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Dibujar el pipeline <code>.obj → vértices/caras → triángulos → MVP → shaders → framebuffer → ventana</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Explicar por qué <code>f 1 2 3 4</code> debe convertirse en dos triángulos.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Convertir índices OBJ base uno a índices de array base cero.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Explicar por qué un modelo descentrado orbita al rotarlo alrededor del origen.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c6"><span>Distinguir <code>Model</code>, <code>View</code> y <code>Projection</code> con una frase cada una.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c7"><span>Diferenciar vertex shader, rasterización, fragment shader y framebuffer.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c8"><span>Explicar por qué <code>mix(color, texture, factor)</code> permite una transición suave.</span></label></li>
+        </ol>
+
+        <p><strong>Siguiente clase:</strong> prepararemos el entorno: ventana, contexto gráfico, bucle de eventos y primer triángulo. El resultado será abrir una ventana y dibujar un triángulo de color, todavía sin parser <code>.obj</code>, para aislar primero la comunicación mínima con el GPU.</p>
+      </section>
+
+      <!-- ============ ENGLISH ============ -->
+      <section lang="en">
+        <div class="objective">
+          <span class="label">Objective</span>
+          <p>Build the minimum mental model of Scop: understand exactly what the subject asks and how a <code>.obj</code> file ends up turned into pixels inside a window. By the end of this class you must be able to explain the full graphics pipeline, tell geometry apart from an image, justify face triangulation, understand why <code>.obj</code> indices map onto zero-based arrays, and explain the difference between the vertex shader and the fragment shader.</p>
+        </div>
+        <p>This class is theory: no code is written yet.</p>
+
+        <h2>1. What Scop asks for</h2>
+        <p>Scop is not just about getting a 3D model to appear on screen. The goal is to build a defensible mini-renderer: every part must be understood, implemented and explained during the defense.</p>
+        <p>The mandatory part requires:</p>
+        <table>
+          <thead><tr><th>Requirement</th><th>What it means in practice</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col">Display an object from a <code>.obj</code></td><td>Read the file, extract vertices/faces and turn it into data the GPU can use.</td></tr>
+            <tr><td class="mono-col">Display it in a window</td><td>Create a window, graphics context and event loop with an allowed library.</td></tr>
+            <tr><td class="mono-col">Use perspective</td><td>Apply a projection where distant things look smaller.</td></tr>
+            <tr><td class="mono-col">Rotate and translate on the three axes</td><td>Keep object transformations controllable by input.</td></tr>
+            <tr><td class="mono-col">Faces distinguishable by colors</td><td>Assign colors per face or per triangle.</td></tr>
+            <tr><td class="mono-col">Toggle texture/color with one key</td><td>Switch between color and texture through a smooth transition, not an abrupt cut.</td></tr>
+            <tr><td class="mono-col">Show the 42 logo spinning on its central axis</td><td>Center the model correctly so it rotates around itself instead of orbiting from a corner.</td></tr>
+            <tr><td class="mono-col">No external libs for <code>.obj</code>, matrices or shaders</td><td>Implement those pieces yourself on top of the chosen graphics API.</td></tr>
+            <tr><td class="mono-col">README with AI usage</td><td>Explain build, resources and how AI was used without giving up intellectual leadership.</td></tr>
+          </tbody>
+        </table>
+        <p>A compact way to see it:</p>
+        <pre class="code">1. I load a .obj myself.
+2. I turn its faces into triangles.
+3. I center the model so it rotates on its axis.
+4. I upload vertices, colors and UVs to the GPU.
+5. I use my own shaders loaded by my program.
+6. I apply MVP to see it in perspective.
+7. I draw distinguishable faces.
+8. I blend color and texture smoothly.
+9. I control rotation and translation with input.
+10. I document build, resources and AI usage.</pre>
+
+        <h2>2. A <code>.obj</code> is not an image</h2>
+        <p>An <code>.obj</code> file is text that describes geometry. It contains no screen-ready pixels.</p>
+        <p>Minimal example:</p>
+        <pre class="code">v -0.5 -0.5 0.0
+v  0.5 -0.5 0.0
+v  0.0  0.5 0.0
+f 1 2 3</pre>
+        <p>The <code>v</code> lines define vertex positions. The <code>f</code> line defines a face using indices into those vertices.</p>
+        <p>The <code>.obj</code> parser turns text into data:</p>
+        <pre class="code">.obj text
+  ↓
+list of positions
+  ↓
+list of faces
+  ↓
+list of triangles
+  ↓
+buffer the GPU can read</pre>
+        <p>If the file contains:</p>
+        <pre class="code">v 0 0 0
+v 1 0 0
+v 1 1 0
+v 0 1 0
+f 1 2 3 4</pre>
+        <p>the parser could produce:</p>
+        <pre class="code">positions:
+  0: (0, 0, 0)
+  1: (1, 0, 0)
+  2: (1, 1, 0)
+  3: (0, 1, 0)
+
+triangles:
+  (0, 1, 2)
+  (0, 2, 3)</pre>
+        <p>There are two important conversions:</p>
+        <ul>
+          <li>The four-vertex face is converted into two triangles.</li>
+          <li>OBJ indices, which are one-based, are converted to zero-based array indices.</li>
+        </ul>
+
+        <h2>3. Faces, triangles and indices</h2>
+        <p>The GPU usually draws with <code>GL_TRIANGLES</code>: every group of three vertices forms a triangle. That is why a face with four vertices cannot be sent directly as if it were a triangle.</p>
+        <p>A typical conversion is fan triangulation:</p>
+        <pre class="code">f 1 2 3 4</pre>
+        <p>becomes:</p>
+        <pre class="code">triangle 1: 1 2 3
+triangle 2: 1 3 4</pre>
+        <p>Visually:</p>
+        <pre class="code">4 ----- 3
+|     / |
+|   /   |
+| /     |
+1 ----- 2</pre>
+        <p>For a face with more vertices:</p>
+        <pre class="code">f 1 2 3 4 5</pre>
+        <p>fan triangulation produces:</p>
+        <pre class="code">1 2 3
+1 3 4
+1 4 5</pre>
+        <p>This works well for simple convex polygons. It can fail with concave or non-coplanar faces, which is exactly the boundary of the complex <code>.obj</code> files mentioned in the bonus.</p>
+        <p>The other critical detail is that OBJ uses one-based indices. If the file says:</p>
+        <pre class="code">f 3 7 10</pre>
+        <p>in a C/C++/Rust array you must read:</p>
+        <pre class="code">vertices[2]
+vertices[6]
+vertices[9]</pre>
+        <p>If you forget to subtract <code>1</code>, the model ends up badly connected or you may access outside the array.</p>
+
+        <h2>4. From the model to the screen</h2>
+        <p>The <code>.obj</code> coordinates do not go straight to pixels. They go through transformations:</p>
+        <pre class="code">model local position
+  ↓ model
+world position
+  ↓ view
+position seen from the camera
+  ↓ projection
+position in perspective
+  ↓ viewport
+pixels in the window</pre>
+        <p>The usual composition is:</p>
+        <pre class="code">final = Projection * View * Model * Vertex</pre>
+        <p>Each matrix has a responsibility:</p>
+        <table>
+          <thead><tr><th>Matrix</th><th>Responsibility</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col"><code>Model</code></td><td>Move, rotate or scale the object from its local space.</td></tr>
+            <tr><td class="mono-col"><code>View</code></td><td>Represent the camera: where you look from and where you look at.</td></tr>
+            <tr><td class="mono-col"><code>Projection</code></td><td>Apply perspective so depth affects the apparent size.</td></tr>
+          </tbody>
+        </table>
+        <p>In Scop the center of the object is especially important. The subject requires the 42 logo to spin on its central axis, not around a corner. If the model sits far from the origin and you rotate around the origin, the object orbits.</p>
+        <p>To center a model you can compute its bounding box:</p>
+        <pre class="code">1. read all vertices
+2. compute min_x, max_x, min_y, max_y, min_z, max_z
+3. compute center:
+   cx = (min_x + max_x) / 2
+   cy = (min_y + max_y) / 2
+   cz = (min_z + max_z) / 2
+4. subtract that center from every vertex</pre>
+        <p>Example:</p>
+        <pre class="code">original vertex: (10, 2, 0)
+computed center: (10, 0, 0)
+centered vertex: (0, 2, 0)</pre>
+        <p>Now a rotation around <code>(0,0,0)</code> makes the object spin on its own center.</p>
+
+        <h2>5. Perspective</h2>
+        <p>Without perspective a scene can look flat: a distant object may have the same apparent size as a nearby one. With perspective, distant things look smaller.</p>
+        <p>The <code>Projection</code> matrix prepares that transformation. The idea to keep now is:</p>
+        <pre class="code">farther in z
+  ↓
+w larger
+  ↓
+x/w and y/w smaller
+  ↓
+looks smaller</pre>
+        <p>You do not need to memorize the full perspective matrix formula yet. What matters for this first class is understanding that Scop asks for a real perspective projection, not just drawing coordinates on screen.</p>
+
+        <h2>6. Shaders and framebuffer</h2>
+        <p>In modern OpenGL the GPU runs small programs called shaders.</p>
+        <p>The <strong>vertex shader</strong> runs once per vertex. Its main job in Scop will be to transform the position:</p>
+        <pre class="code">gl_Position = mvp * vec4(aPos, 1.0);</pre>
+        <p>Translated:</p>
+        <pre class="code">take the vertex local position
+turn it into a homogeneous coordinate
+apply Model/View/Projection
+give the final position back to the pipeline</pre>
+        <p>The <strong>fragment shader</strong> runs after rasterization. Its job is to decide the final color of each fragment:</p>
+        <pre class="code">FragColor = vec4(0.7, 0.7, 0.7, 1.0);</pre>
+        <p>Later it will also blend color and texture:</p>
+        <pre class="code">FragColor = mix(faceColor, texColor, textureFactor);</pre>
+        <p>Where:</p>
+        <pre class="code">textureFactor = 0.0  -&gt;  only color
+textureFactor = 1.0  -&gt;  only texture
+textureFactor = 0.5  -&gt;  half color, half texture</pre>
+        <p>Rasterization is the intermediate stage that turns transformed triangles into fragments (pixel candidates). The framebuffer stores the final image that will be shown in the window.</p>
+
+        <h2>7. Smooth color/texture transition</h2>
+        <p>The subject does not ask only for a key that switches between color and texture. It asks for a smooth transition.</p>
+        <p>An abrupt change would be:</p>
+        <pre class="code">current frame: textureFactor = 0.0
+key pressed
+next frame: textureFactor = 1.0</pre>
+        <p>That is a cut. The correct idea is that the key changes the target, and each frame moves the current value gradually:</p>
+        <pre class="code">textureFactor = 0.00
+textureFactor = 0.08
+textureFactor = 0.16
+textureFactor = 0.24
+...
+textureFactor = 1.00</pre>
+        <p>The fragment shader blends with that factor:</p>
+        <pre class="code">mix(faceColor, texColor, textureFactor)</pre>
+        <p>That way the texture appears or disappears progressively.</p>
+
+        <h2>8. Predictions and exercises</h2>
+        <p>Try each exercise before checking the answer.</p>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 1 · four-vertex face</span>
+          <p>If the <code>.obj</code> contains a face <code>f 1 2 3 4</code>, what problem appears if the GPU draws with <code>GL_TRIANGLES</code>?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>The face has four vertices, but a triangle has three. You must convert it into triangles, e.g. <code>(1,2,3)</code> and <code>(1,3,4)</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 2 · one-based indices</span>
+          <p>If the <code>.obj</code> has <code>f 3 7 10</code>, which indices of a C/C++ array must you read?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>You must read <code>2</code>, <code>6</code> and <code>9</code>, because OBJ uses one-based indices and regular arrays use zero-based ones.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 3 · triangle size</span>
+          <p>If you change the vertices of a triangle from <code>(0,0,0)</code>, <code>(1,0,0)</code>, <code>(1,1,0)</code> to <code>(0,0,0)</code>, <code>(2,0,0)</code>, <code>(2,2,0)</code>, what changes on screen?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>The triangle becomes bigger, because its positions take up more room in the coordinate space.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 4 · off-center model</span>
+          <p>If a square has its real center at <code>(10,0,0)</code> and you rotate it around the origin without centering it first, what will you see?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>The object will orbit around the origin, as if tied to a rope. It will not spin on its own center.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 5 · apparent size</span>
+          <p>If two triangles have the same real size, but one is farther from the camera, what should happen with perspective?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>The distant triangle must look smaller.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 6 · one-frame transition</span>
+          <p>If you change <code>textureFactor</code> from <code>0.0</code> to <code>1.0</code> in a single frame when pressing a key, do you satisfy the smooth transition?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>No. That is an abrupt cut. The key must change the target, and the current value must approach it gradually each frame.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 7 · complete each stage</span>
+          <p>Complete each stage with one sentence:</p>
+          <pre class="code">.obj parser:
+Model matrix:
+View matrix:
+Projection matrix:
+Vertex shader:
+Rasterization:
+Fragment shader:
+Framebuffer:</pre>
+          <details class="solution">
+            <summary>Show a model answer</summary>
+            <div class="answer-box">
+              <pre class="code">.obj parser: reads the text file and extracts vertices, faces, UVs/normals if present,
+             turning faces into useful triangles for the program.
+Model matrix: transforms the object from its local space: move it, rotate it or scale it.
+View matrix: represents the camera: where I look at the scene from and where I look at.
+Projection matrix: applies perspective so depth affects the apparent size.
+Vertex shader: runs per vertex and transforms its position, usually applying MVP.
+Rasterization: turns already-transformed triangles into fragment (pixel candidate) chunks.
+Fragment shader: decides the final color of each fragment: per-face color, texture or a blend of both.
+Framebuffer: stores the final image that will be shown in the window.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Common mistakes</span>
+          <ul>
+            <li>Thinking that a <code>.obj</code> is an image. It is geometry in text, not pixels.</li>
+            <li>Sending faces with four or more vertices as if they were triangles.</li>
+            <li>Forgetting that OBJ indices are one-based and using them directly as array indices.</li>
+            <li>Rotating an uncentered model and getting an orbit instead of a spin on its axis.</li>
+            <li>Treating <code>Model</code>, <code>View</code> and <code>Projection</code> as one indistinguishable transformation.</li>
+            <li>Believing that drawing something on screen already satisfies the subject's perspective requirement.</li>
+            <li>Switching from color to texture in a single frame and calling it a smooth transition.</li>
+            <li>Using external libraries to load <code>.obj</code> files, create matrices or load shaders, which contradicts the subject constraints.</li>
+          </ul>
+        </div>
+
+        <h2>You have learned that</h2>
+        <ul>
+          <li>Scop is a defensible mini-renderer, not an improvised visual demo.</li>
+          <li>An <code>.obj</code> describes vertices, faces and other attributes; your parser turns it into internal data.</li>
+          <li>The GPU usually draws triangles, so faces with more vertices must be triangulated.</li>
+          <li>OBJ indices start at <code>1</code>, but arrays start at <code>0</code>.</li>
+          <li>The pipeline transforms vertices with <code>Model</code>, <code>View</code> and <code>Projection</code> before they reach the screen.</li>
+          <li>Centering the model is key for it to rotate around its central axis.</li>
+          <li>Perspective makes distant things look smaller thanks to the projection and the division by <code>w</code>.</li>
+          <li>The vertex shader transforms vertices; the fragment shader decides colors.</li>
+          <li>A smooth color/texture transition is achieved by gradually interpolating a factor, not by an instant change.</li>
+        </ul>
+
+        <h2>Defense-style questions</h2>
+        <p>Answer out loud, without looking at your notes:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="d1"><span>Why can an <code>.obj</code> not be shown directly as if it were an image?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d2"><span>Why must faces with four or more vertices be converted into triangles?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d3"><span>What error appears if you use OBJ indices directly as array indices?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d4"><span>Why must the model be centered before rotating it?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d5"><span>What is the difference between the vertex shader and the fragment shader?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d6"><span>What role does the <code>Projection</code> matrix play in perspective?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d7"><span>Why does a color/texture transition in a single frame fail the idea of smoothness?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d8"><span>Which parts does the subject forbid delegating to external libraries?</span></label></li>
+        </ol>
+
+        <h2>Completion criteria</h2>
+        <p>The class is complete when you can:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>List the mandatory Scop requirements without looking at the guide.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Draw the pipeline <code>.obj → vertices/faces → triangles → MVP → shaders → framebuffer → window</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Explain why <code>f 1 2 3 4</code> must become two triangles.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Convert one-based OBJ indices to zero-based array indices.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Explain why an off-center model orbits when rotated around the origin.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c6"><span>Tell <code>Model</code>, <code>View</code> and <code>Projection</code> apart with one sentence each.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c7"><span>Differentiate the vertex shader, rasterization, the fragment shader and the framebuffer.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c8"><span>Explain why <code>mix(color, texture, factor)</code> allows a smooth transition.</span></label></li>
+        </ol>
+
+        <p><strong>Next class:</strong> we will prepare the environment: window, graphics context, event loop and a first triangle. The result will be opening a window and drawing a colored triangle, still without a <code>.obj</code> parser, to first isolate the minimal communication with the GPU.</p>
+      </section>
+    </div>
+
+    <div class="complete-block">
+      <div class="complete-copy">
+        <h2><span lang="es">¿Has terminado la clase?</span><span lang="en">Done with the class?</span></h2>
+        <p><span lang="es">Responde en voz alta las preguntas de defensa, cumple el criterio de finalización y marca la clase como completada. Tu progreso se guarda en el navegador.</span><span lang="en">Answer the defense questions out loud, meet the completion criteria and mark the class as completed. Your progress is saved in the browser.</span></p>
+      </div>
+      <label class="complete-toggle">
+        <input type="checkbox" data-complete="scop/clase-01">
+        <span data-i18n="btn.complete">Marcar clase como completada</span>
+      </label>
+    </div>
+    <nav class="pager">
+      <a href="index.html">
+        <small data-i18n="back.project">Volver al proyecto</small>
+        <strong data-i18n="p.scop.name">Scop</strong>
+      </a>
+      <a class="next" href="clase-02.html">
+        <small data-i18n="next.class">Siguiente clase</small>
+        <strong><span lang="es">Clase 2 · entorno y primer triángulo</span><span lang="en">Class 2 · environment and first triangle</span></strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>

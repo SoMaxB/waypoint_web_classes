@@ -70,23 +70,36 @@
 
     <section class="proj-sub prose">
       <h2 data-i18n="classes.title">Clases</h2>
-      <p class="note"><span lang="es">Este es el plan de las 8 clases. La primera irá apareciendo aquí con la misma dinámica interactiva que Libasm.</span><span lang="en">This is the plan for the 8 classes. The first one will appear here with the same interactive dynamic as Libasm.</span></p>
       <p class="note" data-i18n="proj.progress">Marca cada clase al completarla; el progreso se actualiza aquí y en la portada.</p>
+
+      <div class="class-list">
+        <div class="class-row">
+          <span class="num">01</span>
+          <span class="info">
+            <a href="clase-01.html"><h4><span lang="es">Subject y pipeline gráfico</span><span lang="en">Subject and graphics pipeline</span></h4></a>
+            <p><span lang="es">Qué pide el subject, cómo un <code>.obj</code> termina en píxeles, triangulación, índices, MVP y shaders.</span><span lang="en">What the subject asks, how a <code>.obj</code> ends up as pixels, triangulation, indices, MVP and shaders.</span></p>
+          </span>
+          <label class="complete-toggle">
+            <input type="checkbox" data-complete="scop/clase-01">
+            <span class="status" data-status-for="scop/clase-01" data-i18n="btn.complete">Marcar clase como completada</span>
+          </label>
+        </div>
+
+        <div class="class-row">
+          <span class="num">02</span>
+          <span class="info">
+            <a href="clase-02.html"><h4><span lang="es">Entorno y primer triángulo</span><span lang="en">Environment and first triangle</span></h4></a>
+            <p><span lang="es">Ventana GLFW, contexto OpenGL, bucle de eventos, VBO/VAO, shaders mínimos y doble buffer.</span><span lang="en">GLFW window, OpenGL context, event loop, VBO/VAO, minimal shaders and double buffering.</span></p>
+          </span>
+          <label class="complete-toggle">
+            <input type="checkbox" data-complete="scop/clase-02">
+            <span class="status" data-status-for="scop/clase-02" data-i18n="btn.complete">Marcar clase como completada</span>
+          </label>
+        </div>
+      </div>
 
       <h3 class="soon-heading"><span lang="es">Próximamente</span><span lang="en">Coming soon</span></h3>
       <div class="soon-grid">
-
-        <div class="soon-card">
-          <h4><span lang="es">Clase 1 · Subject y pipeline gráfico</span><span lang="en">Class 1 · Subject and graphics pipeline</span></h4>
-          <p><span lang="es">Qué pide exactamente el subject, qué es el pipeline de vértices → transformaciones → rasterización → fragmentos y qué significa "renderizar un <code>.obj</code>". Resultado: explicar el subject completo y el pipeline.</span><span lang="en">What the subject asks exactly, what the vertex → transformation → rasterization → fragment pipeline is, and what "render a <code>.obj</code>" means. Result: explain the whole subject and the pipeline.</span></p>
-          <span class="badge amber" data-i18n="status.coming">En preparación</span>
-        </div>
-
-        <div class="soon-card">
-          <h4><span lang="es">Clase 2 · Entorno y primer triángulo</span><span lang="en">Class 2 · Environment and first triangle</span></h4>
-          <p><span lang="es">Ventana, contexto gráfico, bucle de eventos y la línea de dependencias. Resultado: abrir una ventana y dibujar un triángulo en color.</span><span lang="en">Window, graphics context, event loop and the dependency line. Result: open a window and draw a colored triangle.</span></p>
-          <span class="badge amber" data-i18n="status.coming">En preparación</span>
-        </div>
 
         <div class="soon-card">
           <h4><span lang="es">Clase 3 · Parseo del <code>.obj</code></span><span lang="en">Class 3 · <code>.obj</code> parsing</span></h4>
@@ -131,6 +144,10 @@
       <a class="only" href="../../index.html">
         <small data-i18n="nav.home">Inicio</small>
         <strong data-i18n="back.project">Volver a los proyectos</strong>
+      </a>
+      <a class="next" href="clase-01.html">
+        <small data-i18n="next.class">Siguiente clase</small>
+        <strong><span lang="es">Clase 1 · subject y pipeline gráfico</span><span lang="en">Class 1 · subject and graphics pipeline</span></strong>
       </a>
     </nav>
   </main>

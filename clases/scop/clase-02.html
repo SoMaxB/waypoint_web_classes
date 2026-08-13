@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clase 2 · Entorno y primer triángulo — Scop</title>
+  <meta name="description" content="Ventana GLFW, contexto OpenGL, bucle de eventos, VBO y VAO, shaders mínimos y doble buffer.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="scop/clase-02">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <label class="visually-hidden" for="site-search" data-i18n="search.label">Buscar proyecto</label>
+        <input id="site-search" type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="index.html" data-i18n="p.scop.name">Scop</a><span class="sep">/</span>
+        <span><span lang="es">Clase 2</span><span lang="en">Class 2</span></span>
+      </nav>
+
+      <h1><span lang="es">Clase 2 · entorno y primer triángulo</span><span lang="en">Class 2 · environment and first triangle</span></h1>
+
+      <div class="class-toolbar">
+        <span class="toolbar-hint mono">OpenGL · GLFW · VBO · VAO</span>
+      </div>
+    </div>
+
+    <div class="prose">
+
+      <!-- ============ ESPAÑOL ============ -->
+      <section lang="es">
+        <div class="objective">
+          <span class="label">Objetivo</span>
+          <p>Entender qué piezas mínimas hacen falta para abrir una ventana OpenGL y dibujar el primer triángulo. Al terminar esta clase debes poder explicar qué aporta GLFW, qué es un contexto OpenGL, para qué sirven VBO y VAO, cómo se conectan los atributos del shader con los datos del buffer y por qué el bucle de render necesita <code>glfwSwapBuffers()</code> y <code>glfwPollEvents()</code>.</p>
+        </div>
+        <p>Esta clase se basa en la clase 1: ya tenemos el pipeline mental, ahora montamos la infraestructura mínima para dibujar.</p>
+
+        <h2>1. Qué estamos aislando</h2>
+        <p>Esta clase no carga todavía <code>.obj</code>, no usa matrices MVP y no aplica texturas. Aísla una sola pregunta:</p>
+        <pre class="code">¿Qué tiene que existir antes de que el GPU pueda dibujar algo?</pre>
+        <p>El flujo mínimo es:</p>
+        <pre class="code">programa
+  ↓
+inicializar librería de ventana
+  ↓
+crear ventana + contexto OpenGL
+  ↓
+hacer el contexto actual
+  ↓
+cargar funciones OpenGL si hace falta
+  ↓
+crear shaders
+  ↓
+crear datos del triángulo
+  ↓
+subirlos a VBO/VAO
+  ↓
+bucle de eventos
+  ↓
+dibujar cada frame
+  ↓
+swap buffers</pre>
+        <p>La ventana no es la escena. Es el destino donde OpenGL presentará el framebuffer final.</p>
+
+        <h2>2. Qué permite el subject</h2>
+        <p>El subject permite librerías externas para ventana y eventos. Por eso una librería como GLFW puede encargarse de:</p>
+        <ul>
+          <li>Crear la ventana.</li>
+          <li>Crear el contexto OpenGL.</li>
+          <li>Gestionar teclado, ratón y cierre de ventana.</li>
+          <li>Mantener el bucle de eventos.</li>
+        </ul>
+        <p>Pero no debe encargarse de las partes que el subject exige implementar o entender personalmente:</p>
+        <ul>
+          <li>Parser de <code>.obj</code>.</li>
+          <li>Matrices y transformaciones.</li>
+          <li>Carga/compilación de shaders como caja negra externa.</li>
+          <li>Renderizador completo.</li>
+        </ul>
+        <p>GLFW está permitido porque resuelve infraestructura de ventana/contexto/eventos, no el problema central de Scop.</p>
+
+        <h2>3. Ventana, contexto y bucle mínimo</h2>
+        <p>Un esqueleto conceptual con GLFW es:</p>
+        <pre class="code">if (!glfwInit())
+    fail();
+
+GLFWwindow *window = glfwCreateWindow(800, 600, "scop", NULL, NULL);
+if (!window)
+    fail();
+
+glfwMakeContextCurrent(window);
+
+while (!glfwWindowShouldClose(window))
+{
+    render();
+
+    glfwSwapBuffers(window);
+    glfwPollEvents();
+}
+
+glfwTerminate();</pre>
+        <p>La llamada crítica es:</p>
+        <pre class="code">glfwMakeContextCurrent(window);</pre>
+        <p>OpenGL trabaja sobre un contexto actual asociado al hilo. Sin contexto actual, llamadas como crear buffers, compilar shaders o limpiar la pantalla no tienen un estado OpenGL válido sobre el que operar.</p>
+        <p>El contexto OpenGL no contiene el <code>.obj</code> parseado. El modelo parseado vive primero en memoria de CPU y después sus datos se suben a buffers del GPU.</p>
+
+        <h2>4. El primer triángulo</h2>
+        <p>Un triángulo mínimo puede escribirse como posiciones hardcodeadas:</p>
+        <pre class="code">float vertices[] = {
+    -0.5f, -0.5f, 0.0f,
+     0.5f, -0.5f, 0.0f,
+     0.0f,  0.5f, 0.0f,
+};</pre>
+        <p>Cada vértice tiene tres <code>float</code>:</p>
+        <pre class="code">x y z</pre>
+        <p>Por tanto:</p>
+        <pre class="code">9 floats / 3 floats por vértice = 3 vértices</pre>
+        <p>Estos datos no aparecen en pantalla por estar en un array C. El GPU no lee automáticamente la RAM de tu programa. Debes subirlos a memoria del GPU.</p>
+
+        <h2>5. VBO y VAO</h2>
+        <p>Dos objetos aparecen enseguida:</p>
+        <pre class="code">VBO = Vertex Buffer Object
+VAO = Vertex Array Object</pre>
+        <p>La forma simple de recordarlos es:</p>
+        <pre class="code">VBO:
+  contiene los datos crudos de vértices en memoria del GPU
+
+VAO:
+  recuerda cómo interpretar esos datos</pre>
+        <p>Ejemplo conceptual:</p>
+        <pre class="code">VBO:
+  -0.5 -0.5 0.0   0.5 -0.5 0.0   0.0 0.5 0.0
+
+VAO:
+  location 0 = leer 3 floats por vértice
+  stride = 3 floats
+  offset = 0</pre>
+        <p>El VBO responde:</p>
+        <pre class="code">¿Dónde están los datos?</pre>
+        <p>El VAO responde:</p>
+        <pre class="code">¿Cómo se leen esos datos?</pre>
+        <p>Código conceptual:</p>
+        <pre class="code">unsigned int vao;
+unsigned int vbo;
+
+glGenVertexArrays(1, &amp;vao);
+glGenBuffers(1, &amp;vbo);
+
+glBindVertexArray(vao);
+
+glBindBuffer(GL_ARRAY_BUFFER, vbo);
+glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+glVertexAttribPointer(
+    0,                  // location = 0
+    3,                  // 3 floats: x, y, z
+    GL_FLOAT,
+    GL_FALSE,
+    3 * sizeof(float),  // stride
+    (void *)0           // offset
+);
+glEnableVertexAttribArray(0);</pre>
+        <p>Más adelante, cuando cada vértice tenga posición, color y UV, el VAO será aún más importante:</p>
+        <pre class="code">x y z   r g b   u v</pre>
+        <p>Entonces necesitaremos describir varios atributos:</p>
+        <pre class="code">location 0: posición, 3 floats, empieza en offset 0
+location 1: color,    3 floats, empieza después de posición
+location 2: UV,       2 floats, empieza después de color</pre>
+
+        <h2>6. Shaders mínimos</h2>
+        <p>El vertex shader debe tener una entrada compatible con el atributo configurado en el VAO:</p>
+        <pre class="code">#version 330 core
+
+layout (location = 0) in vec3 aPos;
+
+void main()
+{
+    gl_Position = vec4(aPos, 1.0);
+}</pre>
+        <p>La conexión importante es:</p>
+        <pre class="code">VAO dice: location 0 contiene 3 floats por vértice
+shader dice: layout(location = 0) in vec3 aPos</pre>
+        <p>Si el VAO configura <code>location = 0</code> pero el shader espera <code>location = 1</code>, el shader está mirando otra entrada. El resultado puede ser que no se vea nada o que se lean datos incorrectos.</p>
+        <p>El fragment shader puede devolver un color fijo:</p>
+        <pre class="code">#version 330 core
+
+out vec4 FragColor;
+
+void main()
+{
+    FragColor = vec4(1.0, 0.5, 0.2, 1.0);
+}</pre>
+        <p>Ese <code>vec4</code> representa:</p>
+        <pre class="code">rojo, verde, azul, alfa</pre>
+        <p>con valores entre <code>0.0</code> y <code>1.0</code>.</p>
+
+        <h2>7. Compilar y enlazar shaders</h2>
+        <p>El flujo conceptual de shaders es:</p>
+        <pre class="code">código fuente GLSL
+  ↓
+glCreateShader
+  ↓
+glShaderSource
+  ↓
+glCompileShader
+  ↓
+comprobar errores
+  ↓
+glCreateProgram
+  ↓
+glAttachShader(vertex)
+  ↓
+glAttachShader(fragment)
+  ↓
+glLinkProgram
+  ↓
+comprobar errores
+  ↓
+glUseProgram</pre>
+        <p>El subject no prohíbe escribir funciones propias como <code>load_shader_file()</code> o <code>compile_shader()</code>. Lo que no debes hacer es delegar esa responsabilidad a una librería externa que oculte la carga, compilación, enlazado y reporte de errores.</p>
+        <p>Para aprender, en esta clase los shaders pueden estar como strings. En el proyecto real convendrá cargarlos desde archivos usando código propio.</p>
+
+        <h2>8. Dibujar cada frame</h2>
+        <p>Un frame mínimo hace esto:</p>
+        <pre class="code">glClearColor(0.1f, 0.1f, 0.12f, 1.0f);
+glClear(GL_COLOR_BUFFER_BIT);
+
+glUseProgram(shader_program);
+glBindVertexArray(vao);
+glDrawArrays(GL_TRIANGLES, 0, 3);
+
+glfwSwapBuffers(window);
+glfwPollEvents();</pre>
+        <p>Responsabilidades:</p>
+        <table>
+          <thead><tr><th>Función</th><th>Responsabilidad</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col"><code>glClearColor</code></td><td>Define el color con el que se limpiará el fondo.</td></tr>
+            <tr><td class="mono-col"><code>glClear</code></td><td>Limpia el framebuffer actual.</td></tr>
+            <tr><td class="mono-col"><code>glUseProgram</code></td><td>Activa el programa de shaders.</td></tr>
+            <tr><td class="mono-col"><code>glBindVertexArray</code></td><td>Activa la receta para leer vértices.</td></tr>
+            <tr><td class="mono-col"><code>glDrawArrays</code></td><td>Ordena dibujar vértices secuenciales como triángulos.</td></tr>
+            <tr><td class="mono-col"><code>glfwSwapBuffers</code></td><td>Muestra el frame renderizado.</td></tr>
+            <tr><td class="mono-col"><code>glfwPollEvents</code></td><td>Procesa teclado, ratón, cierre, resize y otros eventos.</td></tr>
+          </tbody>
+        </table>
+        <p>Si olvidas <code>glfwPollEvents()</code>, la ventana puede no responder a cierre, teclado o ratón.</p>
+
+        <h2>9. Doble buffer</h2>
+        <p>Normalmente no dibujas directamente sobre la imagen visible. Se usa doble buffer:</p>
+        <pre class="code">front buffer:
+  imagen visible ahora
+
+back buffer:
+  imagen que estoy dibujando para el siguiente frame</pre>
+        <p>Cuando terminas de dibujar:</p>
+        <pre class="code">glfwSwapBuffers(window);</pre>
+        <p>el back buffer pasa a verse y el programa empieza a preparar el siguiente frame. Esto evita parpadeos y frames parcialmente dibujados.</p>
+
+        <h2>10. Qué queda para el Scop real</h2>
+        <p>El triángulo hardcodeado es temporal, pero la infraestructura seguirá existiendo:</p>
+        <pre class="code">ventana
+contexto
+carga/compilación de shaders
+VAO/VBO
+render loop
+swap buffers
+poll events
+cleanup</pre>
+        <p>Lo que cambiará después es la fuente de los datos:</p>
+        <pre class="code">clase 2:
+  vértices hardcodeados
+
+clase 3+:
+  vértices parseados desde .obj</pre>
+        <p>Modelo final de conexión:</p>
+        <pre class="code">.obj parseado
+  ↓
+datos en CPU
+  ↓ glBufferData
+VBO en GPU
+  ↓ interpretado por
+VAO
+  ↓ leído por
+vertex shader</pre>
+
+        <h2>11. Predicciones y ejercicios</h2>
+        <p>Conviene intentar cada ejercicio antes de consultar la solución.</p>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 1 · contar vértices</span>
+          <p>Si <code>vertices</code> contiene 9 floats y cada vértice tiene 3 floats, ¿cuántos vértices hay?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>Hay 3 vértices, porque <code>9 / 3 = 3</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 2 · location desalineada</span>
+          <p>Si configuras el VAO con <code>location = 0</code>, pero el vertex shader espera <code>layout(location = 1) in vec3 aPos;</code>, ¿qué problema conceptual hay?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>El shader está mirando otra entrada distinta. El VAO puso los datos en <code>location 0</code>, pero el shader los pide en <code>location 1</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 3 · poll events olvidado</span>
+          <p>Si olvidas llamar a <code>glfwPollEvents()</code> dentro del bucle, ¿qué problema práctico esperas?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>La ventana puede dejar de responder a cierre, teclado, ratón, redimensionado u otros eventos.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 4 · sin doble buffer</span>
+          <p>Si dibujaras directamente sobre la imagen visible, sin doble buffer, ¿qué efecto visual podría aparecer?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>Podrían aparecer parpadeos o frames parcialmente dibujados. El doble buffer evita mostrar la imagen mientras aún se está construyendo.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 5 · qué sobrevive</span>
+          <p>En el proyecto final, ¿qué parte de esta clase seguirá existiendo aunque ya no dibujemos un triángulo hardcodeado?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>Segurán existiendo ventana, contexto, shaders, VAO/VBO, render loop, swap buffers, poll events y cleanup. Lo que desaparece es el triángulo hardcodeado como fuente fija de datos.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 6 · completa cada pieza</span>
+          <p>Completa con una frase cada pieza:</p>
+          <pre class="code">GLFW:
+Contexto OpenGL:
+VBO:
+VAO:
+Vertex shader:
+Fragment shader:
+glDrawArrays:
+glfwSwapBuffers:
+glfwPollEvents:</pre>
+          <details class="solution">
+            <summary>Mostrar solución orientativa</summary>
+            <div class="answer-box">
+              <pre class="code">GLFW: librería permitida para crear ventana, contexto OpenGL y gestionar eventos.
+Contexto OpenGL: estado OpenGL asociado a una ventana/hilo que permite hacer llamadas OpenGL válidas.
+VBO: buffer en memoria del GPU que contiene datos crudos de vértices.
+VAO: objeto que recuerda cómo interpretar los datos del VBO: location, tamaño, stride y offset.
+Vertex shader: programa que corre por vértice y produce `gl_Position`.
+Fragment shader: programa que corre por fragmento y decide el color final.
+glDrawArrays: draw call que ordena dibujar vértices secuenciales desde el VAO activo.
+glfwSwapBuffers: intercambia el back buffer dibujado con el front buffer visible.
+glfwPollEvents: procesa eventos pendientes de teclado, ratón, cierre, resize y foco.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Errores frecuentes</span>
+          <ul>
+            <li>Pensar que GLFW resuelve el renderizador. Solo debe resolver ventana, contexto y eventos.</li>
+            <li>Creer que el contexto OpenGL contiene el modelo <code>.obj</code>. El modelo vive en CPU y luego se sube a buffers.</li>
+            <li>Confundir VBO y VAO: el VBO guarda datos; el VAO describe cómo leerlos.</li>
+            <li>Configurar un <code>location</code> en el VAO y otro distinto en el shader.</li>
+            <li>Olvidar comprobar errores de compilación y enlazado de shaders.</li>
+            <li>Olvidar <code>glfwPollEvents()</code> y obtener una ventana que no responde.</li>
+            <li>Olvidar <code>glfwSwapBuffers()</code> y no presentar correctamente el frame.</li>
+            <li>Creer que el triángulo hardcodeado es parte del proyecto final; solo es una prueba mínima del pipeline.</li>
+          </ul>
+        </div>
+
+        <h2>Has aprendido que</h2>
+        <ul>
+          <li>Antes de dibujar necesitas ventana, contexto OpenGL actual, shaders, buffers y bucle de render.</li>
+          <li>GLFW está permitido porque gestiona ventana, contexto y eventos, no el parser ni las matemáticas del renderer.</li>
+          <li>OpenGL necesita un contexto actual antes de ejecutar llamadas válidas.</li>
+          <li>El VBO contiene datos de vértices en GPU.</li>
+          <li>El VAO recuerda cómo interpretar esos datos para los atributos del shader.</li>
+          <li><code>layout(location = N)</code> debe coincidir con el atributo configurado en <code>glVertexAttribPointer</code>.</li>
+          <li>El vertex shader trabaja por vértice; el fragment shader decide colores por fragmento.</li>
+          <li><code>glDrawArrays(GL_TRIANGLES, 0, 3)</code> dibuja tres vértices secuenciales como un triángulo.</li>
+          <li><code>glfwSwapBuffers()</code> presenta el frame terminado y <code>glfwPollEvents()</code> procesa eventos.</li>
+        </ul>
+
+        <h2>Preguntas tipo defensa</h2>
+        <p>Responde en voz alta, sin mirar los apuntes:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="d1"><span>¿Por qué GLFW está permitido por el subject?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d2"><span>¿Por qué necesitas llamar a <code>glfwMakeContextCurrent(window)</code> antes de usar OpenGL?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d3"><span>¿Cuál es la diferencia entre VBO y VAO?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d4"><span>¿Por qué el <code>layout(location = 0)</code> del shader debe coincidir con el atributo configurado en <code>glVertexAttribPointer</code>?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d5"><span>¿Para qué sirve <code>glfwSwapBuffers()</code>?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d6"><span>¿Para qué sirve <code>glfwPollEvents()</code>?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d7"><span>¿Qué parte del primer triángulo desaparecerá cuando empecemos a cargar <code>.obj</code>, y qué parte seguirá existiendo?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d8"><span>¿Por qué no conviene mezclar en una sola función ventana, parser <code>.obj</code>, shaders, buffers y render?</span></label></li>
+        </ol>
+
+        <h2>Criterio de finalización</h2>
+        <p>La clase está completada cuando puedes:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Explicar qué responsabilidades cubre GLFW y cuáles no debe cubrir.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Explicar qué es un contexto OpenGL y por qué debe ser actual.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Contar cuántos vértices hay en un array de floats según el stride.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Distinguir VBO de VAO sin confundir datos con interpretación.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Explicar la relación entre <code>glVertexAttribPointer</code> y <code>layout(location = ...)</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c6"><span>Describir el trabajo mínimo de un vertex shader y de un fragment shader.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c7"><span>Ordenar mentalmente un frame: limpiar, usar shader, bind VAO, draw call, swap buffers, poll events.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c8"><span>Explicar qué desaparece del triángulo hardcodeado cuando el <code>.obj</code> sea la fuente de datos.</span></label></li>
+        </ol>
+
+        <p><strong>Siguiente clase:</strong> entraremos en el parser <code>.obj</code>: leeremos líneas <code>v</code>, <code>vt</code>, <code>vn</code> y <code>f</code>, adaptaremos índices base uno a arrays base cero y convertiremos caras en triángulos. El resultado será leer y validar un <code>.obj</code> sencillo antes de conectarlo al pipeline gráfico.</p>
+      </section>
+
+      <!-- ============ ENGLISH ============ -->
+      <section lang="en">
+        <div class="objective">
+          <span class="label">Objective</span>
+          <p>Understand the minimum pieces needed to open an OpenGL window and draw the first triangle. By the end of this class you must be able to explain what GLFW provides, what an OpenGL context is, what VBO and VAO are for, how the shader attributes connect to the buffer data, and why the render loop needs <code>glfwSwapBuffers()</code> and <code>glfwPollEvents()</code>.</p>
+        </div>
+        <p>This class builds on class 1: we already have the mental pipeline, now we set up the minimum infrastructure to draw.</p>
+
+        <h2>1. What we are isolating</h2>
+        <p>This class does not load <code>.obj</code> files yet, does not use MVP matrices and does not apply textures. It isolates a single question:</p>
+        <pre class="code">What must exist before the GPU can draw anything?</pre>
+        <p>The minimum flow is:</p>
+        <pre class="code">program
+  ↓
+initialize window library
+  ↓
+create window + OpenGL context
+  ↓
+make the context current
+  ↓
+load OpenGL functions if needed
+  ↓
+create shaders
+  ↓
+create triangle data
+  ↓
+upload it to VBO/VAO
+  ↓
+event loop
+  ↓
+draw each frame
+  ↓
+swap buffers</pre>
+        <p>The window is not the scene. It is the destination where OpenGL will present the final framebuffer.</p>
+
+        <h2>2. What the subject allows</h2>
+        <p>The subject allows external libraries for the window and events. That is why a library like GLFW may take care of:</p>
+        <ul>
+          <li>Creating the window.</li>
+          <li>Creating the OpenGL context.</li>
+          <li>Handling keyboard, mouse and window close.</li>
+          <li>Running the event loop.</li>
+        </ul>
+        <p>But it must not take care of the parts the subject requires you to implement or understand yourself:</p>
+        <ul>
+          <li>The <code>.obj</code> parser.</li>
+          <li>Matrices and transformations.</li>
+          <li>Shader loading/compilation as an external black box.</li>
+          <li>The full renderer.</li>
+        </ul>
+        <p>GLFW is allowed because it solves window/context/event infrastructure, not the core problem of Scop.</p>
+
+        <h2>3. Window, context and minimal loop</h2>
+        <p>A conceptual skeleton with GLFW is:</p>
+        <pre class="code">if (!glfwInit())
+    fail();
+
+GLFWwindow *window = glfwCreateWindow(800, 600, "scop", NULL, NULL);
+if (!window)
+    fail();
+
+glfwMakeContextCurrent(window);
+
+while (!glfwWindowShouldClose(window))
+{
+    render();
+
+    glfwSwapBuffers(window);
+    glfwPollEvents();
+}
+
+glfwTerminate();</pre>
+        <p>The critical call is:</p>
+        <pre class="code">glfwMakeContextCurrent(window);</pre>
+        <p>OpenGL works on a current context associated with the thread. Without a current context, calls like creating buffers, compiling shaders or clearing the screen have no valid OpenGL state to operate on.</p>
+        <p>The OpenGL context does not contain the parsed <code>.obj</code>. The parsed model first lives in CPU memory and later its data is uploaded to GPU buffers.</p>
+
+        <h2>4. The first triangle</h2>
+        <p>A minimal triangle can be written as hardcoded positions:</p>
+        <pre class="code">float vertices[] = {
+    -0.5f, -0.5f, 0.0f,
+     0.5f, -0.5f, 0.0f,
+     0.0f,  0.5f, 0.0f,
+};</pre>
+        <p>Each vertex has three <code>float</code>s:</p>
+        <pre class="code">x y z</pre>
+        <p>Therefore:</p>
+        <pre class="code">9 floats / 3 floats per vertex = 3 vertices</pre>
+        <p>These data do not show up on screen just because they are in a C array. The GPU does not automatically read your program's RAM. You must upload them to GPU memory.</p>
+
+        <h2>5. VBO and VAO</h2>
+        <p>Two objects show up right away:</p>
+        <pre class="code">VBO = Vertex Buffer Object
+VAO = Vertex Array Object</pre>
+        <p>The simple way to remember them:</p>
+        <pre class="code">VBO:
+  holds the raw vertex data in GPU memory
+
+VAO:
+  remembers how to interpret that data</pre>
+        <p>Conceptual example:</p>
+        <pre class="code">VBO:
+  -0.5 -0.5 0.0   0.5 -0.5 0.0   0.0 0.5 0.0
+
+VAO:
+  location 0 = read 3 floats per vertex
+  stride = 3 floats
+  offset = 0</pre>
+        <p>The VBO answers:</p>
+        <pre class="code">Where is the data?</pre>
+        <p>The VAO answers:</p>
+        <pre class="code">How is that data read?</pre>
+        <p>Conceptual code:</p>
+        <pre class="code">unsigned int vao;
+unsigned int vbo;
+
+glGenVertexArrays(1, &amp;vao);
+glGenBuffers(1, &amp;vbo);
+
+glBindVertexArray(vao);
+
+glBindBuffer(GL_ARRAY_BUFFER, vbo);
+glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+glVertexAttribPointer(
+    0,                  // location = 0
+    3,                  // 3 floats: x, y, z
+    GL_FLOAT,
+    GL_FALSE,
+    3 * sizeof(float),  // stride
+    (void *)0           // offset
+);
+glEnableVertexAttribArray(0);</pre>
+        <p>Later, when each vertex has position, color and UV, the VAO becomes even more important:</p>
+        <pre class="code">x y z   r g b   u v</pre>
+        <p>Then we will need to describe several attributes:</p>
+        <pre class="code">location 0: position, 3 floats, starts at offset 0
+location 1: color,    3 floats, starts after position
+location 2: UV,       2 floats, starts after color</pre>
+
+        <h2>6. Minimal shaders</h2>
+        <p>The vertex shader must have an input compatible with the attribute configured in the VAO:</p>
+        <pre class="code">#version 330 core
+
+layout (location = 0) in vec3 aPos;
+
+void main()
+{
+    gl_Position = vec4(aPos, 1.0);
+}</pre>
+        <p>The important connection is:</p>
+        <pre class="code">VAO says: location 0 holds 3 floats per vertex
+shader says: layout(location = 0) in vec3 aPos</pre>
+        <p>If the VAO configures <code>location = 0</code> but the shader expects <code>location = 1</code>, the shader is looking at another input. The result may be that nothing is visible or that wrong data is read.</p>
+        <p>The fragment shader can return a fixed color:</p>
+        <pre class="code">#version 330 core
+
+out vec4 FragColor;
+
+void main()
+{
+    FragColor = vec4(1.0, 0.5, 0.2, 1.0);
+}</pre>
+        <p>That <code>vec4</code> represents:</p>
+        <pre class="code">red, green, blue, alpha</pre>
+        <p>with values between <code>0.0</code> and <code>1.0</code>.</p>
+
+        <h2>7. Compiling and linking shaders</h2>
+        <p>The conceptual shader flow is:</p>
+        <pre class="code">GLSL source code
+  ↓
+glCreateShader
+  ↓
+glShaderSource
+  ↓
+glCompileShader
+  ↓
+check errors
+  ↓
+glCreateProgram
+  ↓
+glAttachShader(vertex)
+  ↓
+glAttachShader(fragment)
+  ↓
+glLinkProgram
+  ↓
+check errors
+  ↓
+glUseProgram</pre>
+        <p>The subject does not forbid writing your own functions such as <code>load_shader_file()</code> or <code>compile_shader()</code>. What you must not do is delegate that responsibility to an external library that hides loading, compilation, linking and error reporting.</p>
+        <p>To learn, in this class the shaders can live as strings. In the real project you will want to load them from files using your own code.</p>
+
+        <h2>8. Drawing each frame</h2>
+        <p>A minimal frame does this:</p>
+        <pre class="code">glClearColor(0.1f, 0.1f, 0.12f, 1.0f);
+glClear(GL_COLOR_BUFFER_BIT);
+
+glUseProgram(shader_program);
+glBindVertexArray(vao);
+glDrawArrays(GL_TRIANGLES, 0, 3);
+
+glfwSwapBuffers(window);
+glfwPollEvents();</pre>
+        <p>Responsibilities:</p>
+        <table>
+          <thead><tr><th>Function</th><th>Responsibility</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col"><code>glClearColor</code></td><td>Sets the color used to clear the background.</td></tr>
+            <tr><td class="mono-col"><code>glClear</code></td><td>Clears the current framebuffer.</td></tr>
+            <tr><td class="mono-col"><code>glUseProgram</code></td><td>Activates the shader program.</td></tr>
+            <tr><td class="mono-col"><code>glBindVertexArray</code></td><td>Activates the recipe for reading vertices.</td></tr>
+            <tr><td class="mono-col"><code>glDrawArrays</code></td><td>Tells the GPU to draw sequential vertices as triangles.</td></tr>
+            <tr><td class="mono-col"><code>glfwSwapBuffers</code></td><td>Shows the rendered frame.</td></tr>
+            <tr><td class="mono-col"><code>glfwPollEvents</code></td><td>Processes keyboard, mouse, close, resize and other events.</td></tr>
+          </tbody>
+        </table>
+        <p>If you forget <code>glfwPollEvents()</code>, the window may stop responding to close, keyboard or mouse.</p>
+
+        <h2>9. Double buffering</h2>
+        <p>Usually you do not draw directly on the visible image. Double buffering is used:</p>
+        <pre class="code">front buffer:
+  image visible now
+
+back buffer:
+  image I am drawing for the next frame</pre>
+        <p>When you finish drawing:</p>
+        <pre class="code">glfwSwapBuffers(window);</pre>
+        <p>the back buffer becomes visible and the program starts preparing the next frame. This avoids flicker and partially drawn frames.</p>
+
+        <h2>10. What remains for the real Scop</h2>
+        <p>The hardcoded triangle is temporary, but the infrastructure will remain:</p>
+        <pre class="code">window
+context
+shader loading/compilation
+VAO/VBO
+render loop
+swap buffers
+poll events
+cleanup</pre>
+        <p>What changes later is the source of the data:</p>
+        <pre class="code">class 2:
+  hardcoded vertices
+
+class 3+:
+  vertices parsed from .obj</pre>
+        <p>Final connection model:</p>
+        <pre class="code">parsed .obj
+  ↓
+data in CPU
+  ↓ glBufferData
+VBO in GPU
+  ↓ interpreted by
+VAO
+  ↓ read by
+vertex shader</pre>
+
+        <h2>11. Predictions and exercises</h2>
+        <p>Try each exercise before checking the answer.</p>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 1 · counting vertices</span>
+          <p>If <code>vertices</code> holds 9 floats and each vertex has 3 floats, how many vertices are there?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>There are 3 vertices, because <code>9 / 3 = 3</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 2 · misaligned location</span>
+          <p>If you configure the VAO with <code>location = 0</code>, but the vertex shader expects <code>layout(location = 1) in vec3 aPos;</code>, what conceptual problem is there?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>The shader is looking at a different input. The VAO put the data at <code>location 0</code>, but the shader asks for it at <code>location 1</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 3 · forgotten poll events</span>
+          <p>If you forget to call <code>glfwPollEvents()</code> inside the loop, what practical problem do you expect?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>The window may stop responding to close, keyboard, mouse, resizing or other events.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 4 · without double buffering</span>
+          <p>If you drew directly on the visible image, without double buffering, what visual effect could appear?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>Flicker or partially drawn frames could appear. Double buffering avoids showing the image while it is still being built.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 5 · what survives</span>
+          <p>In the final project, what part of this class will still exist even if we no longer draw a hardcoded triangle?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>Window, context, shaders, VAO/VBO, render loop, swap buffers, poll events and cleanup will all remain. What disappears is the hardcoded triangle as the fixed source of data.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 6 · complete each piece</span>
+          <p>Complete each piece with one sentence:</p>
+          <pre class="code">GLFW:
+OpenGL context:
+VBO:
+VAO:
+Vertex shader:
+Fragment shader:
+glDrawArrays:
+glfwSwapBuffers:
+glfwPollEvents:</pre>
+          <details class="solution">
+            <summary>Show a model answer</summary>
+            <div class="answer-box">
+              <pre class="code">GLFW: allowed library to create the window, the OpenGL context and handle events.
+OpenGL context: OpenGL state tied to a window/thread that makes OpenGL calls valid.
+VBO: buffer in GPU memory that holds raw vertex data.
+VAO: object that remembers how to interpret the VBO data: location, size, stride and offset.
+Vertex shader: program that runs per vertex and produces `gl_Position`.
+Fragment shader: program that runs per fragment and decides the final color.
+glDrawArrays: draw call that tells the GPU to draw sequential vertices from the active VAO.
+glfwSwapBuffers: swaps the drawn back buffer with the visible front buffer.
+glfwPollEvents: processes pending keyboard, mouse, close, resize and focus events.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Common mistakes</span>
+          <ul>
+            <li>Thinking that GLFW solves the renderer. It should only solve window, context and events.</li>
+            <li>Believing the OpenGL context holds the <code>.obj</code> model. The model lives in CPU and is later uploaded to buffers.</li>
+            <li>Confusing VBO and VAO: the VBO stores data; the VAO describes how to read it.</li>
+            <li>Setting one <code>location</code> in the VAO and a different one in the shader.</li>
+            <li>Forgetting to check shader compilation and linking errors.</li>
+            <li>Forgetting <code>glfwPollEvents()</code> and getting a window that does not respond.</li>
+            <li>Forgetting <code>glfwSwapBuffers()</code> and not presenting the frame correctly.</li>
+            <li>Believing the hardcoded triangle is part of the final project; it is only a minimal pipeline test.</li>
+          </ul>
+        </div>
+
+        <h2>You have learned that</h2>
+        <ul>
+          <li>Before drawing you need a window, a current OpenGL context, shaders, buffers and a render loop.</li>
+          <li>GLFW is allowed because it handles window, context and events, not the parser or the renderer math.</li>
+          <li>OpenGL needs a current context before running valid calls.</li>
+          <li>The VBO holds vertex data on the GPU.</li>
+          <li>The VAO remembers how to interpret that data for the shader attributes.</li>
+          <li><code>layout(location = N)</code> must match the attribute configured in <code>glVertexAttribPointer</code>.</li>
+          <li>The vertex shader works per vertex; the fragment shader decides colors per fragment.</li>
+          <li><code>glDrawArrays(GL_TRIANGLES, 0, 3)</code> draws three sequential vertices as a triangle.</li>
+          <li><code>glfwSwapBuffers()</code> presents the finished frame and <code>glfwPollEvents()</code> processes events.</li>
+        </ul>
+
+        <h2>Defense-style questions</h2>
+        <p>Answer out loud, without looking at your notes:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="d1"><span>Why is GLFW allowed by the subject?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d2"><span>Why must you call <code>glfwMakeContextCurrent(window)</code> before using OpenGL?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d3"><span>What is the difference between VBO and VAO?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d4"><span>Why must the shader's <code>layout(location = 0)</code> match the attribute configured in <code>glVertexAttribPointer</code>?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d5"><span>What is <code>glfwSwapBuffers()</code> for?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d6"><span>What is <code>glfwPollEvents()</code> for?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d7"><span>Which part of the first triangle will disappear when we start loading <code>.obj</code>, and which part will remain?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d8"><span>Why is it not a good idea to mix window, <code>.obj</code> parser, shaders, buffers and render into a single function?</span></label></li>
+        </ol>
+
+        <h2>Completion criteria</h2>
+        <p>The class is complete when you can:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Explain which responsibilities GLFW covers and which it must not cover.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Explain what an OpenGL context is and why it must be current.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Count how many vertices are in a float array based on the stride.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Tell VBO and VAO apart without mixing data and interpretation.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Explain the relationship between <code>glVertexAttribPointer</code> and <code>layout(location = ...)</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c6"><span>Describe the minimal job of a vertex shader and a fragment shader.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c7"><span>Mentally order a frame: clear, use program, bind VAO, draw call, swap buffers, poll events.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c8"><span>Explain what disappears from the hardcoded triangle once the <code>.obj</code> becomes the data source.</span></label></li>
+        </ol>
+
+        <p><strong>Next class:</strong> we will get into the <code>.obj</code> parser: reading <code>v</code>, <code>vt</code>, <code>vn</code> and <code>f</code> lines, adapting one-based indices to zero-based arrays and turning faces into triangles. The result will be reading and validating a simple <code>.obj</code> before connecting it to the graphics pipeline.</p>
+      </section>
+    </div>
+
+    <div class="complete-block">
+      <div class="complete-copy">
+        <h2><span lang="es">¿Has terminado la clase?</span><span lang="en">Done with the class?</span></h2>
+        <p><span lang="es">Responde en voz alta las preguntas de defensa, cumple el criterio de finalización y marca la clase como completada. Tu progreso se guarda en el navegador.</span><span lang="en">Answer the defense questions out loud, meet the completion criteria and mark the class as completed. Your progress is saved in the browser.</span></p>
+      </div>
+      <label class="complete-toggle">
+        <input type="checkbox" data-complete="scop/clase-02">
+        <span data-i18n="btn.complete">Marcar clase como completada</span>
+      </label>
+    </div>
+    <nav class="pager">
+      <a href="clase-01.html">
+        <small data-i18n="prev.class">Clase anterior</small>
+        <strong><span lang="es">Clase 1 · subject y pipeline gráfico</span><span lang="en">Class 1 · subject and graphics pipeline</span></strong>
+      </a>
+      <a href="index.html">
+        <small data-i18n="back.project">Volver al proyecto</small>
+        <strong data-i18n="p.scop.name">Scop</strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>
