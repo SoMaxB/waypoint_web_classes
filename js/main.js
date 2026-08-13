@@ -124,32 +124,39 @@
   }
 
   /* ---------- Toggle de clase completada ----------
-     data-complete="proyecto/slug" → clave wc-done-proyecto/slug */
+     data-complete="proyecto/slug" → clave wc-done-proyecto/slug
+     El texto se pinta siempre desde el estado guardado (paint), nunca
+     desde el contenido estático, para que apply()/cambios de idioma no
+     devuelvan el botón a "Marcar clase como completada" si ya está hecho. */
   function initCompleteToggles() {
     document.querySelectorAll("[data-complete]").forEach(function (cb) {
       var ref = cb.getAttribute("data-complete");
       var parts = ref.split("/");
       var project = parts[0], slug = parts[1];
-      var on = isDone(project, slug);
-      cb.checked = on;
-      cb.closest(".complete-toggle")?.toggleAttribute("data-on", on);
+      var toggle = cb.closest(".complete-toggle");
       var status = document.querySelector('[data-status-for="' + ref + '"]');
-      if (status) {
-        var t = window.WC_I18N.t;
-        status.textContent = on ? t("btn.completed") : t("btn.complete");
-        status.closest(".class-row")?.classList.toggle("done", on);
-      }
-      cb.addEventListener("change", function () {
-        var checked = cb.checked;
-        setDone(project, slug, checked);
-        cb.closest(".complete-toggle")?.toggleAttribute("data-on", checked);
+
+      function paint() {
+        var on = isDone(project, slug);
+        var t = window.WC_I18N ? window.WC_I18N.t : null;
+        cb.checked = on;
+        toggle?.toggleAttribute("data-on", on);
         if (status) {
-          var t = window.WC_I18N.t;
-          status.textContent = checked ? t("btn.completed") : t("btn.complete");
-          status.closest(".class-row")?.classList.toggle("done", checked);
+          if (t) status.textContent = on ? t("btn.completed") : t("btn.complete");
+          status.closest(".class-row")?.classList.toggle("done", on);
+        } else if (toggle && t) {
+          var span = toggle.querySelector("span");
+          if (span) span.textContent = on ? t("btn.completed") : t("btn.complete");
         }
+      }
+
+      paint();
+      cb.addEventListener("change", function () {
+        setDone(project, slug, cb.checked);
+        paint();
         initProgress();
       });
+      document.addEventListener("wc:langchange", paint);
     });
   }
 
@@ -206,7 +213,10 @@
         .catch(function () { /* silencioso */ });
     } catch (e) {}
 
-    if (window.WC_I18N) window.WC_I18N.apply();
+    if (window.WC_I18N) {
+      var starLabel = star.querySelector('[data-i18n="gh.star"]');
+      if (starLabel) starLabel.textContent = window.WC_I18N.t("gh.star");
+    }
   }
 
   function init() {

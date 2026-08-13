@@ -595,6 +595,33 @@ details.solution .answer-box p { margin: 0.4em 0; color: #dff7f1; }
 .complete-toggle[data-on] span { color: var(--accent); }
 .toolbar-hint { margin-left: auto; font: 500 12px var(--font-mono); color: var(--text-dim); }
 
+/* ----- Cierre de clase: marcar al terminar ----- */
+.complete-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin: 40px 0 0;
+  padding: 22px;
+  border: 1px solid rgba(45, 212, 191, 0.28);
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(45, 212, 191, 0.07), rgba(255, 255, 255, 0.02));
+}
+.complete-block .complete-copy { flex: 1; min-width: 240px; }
+.complete-block h2 { font: 600 1.15rem var(--font-display); letter-spacing: -0.01em; margin: 0 0 4px; }
+.complete-block p { margin: 0; color: var(--text-dim); font-size: 13.5px; }
+.complete-block .complete-toggle {
+  flex: 0 0 auto;
+  border: 1px solid rgba(45, 212, 191, 0.3);
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: rgba(45, 212, 191, 0.07);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.complete-block .complete-toggle:hover { border-color: var(--accent); background: rgba(45, 212, 191, 0.12); }
+.complete-block .complete-toggle[data-on] { border-color: var(--accent); }
+
 /* ----- Navegación anterior/siguiente ----- */
 .pager {
   display: flex;
