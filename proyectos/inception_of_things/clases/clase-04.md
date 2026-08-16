@@ -159,7 +159,7 @@ metadata:
 spec:
   project: default         # qué AppProject (política) la gestiona
   source:                  # ← DE DÓNDE mirar
-    repoURL: https://github.com/ravazque/Inception-of-Things_ravazque.git
+    repoURL: https://github.com/<login>/Inception-of-Things_<login>.git
     targetRevision: HEAD   # rama/commit a seguir (HEAD = default)
     path: srcs/p3/confs/manifests
   destination:             # ← DÓNDE aplicar
