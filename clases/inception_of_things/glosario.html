@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glosario — Inception of Things</title>
+  <meta name="description" content="Referencia de siglas, herramientas y conceptos del proyecto Inception of Things: Vagrant, K3s, Kubernetes, Argo CD, GitOps y GitLab.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="inception_of_things/glosario">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <label class="visually-hidden" for="site-search" data-i18n="search.label">Buscar proyecto</label>
+        <input id="site-search" type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="index.html" data-i18n="p.inception_of_things.name">Inception of Things</a><span class="sep">/</span>
+        <span data-i18n="gloss">Glosario</span>
+      </nav>
+      <h1 data-i18n="gloss">Glosario</h1>
+      <div class="class-toolbar">
+        <span class="toolbar-hint mono">referencia · no memorizar de golpe</span>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p><span lang="es">Este documento reúne las siglas, herramientas y conceptos que aparecen durante el proyecto. No hace falta memorizarlo de una vez: úsalo como referencia mientras lees el subject, el repo o haces ejercicios.</span><span lang="en">This document collects the acronyms, tools and concepts that come up during the project. You do not need to memorize it all at once: use it as a reference while reading the subject, the repo or doing exercises.</span></p>
+
+      <h2><span lang="es">Virtualización e infraestructura</span><span lang="en">Virtualization and infrastructure</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">Vagrant</td><td>Vagrant</td><td><span lang="es">Herramienta que declara y levanta máquinas virtuales de forma reproducible a partir de un <code>Vagrantfile</code>. Es la base de <code>p1</code> y <code>p2</code>.</span><span lang="en">Tool that declares and brings up virtual machines reproducibly from a <code>Vagrantfile</code>. It is the base of <code>p1</code> and <code>p2</code>.</span></td></tr>
+          <tr><td class="mono-col">Vagrantfile</td><td>Vagrant File</td><td><span lang="es">Archivo que describe las VMs: box, provider, red privada y provisioners. La infraestructura entera de <code>p1</code> vive en <code>p1/Vagrantfile</code>.</span><span lang="en">File that describes the VMs: box, provider, private network and provisioners. The whole <code>p1</code> infrastructure lives in <code>p1/Vagrantfile</code>.</span></td></tr>
+          <tr><td class="mono-col">box</td><td><span lang="es">Caja de VM</span><span lang="en">VM box</span></td><td><span lang="es">Imagen base de sistema operativo sobre la que Vagrant clona la VM. Se elige en el <code>Vagrantfile</code> con <code>config.vm.box</code>.</span><span lang="en">Base OS image that Vagrant clones the VM from. It is chosen in the <code>Vagrantfile</code> with <code>config.vm.box</code>.</span></td></tr>
+          <tr><td class="mono-col">provider</td><td><span lang="es">Proveedor</span><span lang="en">Provider</span></td><td><span lang="es">Backend que ejecuta las VMs (por ejemplo VirtualBox). Define cómo Vagrant crea y apaga las máquinas.</span><span lang="en">Backend that runs the VMs (e.g. VirtualBox). It defines how Vagrant creates and shuts down the machines.</span></td></tr>
+          <tr><td class="mono-col">provisioner</td><td><span lang="es">Aprovisionador</span><span lang="en">Provisioner</span></td><td><span lang="es">Paso de configuración que corre dentro de la VM después de crearla: <code>file</code> sube ficheros y <code>shell</code> ejecuta scripts. Sustituyen a las Synced folders.</span><span lang="en">Configuration step that runs inside the VM after creation: <code>file</code> uploads files and <code>shell</code> runs scripts. They replace Synced folders.</span></td></tr>
+          <tr><td class="mono-col">red privada</td><td><span lang="es">Red privada</span><span lang="en">Private network</span></td><td><span lang="es">Subred <code>192.168.56.x</code> que solo ven las VMs: <code>192.168.56.110</code> para el server y <code>192.168.56.111</code> para el worker.</span><span lang="en">Subnet <code>192.168.56.x</code> visible only to the VMs: <code>192.168.56.110</code> for the server and <code>192.168.56.111</code> for the worker.</span></td></tr>
+          <tr><td class="mono-col">&lt;login&gt;S / &lt;login&gt;SW</td><td><span lang="es">Login + Server / ServerWorker</span><span lang="en">Login + Server / ServerWorker</span></td><td><span lang="es">Hostnames exigidos por el subject: el server y el worker se nombran con tu login de 42.</span><span lang="en">Hostnames required by the subject: the server and worker are named after your 42 login.</span></td></tr>
+          <tr><td class="mono-col">Synced folders</td><td><span lang="es">Carpetas sincronizadas</span><span lang="en">Synced folders</span></td><td><span lang="es">Mecanismo de Vagrant que monta la carpeta del host dentro de la VM (<code>/vagrant</code>). Lo desactiva el proyecto: los provisioners <code>file</code>/<code>shell</code> suben lo necesario.</span><span lang="en">Vagrant mechanism that mounts the host folder inside the VM (<code>/vagrant</code>). The project disables it: <code>file</code>/<code>shell</code> provisioners upload what is needed.</span></td></tr>
+          <tr><td class="mono-col">port-forward</td><td><span lang="es">Reenvío de puertos</span><span lang="en">Port forwarding</span></td><td><span lang="es">Publica un puerto interno en el host: <code>8080:443</code> para la UI de Argo CD o <code>8888:8888</code> para la app.</span><span lang="en">Publishes an internal port on the host: <code>8080:443</code> for the Argo CD UI or <code>8888:8888</code> for the app.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Kubernetes y K3s</span><span lang="en">Kubernetes and K3s</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">K3s</td><td>K3s</td><td><span lang="es">Distribución ligera de Kubernetes, certificada, pensada para edge y VMs. Es lo que se instala en <code>p1</code> y <code>p2</code>.</span><span lang="en">Lightweight, certified Kubernetes distribution designed for edge and VMs. It is what gets installed in <code>p1</code> and <code>p2</code>.</span></td></tr>
+          <tr><td class="mono-col">K3s server</td><td><span lang="es">Servidor K3s</span><span lang="en">K3s server</span></td><td><span lang="es">Nodo que corre el control-plane y el API server (puerto <code>6443</code>); aquí también ejecuta cargas. Arranca con el servicio <code>k3s</code>.</span><span lang="en">Node that runs the control-plane and the API server (port <code>6443</code>); here it also runs workloads. It starts with the <code>k3s</code> service.</span></td></tr>
+          <tr><td class="mono-col">K3s agent</td><td><span lang="es">Agente K3s</span><span lang="en">K3s agent</span></td><td><span lang="es">Nodo worker puro: se une al cluster con la URL del server y un token. Arranca con el servicio <code>k3s-agent</code>.</span><span lang="en">Pure worker node: it joins the cluster with the server URL and a token. It starts with the <code>k3s-agent</code> service.</span></td></tr>
+          <tr><td class="mono-col">nodo</td><td><span lang="es">Nodo</span><span lang="en">Node</span></td><td><span lang="es">Una máquina (física, VM o contenedor) que forma parte del cluster. El subject exige 2 nodos en <code>p1</code>.</span><span lang="en">A machine (physical, VM or container) that is part of the cluster. The subject requires 2 nodes in <code>p1</code>.</span></td></tr>
+          <tr><td class="mono-col">worker</td><td><span lang="es">Trabajador</span><span lang="en">Worker</span></td><td><span lang="es">Nodo que solo ejecuta Pods, sin control-plane. En <code>p1</code> es <code>&lt;login&gt;SW</code>.</span><span lang="en">Node that only runs Pods, without control-plane. In <code>p1</code> it is <code>&lt;login&gt;SW</code>.</span></td></tr>
+          <tr><td class="mono-col">token de unión</td><td><span lang="es">Token de unión</span><span lang="en">Join token</span></td><td><span lang="es">Secreto que permite a un agent unirse al API server. El proyecto lo fija en <code>K3S_TOKEN</code> para que el worker no dependa de copiar <code>node-token</code>.</span><span lang="en">Secret that lets an agent join the API server. The project pins it in <code>K3S_TOKEN</code> so the worker does not rely on copying <code>node-token</code>.</span></td></tr>
+          <tr><td class="mono-col">API server</td><td><span lang="es">Servidor API</span><span lang="en">API server</span></td><td><span lang="es">Punto de entrada de todas las peticiones de Kubernetes. Los clientes se conectan a <code>https://&lt;IP&gt;:6443</code>.</span><span lang="en">Entry point for all Kubernetes requests. Clients connect to <code>https://&lt;IP&gt;:6443</code>.</span></td></tr>
+          <tr><td class="mono-col">kubectl</td><td>Kube control</td><td><span lang="es">Cliente de línea de comandos de Kubernetes: <code>kubectl get nodes</code>, <code>kubectl apply</code>, <code>kubectl describe</code>…</span><span lang="en">Kubernetes command-line client: <code>kubectl get nodes</code>, <code>kubectl apply</code>, <code>kubectl describe</code>…</span></td></tr>
+          <tr><td class="mono-col">kubeconfig</td><td><span lang="es">Config de kube</span><span lang="en">Kube config</span></td><td><span lang="es">Fichero con credenciales, cluster y contexto para <code>kubectl</code>; en el server vive en <code>/etc/rancher/k3s/k3s.yaml</code>.</span><span lang="en">File with credentials, cluster and context for <code>kubectl</code>; on the server it lives at <code>/etc/rancher/k3s/k3s.yaml</code>.</span></td></tr>
+          <tr><td class="mono-col">namespace</td><td><span lang="es">Espacio de nombres</span><span lang="en">Namespace</span></td><td><span lang="es">Partición lógica del cluster: <code>default</code>, <code>argocd</code>, <code>dev</code>, <code>gitlab</code>… Aísla recursos y permisos.</span><span lang="en">Logical partition of the cluster: <code>default</code>, <code>argocd</code>, <code>dev</code>, <code>gitlab</code>… It isolates resources and permissions.</span></td></tr>
+          <tr><td class="mono-col">Pod</td><td><span lang="es">Vaina</span><span lang="en">Pod</span></td><td><span lang="es">Unidad mínima desplegable: uno o más contenedores que comparten red. Se crea a través de un Deployment.</span><span lang="en">Smallest deployable unit: one or more containers sharing the network. It is created through a Deployment.</span></td></tr>
+          <tr><td class="mono-col">Deployment</td><td><span lang="es">Despliegue</span><span lang="en">Deployment</span></td><td><span lang="es">Recurso que declara la imagen, las replicas y la estrategia de actualización. Es el "qué quiero" de una app.</span><span lang="en">Resource declaring the image, replicas and update strategy. It is the "what I want" of an app.</span></td></tr>
+          <tr><td class="mono-col">ReplicaSet</td><td><span lang="es">Conjunto de réplicas</span><span lang="en">Replica set</span></td><td><span lang="es">Recurso intermedio que el Deployment controla para mantener exactamente N Pods vivos.</span><span lang="en">Intermediate resource the Deployment controls to keep exactly N Pods alive.</span></td></tr>
+          <tr><td class="mono-col">replicas</td><td><span lang="es">Réplicas</span><span lang="en">Replicas</span></td><td><span lang="es">Número de Pods idénticos que mantiene un Deployment. En <code>p2</code>, <code>app2</code> usa 3 para enseñar balanceo.</span><span lang="en">Number of identical Pods a Deployment keeps. In <code>p2</code>, <code>app2</code> uses 3 to teach load balancing.</span></td></tr>
+          <tr><td class="mono-col">ConfigMap</td><td><span lang="es">Mapa de configuración</span><span lang="en">Config map</span></td><td><span lang="es">Recurso que guarda configuración no sensible (variables de entorno, contenido de páginas). Aquí define qué sirve cada <code>appN</code>.</span><span lang="en">Resource holding non-sensitive configuration (env vars, page content). Here it defines what each <code>appN</code> serves.</span></td></tr>
+          <tr><td class="mono-col">label</td><td><span lang="es">Etiqueta</span><span lang="en">Label</span></td><td><span lang="es">Par clave/valor pegado a un recurso, ej. <code>app: app2</code>. Agrupa objetos para luego seleccionarlos.</span><span lang="en">Key/value pair attached to a resource, e.g. <code>app: app2</code>. Groups objects so they can be selected later.</span></td></tr>
+          <tr><td class="mono-col">selector</td><td><span lang="es">Selector</span><span lang="en">Selector</span></td><td><span lang="es">Criterio <code>label</code> usado por un recurso (Service, Deployment) para elegir a sus Pods. Si no coincide, el Service no encuentra backend.</span><span lang="en"><code>label</code> criterion a resource (Service, Deployment) uses to pick its Pods. If it does not match, the Service finds no backend.</span></td></tr>
+          <tr><td class="mono-col">Service</td><td><span lang="es">Servicio</span><span lang="en">Service</span></td><td><span lang="es">Dirección estable que expone un grupo de Pods y reparte el tráfico entre ellos aunque sus IPs cambien.</span><span lang="en">Stable address that exposes a group of Pods and spreads traffic among them even as their IPs change.</span></td></tr>
+          <tr><td class="mono-col">ClusterIP</td><td><span lang="es">IP de cluster</span><span lang="en">Cluster IP</span></td><td><span lang="es">Tipo de Service con una IP virtual interna, solo visible dentro del cluster. Es el Service estándar, p. ej. el de <code>p2</code> y los de Argo CD.</span><span lang="en">Service type with an internal virtual IP, visible only inside the cluster. It is the standard Service, e.g. <code>p2</code>'s and Argo CD's.</span></td></tr>
+          <tr><td class="mono-col">Endpoints</td><td><span lang="es">Puntos finales</span><span lang="en">Endpoints</span></td><td><span lang="es">Lista de IPs de Pods que un Service ha seleccionado. Sin Endpoints, el Service responde 503.</span><span lang="en">List of Pod IPs a Service has selected. Without Endpoints, the Service returns 503.</span></td></tr>
+          <tr><td class="mono-col">Ingress</td><td><span lang="es">Entrada</span><span lang="en">Ingress</span></td><td><span lang="es">Recurso que expone servicios HTTP/HTTPS hacia fuera con reglas de ruta. En <code>p2</code> es el que decide a qué app va cada petición.</span><span lang="en">Resource exposing HTTP/HTTPS services outward with routing rules. In <code>p2</code> it decides which app each request goes to.</span></td></tr>
+          <tr><td class="mono-col">Traefik</td><td>Traefik</td><td><span lang="es">Controlador de Ingress que instala K3s por defecto. Recibe el tráfico, lee la regla y enruta.</span><span lang="en">Ingress controller K3s installs by default. It receives traffic, reads the rule and routes.</span></td></tr>
+          <tr><td class="mono-col">Host header</td><td><span lang="es">Cabecera Host</span><span lang="en">Host header</span></td><td><span lang="es">Cabecera HTTP con el nombre al que pides (<code>app1.com</code>, <code>app2.com</code>…). El Ingress la usa para elegir backend en <code>p2</code>.</span><span lang="en">HTTP header with the name you are requesting (<code>app1.com</code>, <code>app2.com</code>…). The Ingress uses it to pick the backend in <code>p2</code>.</span></td></tr>
+          <tr><td class="mono-col">catch-all</td><td><span lang="es">Atrapa-todo / default</span><span lang="en">Catch-all / default</span></td><td><span lang="es">Regla del Ingress <strong>sin</strong> <code>host</code>: recibe cualquier host que no tenga regla propia. En <code>p2</code> es <code>app3</code>. Un 404 significa que esta regla falta.</span><span lang="en">Ingress rule <strong>without</strong> a <code>host</code>: it receives any host with no rule of its own. In <code>p2</code> it is <code>app3</code>. A 404 means this rule is missing.</span></td></tr>
+          <tr><td class="mono-col">probe</td><td><span lang="es">Sonda</span><span lang="en">Probe</span></td><td><span lang="es">Comprobación de salud del kubelet al contenedor: <code>startupProbe</code> tolera arranques lentos, <code>readinessProbe</code> decide cuándo servir tráfico, <code>livenessProbe</code> reinicia.</span><span lang="en">Health check from the kubelet to the container: <code>startupProbe</code> tolerates slow boots, <code>readinessProbe</code> decides when to serve traffic, <code>livenessProbe</code> restarts.</span></td></tr>
+          <tr><td class="mono-col">PVC / PV</td><td><span lang="es">Reclamación / volumen persistente</span><span lang="en">Persistent Volume Claim / Volume</span></td><td><span lang="es">El PVC pide almacenamiento persistente que puede montar un Pod; el PV es el volumen real que lo satisface. GitLab usa 2 PVCs, provisionados por K3d automáticamente.</span><span lang="en">A PVC requests persistent storage a Pod can mount; a PV is the real volume that satisfies it. GitLab uses 2 PVCs, provisioned by K3d automatically.</span></td></tr>
+          <tr><td class="mono-col">ReadWriteOnce</td><td><span lang="es">Lectura/escritura única</span><span lang="en">Read-write once</span></td><td><span lang="es">Modo de acceso de un volumen: un solo pod a la vez puede escribirlo.</span><span lang="en">Volume access mode: only one pod at a time can write it.</span></td></tr>
+          <tr><td class="mono-col">Recreate</td><td><span lang="es">Recrear</span><span lang="en">Recreate</span></td><td><span lang="es">Estrategia de Deployment que mata el Pod actual <strong>antes</strong> de crear el siguiente. Necesaria para un único escritor sobre un PVC.</span><span lang="en">Deployment strategy that kills the current Pod <strong>before</strong> creating the next one. Needed for a single writer on a PVC.</span></td></tr>
+          <tr><td class="mono-col">RollingUpdate</td><td><span lang="es">Actualización por rodajas</span><span lang="en">Rolling update</span></td><td><span lang="es">Estrategia por defecto que crea el Pod nuevo primero y elimina el viejo después. Rompería los PVCs de GitLab.</span><span lang="en">Default strategy that creates the new Pod first and removes the old one after. It would break GitLab's PVCs.</span></td></tr>
+          <tr><td class="mono-col">rollout status</td><td><span lang="es">Estado de despliegue</span><span lang="en">Rollout status</span></td><td><span lang="es">Comando <code>kubectl rollout status deploy/…</code> que espera a que el Deployment termine de actualizarse. K3s devuelve el control antes de estar listo.</span><span lang="en">Command <code>kubectl rollout status deploy/…</code> that waits for the Deployment to finish updating. K3s returns control before being ready.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Docker y K3d</span><span lang="en">Docker and K3d</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">Docker</td><td>Docker</td><td><span lang="es">Motor de contenedores. En este proyecto es la base para <code>p3</code>: todo K3d corre dentro de Docker.</span><span lang="en">Container engine. In this project it is the base for <code>p3</code>: all of K3d runs inside Docker.</span></td></tr>
+          <tr><td class="mono-col">imagen</td><td><span lang="es">Imagen</span><span lang="en">Image</span></td><td><span lang="es">Plantilla inmutable con el sistema y la app de un contenedor (ej. <code>nginx:alpine</code> o la imagen de <code>v1</code>/<code>v2</code>).</span><span lang="en">Immutable template with a container's system and app (e.g. <code>nginx:alpine</code> or the <code>v1</code>/<code>v2</code> image).</span></td></tr>
+          <tr><td class="mono-col">contenedor</td><td><span lang="es">Contenedor</span><span lang="en">Container</span></td><td><span lang="es">Proceso aislado ejecutado a partir de una imagen. Un Pod ejecuta uno o más contenedores.</span><span lang="en">Isolated process run from an image. A Pod runs one or more containers.</span></td></tr>
+          <tr><td class="mono-col">K3d</td><td>K3s in Docker</td><td><span lang="es">K3s ejecutado <em>dentro</em> de contenedores Docker, con mapeo de puertos al host. Es el cluster de <code>p3</code> (no hay Vagrant).</span><span lang="en">K3s run <em>inside</em> Docker containers, with port mapping to the host. It is the <code>p3</code> cluster (no Vagrant).</span></td></tr>
+          <tr><td class="mono-col">mapeo de puertos</td><td><span lang="es">Mapeo de puertos</span><span lang="en">Port mapping</span></td><td><span lang="es">K3d publica puertos del cluster al host: <code>8080:443</code> (UI Argo) y <code>8888:8888</code> (app).</span><span lang="en">K3d publishes cluster ports to the host: <code>8080:443</code> (Argo UI) and <code>8888:8888</code> (app).</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Argo CD y GitOps</span><span lang="en">Argo CD and GitOps</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">GitOps</td><td>Git Operations</td><td><span lang="es">Filosofía donde Git es la única fuente de verdad: nadie toca el cluster a mano; una herramienta converge el cluster al estado del repo.</span><span lang="en">Philosophy where Git is the only source of truth: nobody touches the cluster by hand; a tool converges the cluster to the repo state.</span></td></tr>
+          <tr><td class="mono-col">Argo CD</td><td>Argo CD</td><td><span lang="es">Herramienta GitOps que vigila un repo (<code>repoURL</code> + <code>path</code>) y sincroniza el cluster con su estado. Corre en el namespace <code>argocd</code>.</span><span lang="en">GitOps tool that watches a repo (<code>repoURL</code> + <code>path</code>) and syncs the cluster to its state. It runs in the <code>argocd</code> namespace.</span></td></tr>
+          <tr><td class="mono-col">Application</td><td><span lang="es">Aplicación</span><span lang="en">Application</span></td><td><span lang="es">Recurso propio de Argo CD que declara qué repo leer, dónde aplicar y cómo sincronizar. El archivo es <code>confs/application.yaml</code>.</span><span lang="en">Argo CD's own resource declaring which repo to read, where to apply and how to sync. The file is <code>confs/application.yaml</code>.</span></td></tr>
+          <tr><td class="mono-col">repoURL</td><td>Repo URL</td><td><span lang="es">De dónde lee Argo CD los manifiestos (GitHub en <code>p3</code>, GitLab interno en el bonus).</span><span lang="en">Where Argo CD reads the manifests from (GitHub in <code>p3</code>, internal GitLab in the bonus).</span></td></tr>
+          <tr><td class="mono-col">targetRevision</td><td><span lang="es">Revisión objetivo</span><span lang="en">Target revision</span></td><td><span lang="es">Rama, commit o tag a seguir; <code>HEAD</code> = rama por defecto.</span><span lang="en">Branch, commit or tag to follow; <code>HEAD</code> = default branch.</span></td></tr>
+          <tr><td class="mono-col">path</td><td><span lang="es">Ruta</span><span lang="en">Path</span></td><td><span lang="es">Subcarpeta del repo donde están los manifiestos, relativa a la raíz del repo.</span><span lang="en">Repo subfolder holding the manifests, relative to the repo root.</span></td></tr>
+          <tr><td class="mono-col">destination</td><td><span lang="es">Destino</span><span lang="en">Destination</span></td><td><span lang="es">Cluster y namespace donde Argo CD aplica. En <code>p3</code>: el cluster local y <code>dev</code>.</span><span lang="en">Cluster and namespace where Argo CD applies. In <code>p3</code>: the local cluster and <code>dev</code>.</span></td></tr>
+          <tr><td class="mono-col">syncPolicy</td><td><span lang="es">Política de sync</span><span lang="en">Sync policy</span></td><td><span lang="es">Cómo y cuándo sincroniza. Con <code>automated</code>, Argo CD sincroniza solo al detectar cambio.</span><span lang="en">How and when it syncs. With <code>automated</code>, Argo CD syncs on its own when it detects a change.</span></td></tr>
+          <tr><td class="mono-col">prune</td><td><span lang="es">Poda</span><span lang="en">Prune</span></td><td><span lang="es">Borra del cluster los recursos que ya no existen en Git: "deshace lo que dejas de declarar".</span><span lang="en">Deletes from the cluster resources that no longer exist in Git: "undoes what you stop declaring".</span></td></tr>
+          <tr><td class="mono-col">selfHeal</td><td><span lang="es">Autocuración</span><span lang="en">Self-heal</span></td><td><span lang="es">Revierte cambios hechos a mano en el cluster para volver al estado de Git.</span><span lang="en">Reverts hand-made changes in the cluster to return to Git's state.</span></td></tr>
+          <tr><td class="mono-col">Synced</td><td><span lang="es">Sincronizado</span><span lang="en">Synced</span></td><td><span lang="es">Estado de la Application: el cluster coincide con el repo.</span><span lang="en">Application status: the cluster matches the repo.</span></td></tr>
+          <tr><td class="mono-col">OutOfSync</td><td><span lang="es">Desincronizado</span><span lang="en">Out of sync</span></td><td><span lang="es">Estado de la Application: hay intención distinta en el repo aún no aplicada. No es rotura: un sync o el poll (~3 min) la resuelven.</span><span lang="en">Application status: a different intent in the repo not yet applied. Not breakage: a sync or the poll (~3 min) resolves it.</span></td></tr>
+          <tr><td class="mono-col">ComparisonError</td><td><span lang="es">Error de comparación</span><span lang="en">Comparison error</span></td><td><span lang="es">Argo CD no puede <strong>leer</strong> el repo: <code>repoURL</code> mal, <code>path</code> inexistente, rama incorrecta o repo privado sin credenciales. Sí es rotura.</span><span lang="en">Argo CD cannot <strong>read</strong> the repo: wrong <code>repoURL</code>, missing <code>path</code>, wrong branch or private repo without credentials. This is breakage.</span></td></tr>
+          <tr><td class="mono-col">polling</td><td><span lang="es">Sondeo</span><span lang="en">Polling</span></td><td><span lang="es">Argo CD consulta el repo en intervalos para detectar cambios; no es tiempo real ni necesita webhooks.</span><span lang="en">Argo CD checks the repo at intervals to detect changes; not real time and no webhooks needed.</span></td></tr>
+          <tr><td class="mono-col">SSA / <code>--server-side</code></td><td>Server-Side Apply</td><td><span lang="es">Modo de <code>kubectl apply</code> que declara los cambios con el ownership del servidor. Argo CD lo usa porque gestiona recursos propios (CRDs) sin conflicto.</span><span lang="en"><code>kubectl apply</code> mode that declares changes with server ownership. Argo CD uses it because it manages its own resources (CRDs) without conflict.</span></td></tr>
+          <tr><td class="mono-col">CRD</td><td>Custom Resource Definition</td><td><span lang="es">Tipo de recurso nuevo que añade un proyecto al cluster. <code>Application</code> es una CRD de Argo CD.</span><span lang="en">New resource type a project adds to the cluster. <code>Application</code> is an Argo CD CRD.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Red y DNS internos</span><span lang="en">Internal network and DNS</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">DNS interno</td><td><span lang="es">DNS interno</span><span lang="en">Internal DNS</span></td><td><span lang="es">Resolución de nombres dentro del cluster, no visible desde el host.</span><span lang="en">Name resolution inside the cluster, not visible from the host.</span></td></tr>
+          <tr><td class="mono-col">svc.cluster.local</td><td>Service cluster.local</td><td><span lang="es">Dominio interno: un Service se resuelve como <code>&lt;nombre&gt;.&lt;namespace&gt;.svc.cluster.local</code>, ej. <code>gitlab.gitlab.svc.cluster.local</code>.</span><span lang="en">Internal domain: a Service resolves as <code>&lt;name&gt;.&lt;namespace&gt;.svc.cluster.local</code>, e.g. <code>gitlab.gitlab.svc.cluster.local</code>.</span></td></tr>
+          <tr><td class="mono-col">FQDN</td><td>Fully Qualified Domain Name</td><td><span lang="es">Nombre completo e interno del Service: la URL que sí puede usar Argo CD como <code>repoURL</code> en el bonus.</span><span lang="en">Full internal name of the Service: the URL Argo CD can actually use as <code>repoURL</code> in the bonus.</span></td></tr>
+          <tr><td class="mono-col">localhost</td><td><span lang="es">Host local</span><span lang="en">Local host</span></td><td><span lang="es">Tu propia máquina. Nunca sirve como <code>repoURL</code> de Argo CD: Argo corre dentro del cluster y no ve tu host.</span><span lang="en">Your own machine. It never works as an Argo CD <code>repoURL</code>: Argo runs inside the cluster and cannot see your host.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">GitLab (bonus)</span><span lang="en">GitLab (bonus)</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">GitLab CE</td><td>GitLab Community Edition</td><td><span lang="es">GitLab de código abierto, sin coste. Corre como un pod en el namespace <code>gitlab</code>.</span><span lang="en">Open-source, free GitLab. It runs as a pod in the <code>gitlab</code> namespace.</span></td></tr>
+          <tr><td class="mono-col">omnibus</td><td>Omnibus</td><td><span lang="es">Paquete todo-en-uno de GitLab: app, subsistema, BD y config en una sola instalación (aquí, en un único pod).</span><span lang="en">GitLab's all-in-one package: app, subsystems, DB and config in one installation (here, in a single pod).</span></td></tr>
+          <tr><td class="mono-col">token de API</td><td><span lang="es">Token de API</span><span lang="en">API token</span></td><td><span lang="es">Token de <code>root</code> con scopes <code>api</code> y <code>write_repository</code>; permite a un script crear el proyecto y hacer push sin darle la contraseña.</span><span lang="en"><code>root</code> token with <code>api</code> and <code>write_repository</code> scopes; lets a script create the project and push without the password.</span></td></tr>
+          <tr><td class="mono-col">proyecto público</td><td><span lang="es">Proyecto público</span><span lang="en">Public project</span></td><td><span lang="es">Repo <code>root/Inception-of-Things_&lt;login&gt;</code> creado con <code>visibility=public</code> para que Argo CD lo lea sin credenciales.</span><span lang="en">Repo <code>root/Inception-of-Things_&lt;login&gt;</code> created with <code>visibility=public</code> so Argo CD can read it with no credentials.</span></td></tr>
+          <tr><td class="mono-col">UI de GitLab</td><td><span lang="es">Interfaz GitLab</span><span lang="en">GitLab UI</span></td><td><span lang="es">Panel web en <code>localhost:8081</code> vía port-forward; solo la usas tú, Argo no depende de él.</span><span lang="en">Web panel at <code>localhost:8081</code> via port-forward; only you use it, Argo does not depend on it.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Aplicación y verificación</span><span lang="en">App and verification</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">v1 / v2</td><td><span lang="es">Versiones 1 y 2</span><span lang="en">Versions 1 and 2</span></td><td><span lang="es">Las dos versiones etiquetables que exige el subject para <code>p3</code>; cambiando <code>deployment.yaml</code> en el repo y haciendo push, la app cambia de versión.</span><span lang="en">The two taggable versions the subject requires for <code>p3</code>; by editing <code>deployment.yaml</code> in the repo and pushing, the app switches versions.</span></td></tr>
+          <tr><td class="mono-col">puerto 8888</td><td><span lang="es">Puerto 8888</span><span lang="en">Port 8888</span></td><td><span lang="es">Puerto expuesto por K3d donde se sirve la app; se comprueba con <code>curl http://localhost:8888/</code>.</span><span lang="en">Port K3d exposes where the app is served; checked with <code>curl http://localhost:8888/</code>.</span></td></tr>
+          <tr><td class="mono-col">curl</td><td>Client URL</td><td><span lang="es">Cliente HTTP de línea de comandos, el veredicto del proyecto: <code>curl -H "Host: app2.com" http://192.168.56.110</code>.</span><span lang="en">HTTP command-line client, the project's verdict: <code>curl -H "Host: app2.com" http://192.168.56.110</code>.</span></td></tr>
+          <tr><td class="mono-col">404</td><td>Not Found</td><td><span lang="es">Falta la regla/backend: en <code>p2</code> es una regla de Ingress que no está (sin catch-all).</span><span lang="en">Missing rule/backend: in <code>p2</code> it is an Ingress rule that is not there (no catch-all).</span></td></tr>
+          <tr><td class="mono-col">502</td><td>Bad Gateway</td><td><span lang="es">El backend existe pero falla (Pod roto, Traefik aún arrancando o <code>port</code>/<code>containerPort</code> que no coinciden).</span><span lang="en">The backend exists but fails (broken Pod, Traefik still starting, or <code>port</code>/<code>containerPort</code> mismatch).</span></td></tr>
+          <tr><td class="mono-col">503</td><td>Service Unavailable</td><td><span lang="es">El backend no existe: un Service sin Endpoints (selector que no coincide con ningún Pod).</span><span lang="en">The backend does not exist: a Service without Endpoints (selector matching no Pod).</span></td></tr>
+          <tr><td class="mono-col">journalctl</td><td>Journal control</td><td><span lang="es">Logs del sistema de una VM: <code>journalctl -u k3s-agent</code> muestra por qué el worker no se une.</span><span lang="en">A VM's system logs: <code>journalctl -u k3s-agent</code> shows why the worker is not joining.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Regla de lectura</span><span lang="en">Reading rule</span></h2>
+      <p><span lang="es">Cuando aparezca un concepto nuevo, pregúntate: qué pide exactamente el subject sobre esto, qué fichero del repo lo implementa (<code>p1/</code>, <code>p2/</code>, <code>p3/</code> o <code>bonus/</code>), qué comando lo levanta y qué comando lo verifica, y qué fallo típico le pasa y cómo se diagnostica.</span><span lang="en">When a new concept shows up, ask yourself: what the subject requires about it, which repo file implements it (<code>p1/</code>, <code>p2/</code>, <code>p3/</code> or <code>bonus/</code>), which command brings it up and which verifies it, and which typical failure it has and how it is diagnosed.</span></p>
+      <pre class="code">1. ¿Qué pide el subject?        → requisito exacto
+2. ¿Qué fichero lo implementa?  → p1/ p2/ p3/ bonus/
+3. ¿Qué comando lo verifica?    → kubectl / curl / journalctl
+4. ¿Qué fallo típico le pasa?   → y primer comando de diagnóstico</pre>
+      <p><span lang="es">Esta secuencia evita intentar entender todas las siglas de una vez y te prepara para la defensa.</span><span lang="en">This sequence keeps you from trying to understand every acronym at once and prepares you for the defense.</span></p>
+    </div>
+
+    <nav class="pager">
+      <a href="clase-06.html">
+        <small data-i18n="prev.class">Anterior</small>
+        <strong><span lang="es">Clase 6 · Defensa y troubleshooting</span><span lang="en">Class 6 · Defense and troubleshooting</span></strong>
+      </a>
+      <a class="next" href="index.html">
+        <small data-i18n="back.project">Volver</small>
+        <strong data-i18n="p.inception_of_things.name">Inception of Things</strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>
