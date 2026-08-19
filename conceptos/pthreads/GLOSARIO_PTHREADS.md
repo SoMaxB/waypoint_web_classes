@@ -1,4 +1,4 @@
-# Glosario: POSIX Threads
+# Glosario: Hilos POSIX
 
 Referencia de los términos que aparecen en este concepto, en español. Se publica como glosario bilingüe cuando el concepto se publica.
 

@@ -91,7 +91,7 @@
           <li><strong><code>--node-ip</code>, <code>--advertise-address</code>, <code>--tls-san</code>, <code>--write-kubeconfig-mode=644</code></strong>: cada flag resuelve un problema real (saber "sin él qué pasa/no funciona").</li>
           <li><strong>Synced folders deshabilitadas</strong>: los provisioners <code>file</code>/<code>shell</code> suben lo que el guest necesita; no existe <code>/vagrant</code>.</li>
         </ul>
-        <p><strong>Verificación:</strong> <code>vagrant ssh ravazqueS -c "kubectl get nodes -o wide"</code> → <code>ravazques</code> y <code>ravazquesw</code>, ambos <code>Ready</code>. <strong>No hace falta pedir permiso</strong>: la verificación se hace pidiendo "demuestre 2 nodos".</p>
+        <p><strong>Verificación:</strong> <code>vagrant ssh &lt;login&gt;S -c "kubectl get nodes -o wide"</code> → <code>&lt;login&gt;s</code> y <code>&lt;login&gt;sw</code>, ambos <code>Ready</code>. <strong>No hace falta pedir permiso</strong>: la verificación se hace pidiendo "demuestre 2 nodos".</p>
 
         <h3>3.2 p2 — 3 apps + Ingress</h3>
         <p><strong>Qué enseñar:</strong> los 3 objetos de cada <code>appN.yaml</code> (ConfigMap = configuración/página, Deployment → ReplicaSet → Pod, Service ClusterIP), labels/selectors, y la regla del Ingress <strong>sin host</strong> para app3.</p>
@@ -148,10 +148,10 @@
         <p>Cada escenario: síntoma → diagnóstico en orden → causa → arreglo. <strong>Prioridad 1: mirar eventos y status antes de "reinstalar todo".</strong></p>
 
         <h3>5.1 El worker de p1 no aparece como <code>Ready</code></h3>
-        <pre class="code">síntoma: kubectl get nodes  →  ravazquesw  NotReady / falta el nodo</pre>
-        <pre class="code">vagrant ssh ravazqueS  -c "kubectl get nodes -o wide"
-vagrant ssh ravazqueSW -c "systemctl status k3s-agent"        # ¿arrancó?
-vagrant ssh ravazqueSW -c "journalctl -u k3s-agent -n 50"      # ¿por qué falla?</pre>
+        <pre class="code">síntoma: kubectl get nodes  →  &lt;login&gt;sw  NotReady / falta el nodo</pre>
+        <pre class="code">vagrant ssh &lt;login&gt;S  -c "kubectl get nodes -o wide"
+vagrant ssh &lt;login&gt;SW -c "systemctl status k3s-agent"        # ¿arrancó?
+vagrant ssh &lt;login&gt;SW -c "journalctl -u k3s-agent -n 50"      # ¿por qué falla?</pre>
         <ul>
           <li><strong>¿No existe el nodo?</strong> el agente no llegó a registrarse → mirar logs de <code>k3s-agent</code>; token incorrecto → <code>403/401 (Bootstrap already done?)</code> en journal.</li>
           <li><strong>¿Existe pero <code>NotReady</code>?</strong> el kubelet no está listo → IP/interfaz mal (<code>--node-ip</code> no coincide con la red privada, o <code>--flannel-iface</code> apunta a <code>eth0</code>/NAT en vez de a la privada).</li>
@@ -221,7 +221,7 @@ sudo usermod -aG docker $USER          # si error de permisos → cerrar sesión
                 <li><strong><code>--node-ip</code> que no coincide con el rango de la red privada</strong> → el kubelet se registra con una IP inalcanzable para el server.</li>
                 <li><strong>Recursos mínimos</strong> (1 CPU/1 GiB, o el host saturado) → el kubelet no termina de arrancar.</li>
               </ol>
-              <p>Prueba sin reinstalar: <code>vagrant ssh ravazqueSW -c "systemctl status k3s-agent"</code> + logs; en el server <code>kubectl describe node ravazquesw</code> para ver las conditions/mensajes; <code>kubectl get node ravazquesw -o yaml</code> para ver <code>NodeAddresses</code> y <code>kubeletReady</code>.</p>
+              <p>Prueba sin reinstalar: <code>vagrant ssh &lt;login&gt;SW -c "systemctl status k3s-agent"</code> + logs; en el server <code>kubectl describe node &lt;login&gt;sw</code> para ver las conditions/mensajes; <code>kubectl get node &lt;login&gt;sw -o yaml</code> para ver <code>NodeAddresses</code> y <code>kubeletReady</code>.</p>
             </div>
           </details>
         </div>
@@ -415,7 +415,7 @@ kubectl get pods -l app=app2    # confirmar que los Pods NO llevan esa label</pr
           <li><strong><code>--node-ip</code>, <code>--advertise-address</code>, <code>--tls-san</code>, <code>--write-kubeconfig-mode=644</code></strong>: each flag solves a real problem (know "without it what breaks/fails").</li>
           <li><strong>Synced folders disabled</strong>: the <code>file</code>/<code>shell</code> provisioners upload what the guest needs; there is no <code>/vagrant</code>.</li>
         </ul>
-        <p><strong>Verification:</strong> <code>vagrant ssh ravazqueS -c "kubectl get nodes -o wide"</code> → <code>ravazques</code> and <code>ravazquesw</code>, both <code>Ready</code>. <strong>You do not need to ask permission</strong>: the verification is done by asking "show me 2 nodes".</p>
+        <p><strong>Verification:</strong> <code>vagrant ssh &lt;login&gt;S -c "kubectl get nodes -o wide"</code> → <code>&lt;login&gt;s</code> and <code>&lt;login&gt;sw</code>, both <code>Ready</code>. <strong>You do not need to ask permission</strong>: the verification is done by asking "show me 2 nodes".</p>
 
         <h3>3.2 p2 — 3 apps + Ingress</h3>
         <p><strong>What to teach:</strong> the 3 objects of each <code>appN.yaml</code> (ConfigMap = config/page, Deployment → ReplicaSet → Pod, ClusterIP Service), labels/selectors, and the Ingress rule <strong>without a host</strong> for app3.</p>
@@ -472,10 +472,10 @@ kubectl get pods -l app=app2    # confirmar que los Pods NO llevan esa label</pr
         <p>Each scenario: symptom → diagnosis in order → cause → fix. <strong>Priority 1: look at events and status before "reinstalling everything".</strong></p>
 
         <h3>5.1 The p1 worker does not show as <code>Ready</code></h3>
-        <pre class="code">symptom: kubectl get nodes  →  ravazquesw  NotReady / node missing</pre>
-        <pre class="code">vagrant ssh ravazqueS  -c "kubectl get nodes -o wide"
-vagrant ssh ravazqueSW -c "systemctl status k3s-agent"        # did it start?
-vagrant ssh ravazqueSW -c "journalctl -u k3s-agent -n 50"      # why does it fail?</pre>
+        <pre class="code">symptom: kubectl get nodes  →  &lt;login&gt;sw  NotReady / node missing</pre>
+        <pre class="code">vagrant ssh &lt;login&gt;S  -c "kubectl get nodes -o wide"
+vagrant ssh &lt;login&gt;SW -c "systemctl status k3s-agent"        # did it start?
+vagrant ssh &lt;login&gt;SW -c "journalctl -u k3s-agent -n 50"      # why does it fail?</pre>
         <ul>
           <li><strong>Node missing?</strong> the agent never registered → look at the <code>k3s-agent</code> logs; wrong token → <code>403/401 (Bootstrap already done?)</code> in the journal.</li>
           <li><strong>Exists but <code>NotReady</code>?</strong> the kubelet is not ready → wrong IP/interface (<code>--node-ip</code> not matching the private network, or <code>--flannel-iface</code> pointing at <code>eth0</code>/NAT instead of the private one).</li>
@@ -545,7 +545,7 @@ sudo usermod -aG docker $USER          # on permission errors → re-login</pre>
                 <li><strong><code>--node-ip</code> not matching the private network range</strong> → the kubelet registers with an IP the server cannot reach.</li>
                 <li><strong>Minimum resources</strong> (1 CPU/1 GiB, or a saturated host) → the kubelet never finishes starting.</li>
               </ol>
-              <p>Test without reinstalling: <code>vagrant ssh ravazqueSW -c "systemctl status k3s-agent"</code> + logs; on the server <code>kubectl describe node ravazquesw</code> to see conditions/messages; <code>kubectl get node ravazquesw -o yaml</code> for <code>NodeAddresses</code> and <code>kubeletReady</code>.</p>
+              <p>Test without reinstalling: <code>vagrant ssh &lt;login&gt;SW -c "systemctl status k3s-agent"</code> + logs; on the server <code>kubectl describe node &lt;login&gt;sw</code> to see conditions/messages; <code>kubectl get node &lt;login&gt;sw -o yaml</code> for <code>NodeAddresses</code> and <code>kubeletReady</code>.</p>
             </div>
           </details>
         </div>

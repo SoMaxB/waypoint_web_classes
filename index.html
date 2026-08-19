@@ -37,7 +37,7 @@
   <main class="container">
     <h2 class="grid-title">
       <span data-i18n="grid.title">Biblioteca</span>
-      <span class="count" id="grid-count">11</span>
+      <span class="count" id="grid-count">12</span>
       <div class="grid-filters">
         <label class="filter-chip" data-kind-filter="proyecto">
           <input type="checkbox" data-kind-filter="proyecto" checked><span data-i18n="filter.projects">Proyectos</span>
@@ -101,8 +101,27 @@
           <span class="badge">ICMP</span>
         </div>
         <div class="progress">
-          <span class="progress-track"><span class="progress-fill" data-project="ft_ping" data-total="8" data-progress-fill></span></span>
-          <span class="progress-label" data-project="ft_ping" data-total="8" data-progress-label>0 de 8 clases</span>
+          <span class="progress-track"><span class="progress-fill" data-project="ft_ping" data-total="10" data-progress-fill></span></span>
+          <span class="progress-label" data-project="ft_ping" data-total="10" data-progress-label>0 de 10 clases</span>
+        </div>
+        <span class="card-link" data-i18n="proj.view">Entrar al proyecto</span>
+      </a>
+
+      <!-- ft_printf -->
+      <a class="card tone-amber" data-kind="proyecto" style="--i:10" href="clases/ft_printf/"
+         data-name="ft_printf printf variadicas stdarg c formato formateo"
+         data-tags="c variadic">
+        <span class="card-icon">PF</span>
+        <h3 data-i18n="p.ft_printf.name">ft_printf</h3>
+        <p class="card-desc" data-i18n="p.ft_printf.desc">Recodifica printf(3): funciones variádicas, conversiones cspdiuxX% y formateo con ancho, precisión y flags.</p>
+        <div class="card-meta">
+          <span class="badge accent" data-i18n="proj.active">Activo</span>
+          <span class="badge">C</span>
+          <span class="badge">variádicas</span>
+        </div>
+        <div class="progress">
+          <span class="progress-track"><span class="progress-fill" data-project="ft_printf" data-total="9" data-progress-fill></span></span>
+          <span class="progress-label" data-project="ft_printf" data-total="9" data-progress-label>0 de 9 clases</span>
         </div>
         <span class="card-link" data-i18n="proj.view">Entrar al proyecto</span>
       </a>
@@ -152,12 +171,12 @@
         <span class="card-link" data-i18n="proj.view">Entrar al proyecto</span>
       </a>
 
-      <!-- POSIX Threads -->
+      <!-- Hilos POSIX -->
       <article class="card coming k-concept" data-kind="concepto" style="--i:7"
          data-name="pthreads posix threads hilos concurrencia mutex"
          data-tags="c posix threads">
         <span class="card-icon">PT</span>
-        <h3 data-i18n="p.pthreads.name">POSIX Threads</h3>
+        <h3 data-i18n="p.pthreads.name">Hilos POSIX</h3>
         <p class="card-desc" data-i18n="p.pthreads.desc">Concurrencia con pthreads: creación de hilos, carreras, mutex, variables de condición y join.</p>
         <div class="card-meta">
           <span class="badge concept" data-i18n="badge.concept">Concepto</span>
@@ -166,12 +185,12 @@
         <span class="card-link" data-i18n="proj.viewlater">Próximamente</span>
       </article>
 
-      <!-- Semáforos en C -->
+      <!-- Semáforos POSIX -->
       <a class="card k-concept" data-kind="concepto" style="--i:8" href="clases/semaforos/"
          data-name="semaphores c semaforos sincronizacion hilos threads posix seccion critica"
          data-tags="c posix sync">
         <span class="card-icon">SEM</span>
-        <h3 data-i18n="p.semaforos.name">Semáforos en C</h3>
+        <h3 data-i18n="p.semaforos.name">Semáforos POSIX</h3>
         <p class="card-desc" data-i18n="p.semaforos.desc">Sincronización de hilos con semáforos POSIX: secciones críticas, atomicidad y productor-consumidor.</p>
         <div class="card-meta">
           <span class="badge concept" data-i18n="badge.concept">Concepto</span>

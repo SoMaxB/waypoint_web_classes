@@ -170,4 +170,4 @@ Adapta el patrón al caso más simple, `N = 1`. ¿Se puede eliminar `mutex`? ¿P
 
 ## Siguiente clase
 
-Con el semáforo dominado, el concepto de **POSIX Threads** profundiza en la creación y unión de hilos, el `mutex` (con *owner*) y las variables de condición, herramientas más expresivas para coordinar hilos.
+Con el semáforo dominado, el concepto de **Hilos POSIX** profundiza en la creación y unión de hilos, el `mutex` (con *owner*) y las variables de condición, herramientas más expresivas para coordinar hilos.

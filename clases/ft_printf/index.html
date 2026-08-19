@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ft_printf — waypoint</title>
+  <meta name="description" content="Recodifica printf(3) en C: funciones variádicas, conversiones cspdiuxX% y formateo con ancho, precisión y flags.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <label class="visually-hidden" for="site-search" data-i18n="search.label">Buscar proyecto</label>
+        <input id="site-search" type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span><span data-i18n="p.ft_printf.name">ft_printf</span>
+      </nav>
+    </div>
+
+    <section class="proj-header prose">
+      <h1 data-i18n="p.ft_printf.name">ft_printf</h1>
+      <p class="proj-desc" data-i18n="p.ft_printf.desc">Recodifica printf(3): funciones variádicas, conversiones cspdiuxX% y formateo con ancho, precisión y flags.</p>
+      <div class="proj-stats">
+        <span class="badge accent" data-i18n="proj.active">Activo</span>
+        <span class="badge">C</span>
+        <span class="badge">variádicas</span>
+        <span class="badge">libftprintf.a</span>
+        <a class="badge" href="../../proyectos/ft_printf/en.subject.pdf" target="_blank" rel="noopener">subject.pdf ↗</a>
+      </div>
+      <div class="overall-progress">
+        <span class="progress-track"><span class="progress-fill" data-project="ft_printf" data-total="9" data-progress-fill></span></span>
+        <span class="progress-label" data-project="ft_printf" data-total="9" data-progress-label>0 de 9 clases</span>
+      </div>
+    </section>
+
+    <section class="prose">
+      <div class="panel">
+        <span class="label"><span lang="es">Cómo tomar esta clase</span><span lang="en">How to take this class</span></span>
+        <p><span lang="es">Estas clases reconstruyen <code>printf</code> desde cero: el modelo mental de las funciones variádicas, el parseo del formato, el valor de retorno y el formateo de números sin reservar memoria. Antes de leer, cierra cada <strong>predicción o ejercicio</strong> y razona tu respuesta; solo después despliega la solución. Traza el código línea por línea. Finalmente, responde en voz alta las <strong>preguntas de defensa</strong> y marca el <strong>criterio de finalización</strong>. Todo tu progreso se guarda en tu navegador.</span><span lang="en">These classes rebuild <code>printf</code> from scratch: the mental model of variadic functions, format parsing, the return value and formatting numbers without allocating memory. Before reading further, close each <strong>prediction or exercise</strong> and reason out your answer; only then unfold the solution. Trace the code line by line. Finally, answer the <strong>defense questions</strong> out loud and check off the <strong>completion criteria</strong>. All your progress is stored in your browser.</span></p>
+      </div>
+      <div class="panel">
+        <span class="label"><span lang="es">Glosario</span><span lang="en">Glossary</span></span>
+        <p><span lang="es">Consulta la referencia de siglas, funciones, flags y tipos variádicos mientras avanzas, sin salir del ritmo de la clase.</span><span lang="en">Look up the reference for acronyms, functions, flags and variadic types as you go, without breaking the flow of the class.</span></p>
+        <p><a class="glossary-link" href="glosario.html"><span lang="es">Abrir el glosario de ft_printf →</span><span lang="en">Open the ft_printf glossary →</span></a></p>
+      </div>
+    </section>
+
+    <section class="proj-sub prose">
+      <h2 data-i18n="classes.title">Clases</h2>
+      <p class="note" data-i18n="proj.progress">Marca cada clase al completarla; el progreso se actualiza aquí y en la portada.</p>
+
+      <h3 class="soon-heading"><span lang="es">Próximamente</span><span lang="en">Coming soon</span></h3>
+      <div class="soon-grid">
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 1 · Funciones variádicas y promociones</span><span lang="en">Class 1 · Variadic functions and promotions</span></h4>
+          <p><span lang="es"><code>va_list</code>, <code>va_start</code>, <code>va_arg</code> y <code>va_end</code>: por qué los <code>char</code> viajan como <code>int</code> y por qué <code>%x</code> lee <code>unsigned int</code>. Resultado: predecir qué tipo extrae cada conversión.</span><span lang="en"><code>va_list</code>, <code>va_start</code>, <code>va_arg</code> and <code>va_end</code>: why <code>char</code>s travel as <code>int</code> and why <code>%x</code> reads <code>unsigned int</code>. Result: predict which type each conversion reads.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 2 · Bucle principal y <code>t_fmt</code></span><span lang="en">Class 2 · Main loop and <code>t_fmt</code></span></h4>
+          <p><span lang="es">Recorrer el <code>format</code>, detectar <code>%</code>, acumular el valor de retorno y la estructura <code>t_fmt</code>. Resultado: un <code>ft_printf</code> que imprime texto plano y devuelve el número de caracteres.</span><span lang="en">Scanning the <code>format</code>, detecting <code>%</code>, accumulating the return value and the <code>t_fmt</code> struct. Result: an <code>ft_printf</code> that prints plain text and returns the character count.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 3 · <code>%c</code>, <code>%s</code> y <code>%%</code></span><span lang="en">Class 3 · <code>%c</code>, <code>%s</code> and <code>%%</code></span></h4>
+          <p><span lang="es">Escritura char a char, la cadena <code>(null)</code>, padding por ancho y el flag <code>0</code> en <code>%%</code>. Resultado: texto comparado con <code>printf</code>.</span><span lang="en">Char-by-char output, the <code>(null)</code> string, width padding and the <code>0</code> flag in <code>%%</code>. Result: text matches <code>printf</code>.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 4 · <code>%d</code>, <code>%i</code>, <code>%u</code></span><span lang="en">Class 4 · <code>%d</code>, <code>%i</code>, <code>%u</code></span></h4>
+          <p><span lang="es">Signo y prefijo, <code>INT_MIN</code> sin overflow (negación en <code>long</code>) y el buffer inverso local sin <code>malloc</code>. Resultado: números correctos en los límites frente a <code>printf</code>.</span><span lang="en">Sign and prefix, <code>INT_MIN</code> without overflow (negating in <code>long</code>) and a local reverse buffer without <code>malloc</code>. Result: numbers correct at the limits vs <code>printf</code>.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 5 · <code>%x</code>, <code>%X</code>, <code>%p</code></span><span lang="en">Class 5 · <code>%x</code>, <code>%X</code>, <code>%p</code></span></h4>
+          <p><span lang="es">Cambio de base sin <code>malloc</code>, el flag <code>#</code> con <code>0x</code>/<code>0X</code>, la conversión de punteros y el caso <code>(nil)</code>. Resultado: hexadecimales y punteros idénticos a <code>printf</code>.</span><span lang="en">Base change without <code>malloc</code>, the <code>#</code> flag with <code>0x</code>/<code>0X</code>, pointer conversion and the <code>(nil)</code> case. Result: hex and pointers identical to <code>printf</code>.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 6 · Parser completo: flags, ancho y precisión</span><span lang="en">Class 6 · Full parser: flags, width and precision</span></h4>
+          <p><span lang="es"><code>ft_parse</code>: acumulación dígito a dígito de ancho y precisión, y la regla <code>-</code> anula <code>0</code>. Resultado: <code>t_fmt</code> correctamente rellenado para formatos complejos.</span><span lang="en"><code>ft_parse</code>: digit-by-digit accumulation of width and precision, and the rule that <code>-</code> overrides <code>0</code>. Result: <code>t_fmt</code> correctly filled for complex formats.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 7 · <code>ft_print_number</code> y la fórmula del padding</span><span lang="en">Class 7 · <code>ft_print_number</code> and the padding formula</span></h4>
+          <p><span lang="es">Las cuatro piezas de salida (espacios, prefijo, ceros, dígitos) y las dos fuentes de <code>zeros</code> (precisión vs flag <code>0</code>). Resultado: ancho y precisión exactos para <code>%8.5d</code>, <code>%05d</code>, <code>%-8.5d</code> y <code>%.0d</code>.</span><span lang="en">The four output pieces (spaces, prefix, zeros, digits) and the two sources of <code>zeros</code> (precision vs the <code>0</code> flag). Result: exact width and precision for <code>%8.5d</code>, <code>%05d</code>, <code>%-8.5d</code> and <code>%.0d</code>.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 8 · Bonus: <code>#</code>, <code>+</code> y espacio</span><span lang="en">Class 8 · Bonus: <code>#</code>, <code>+</code> and space</span></h4>
+          <p><span lang="es">Prefijos <code>0x</code>, signos explícitos, prioridad de <code>+</code> sobre el espacio y combinaciones como <code>%#08x</code> y <code>%+012.8d</code>. Resultado: combinaciones bonus comparadas contra <code>printf</code>.</span><span lang="en"><code>0x</code> prefixes, explicit signs, <code>+</code> taking precedence over space and combos like <code>%#08x</code> and <code>%+012.8d</code>. Result: bonus combos match <code>printf</code>.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 9 · Makefile, biblioteca estática y auditoría final</span><span lang="en">Class 9 · Makefile, static library and final audit</span></h4>
+          <p><span lang="es"><code>ar</code>, objetivos <code>make</code> sin relink, la regla <code>bonus</code>, el tester comparativo contra <code>printf</code> y preguntas de defensa. Resultado: entrega reproducible, explicable y ajustada al subject.</span><span lang="en"><code>ar</code>, <code>make</code> targets without relinking, the <code>bonus</code> rule, the comparison tester against <code>printf</code> and defense questions. Result: reproducible, explainable submission aligned with the subject.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+      </div>
+    </section>
+
+    <nav class="pager">
+      <a class="only" href="../../index.html">
+        <small data-i18n="nav.home">Inicio</small>
+        <strong data-i18n="back.project">Volver a los proyectos</strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>

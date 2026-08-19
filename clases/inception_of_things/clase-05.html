@@ -148,14 +148,14 @@ kubectl -n gitlab create secret generic gitlab-api-token --from-literal=token=$P
         <pre class="code">curl -X POST -H "PRIVATE-TOKEN: $PAT" "$API/projects"
      -d name=... -d path=... -d visibility=public</pre>
         <ul>
-          <li>Crea <code>root/Inception-of-Things_ravazque</code> con <code>visibility=public</code>.</li>
+          <li>Crea <code>root/Inception-of-Things_&lt;login&gt;</code> con <code>visibility=public</code>.</li>
           <li>Público es obligatorio: <strong>Argo CD clonará sin credenciales</strong> (recordar: no hay repo URL con password en la Application).</li>
         </ul>
 
         <h3>4.6 Push de los manifests (v1)</h3>
         <pre class="code">mkdir WORK/manifests &amp;&amp; cp confs/manifests/*.yaml WORK/manifests/
 git init -b main; git add -A; git commit -m "IoT app manifests (v1)"
-git push "http://oauth2:$PAT@127.0.0.1:$PORT/root/Inception-of-Things_ravazque.git" main</pre>
+git push "http://oauth2:$PAT@127.0.0.1:$PORT/root/Inception-of-Things_&lt;login&gt;.git" main</pre>
         <ul>
           <li>Crea un repo local temporal, copia SOLO los dos manifests de <code>confs/manifests/</code> y hace <strong>push a GitLab</strong> con el token como credencial <code>oauth2</code>.</li>
           <li>Se suben bajo <code>manifests/</code> — exactamente el <code>path</code> que la Application vigilará.</li>
@@ -216,7 +216,7 @@ port: 80 → targetPort: http</pre>
         <h2>6. La práctica del plan — por qué NO <code>localhost:8081</code></h2>
         <p>La Application:</p>
         <pre class="code">source:
-  repoURL: http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_ravazque.git
+  repoURL: http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_&lt;login&gt;.git
   targetRevision: main
   path: manifests</pre>
         <p>Dos motivos clave por los que el <code>repoURL</code> <strong>no puede</strong> ser <code>http://localhost:8081</code>:</p>
@@ -226,7 +226,7 @@ port: 80 → targetPort: http</pre>
         </ol>
         <p>Por eso GitLab da su <code>external_url</code> a <code>http://gitlab.gitlab.svc.cluster.local</code> (apartado 5): es el <strong>nombre DNS de su propio Service</strong>, que Kubernetes resuelve dentro de cualquier pod del cluster. Argo CD "habla" con GitLab usando la red interna del cluster, sin pasar por el host ni por ningún puerto.</p>
         <pre class="code">kubectl -n argocd get application playground -o jsonpath='{.spec.source.repoURL}'
-# http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_ravazque.git</pre>
+# http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_&lt;login&gt;.git</pre>
         <div class="panel">
           <span class="label">El port-forward 8081</span>
           <p>El port-forward <code>8081</code> solo existe para que el <code>install.sh</code> (que corre en el host) pueda usar la <strong>API de GitLab</strong> durante la instalación y para que tú abras la UI en <code>http://localhost:8081</code> desde el navegador. El tráfico de GitOps (repo → Argo CD) no lo usa en absoluto.</p>
@@ -308,7 +308,7 @@ GitLab pod (ns gitlab)              Argo CD (ns argocd)
           <details class="solution">
             <summary>Mostrar solución</summary>
             <div class="answer-box">
-              <p>GitLab corre dentro del cluster y el subject exige que <strong>todo funcione por sí solo</strong> ("everything you did in Part 3 must work with your local GitLab"). Nada de clicks: para que Argo CD sincronice hace falta 1) un repo existente (<code>root/Inception-of-Things_ravazque</code>) y 2) poder escribir en él (push de <code>manifests/</code>). El token de <code>root</code> (scopes <code>api</code> + <code>write_repository</code>) se genera con el Rails runner y se guarda en un Secret para ser reutilizado en ejecuciones siguientes; el proyecto público se crea con un <code>POST</code> a <code>/api/v4/projects</code>. Todo reproducible y sin dependencia de la UI.</p>
+              <p>GitLab corre dentro del cluster y el subject exige que <strong>todo funcione por sí solo</strong> ("everything you did in Part 3 must work with your local GitLab"). Nada de clicks: para que Argo CD sincronice hace falta 1) un repo existente (<code>root/Inception-of-Things_&lt;login&gt;</code>) y 2) poder escribir en él (push de <code>manifests/</code>). El token de <code>root</code> (scopes <code>api</code> + <code>write_repository</code>) se genera con el Rails runner y se guarda en un Secret para ser reutilizado en ejecuciones siguientes; el proyecto público se crea con un <code>POST</code> a <code>/api/v4/projects</code>. Todo reproducible y sin dependencia de la UI.</p>
             </div>
           </details>
         </div>
@@ -320,7 +320,7 @@ GitLab pod (ns gitlab)              Argo CD (ns argocd)
             <summary>Mostrar solución</summary>
             <div class="answer-box">
               <p>No despliega nada. En p3 el manifest <em>era</em> la fuente (Argo lo lee de GitHub); en bonus la fuente es <strong>el repo dentro de GitLab</strong>, al que <code>gitlab.sh</code> subió una copia. Editar el fichero local solo cambia la plantilla que el script copiará la próxima vez.</p>
-              <p>La vía correcta (la del README): clonar <code>http://oauth2:$TOKEN@127.0.0.1:8081/root/Inception-of-Things_ravazque.git</code>, editar <code>manifests/deployment.yaml</code> a <code>v2</code> y hacer <code>git push</code>; o volver a lanzar <code>./scripts/install.sh</code> (que copia el YAML local y lo empuja). Luego, poll (~3 min) o sync manual (<code>patch --operation</code>), y <code>curl localhost:8888</code> → <code>{"message": "v2"}</code>.</p>
+              <p>La vía correcta (la del README): clonar <code>http://oauth2:$TOKEN@127.0.0.1:8081/root/Inception-of-Things_&lt;login&gt;.git</code>, editar <code>manifests/deployment.yaml</code> a <code>v2</code> y hacer <code>git push</code>; o volver a lanzar <code>./scripts/install.sh</code> (que copia el YAML local y lo empuja). Luego, poll (~3 min) o sync manual (<code>patch --operation</code>), y <code>curl localhost:8888</code> → <code>{"message": "v2"}</code>.</p>
             </div>
           </details>
         </div>
@@ -333,7 +333,7 @@ GitLab pod (ns gitlab)              Argo CD (ns argocd)
             <div class="answer-box">
               <p>Comando directo sobre la Application:</p>
               <pre class="code">kubectl -n argocd get application playground -o jsonpath='{.spec.source.repoURL}{"\n"}'
-# http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_ravazque.git</pre>
+# http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_&lt;login&gt;.git</pre>
               <p>Complemento: mostrar que el proyecto vive dentro del cluster (<code>kubectl get pods -n gitlab</code> con el pod <code>gitlab-...</code> Running), que los pods en <code>dev</code> existen (<code>kubectl -n dev get pods</code>), y que un cambio hecho <strong>en GitLab</strong> (web UI o clone+push) se refleja en <code>curl http://localhost:8888</code>. La cadena completa demuestra "Part 3 funcionando con GitLab local".</p>
             </div>
           </details>
@@ -504,14 +504,14 @@ kubectl -n gitlab create secret generic gitlab-api-token --from-literal=token=$P
         <pre class="code">curl -X POST -H "PRIVATE-TOKEN: $PAT" "$API/projects"
      -d name=... -d path=... -d visibility=public</pre>
         <ul>
-          <li>Creates <code>root/Inception-of-Things_ravazque</code> with <code>visibility=public</code>.</li>
+          <li>Creates <code>root/Inception-of-Things_&lt;login&gt;</code> with <code>visibility=public</code>.</li>
           <li>Public is mandatory: <strong>Argo CD will clone without credentials</strong> (remember: no password in the Application's repo URL).</li>
         </ul>
 
         <h3>4.6 Pushing the manifests (v1)</h3>
         <pre class="code">mkdir WORK/manifests &amp;&amp; cp confs/manifests/*.yaml WORK/manifests/
 git init -b main; git add -A; git commit -m "IoT app manifests (v1)"
-git push "http://oauth2:$PAT@127.0.0.1:$PORT/root/Inception-of-Things_ravazque.git" main</pre>
+git push "http://oauth2:$PAT@127.0.0.1:$PORT/root/Inception-of-Things_&lt;login&gt;.git" main</pre>
         <ul>
           <li>Creates a temporary local repo, copies ONLY the two manifests from <code>confs/manifests/</code> and <strong>pushes to GitLab</strong> using the token as <code>oauth2</code> credential.</li>
           <li>They land under <code>manifests/</code> — exactly the <code>path</code> the Application will watch.</li>
@@ -572,7 +572,7 @@ port: 80 → targetPort: http</pre>
         <h2>6. The plan's practice — why NOT <code>localhost:8081</code></h2>
         <p>The Application:</p>
         <pre class="code">source:
-  repoURL: http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_ravazque.git
+  repoURL: http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_&lt;login&gt;.git
   targetRevision: main
   path: manifests</pre>
         <p>Two key reasons the <code>repoURL</code> <strong>cannot</strong> be <code>http://localhost:8081</code>:</p>
@@ -582,7 +582,7 @@ port: 80 → targetPort: http</pre>
         </ol>
         <p>That is why GitLab sets its <code>external_url</code> to <code>http://gitlab.gitlab.svc.cluster.local</code> (section 5): it is the <strong>DNS name of its own Service</strong>, which Kubernetes resolves inside any pod of the cluster. Argo CD "talks" to GitLab over the cluster's internal network, without going through the host or any port.</p>
         <pre class="code">kubectl -n argocd get application playground -o jsonpath='{.spec.source.repoURL}'
-# http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_ravazque.git</pre>
+# http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_&lt;login&gt;.git</pre>
         <div class="panel">
           <span class="label">The 8081 port-forward</span>
           <p>The <code>8081</code> port-forward only exists so <code>install.sh</code> (which runs on the host) can use GitLab's <strong>API</strong> during installation and so you can open the UI at <code>http://localhost:8081</code> in the browser. The GitOps traffic (repo → Argo CD) does not use it at all.</p>
@@ -664,7 +664,7 @@ GitLab pod (ns gitlab)              Argo CD (ns argocd)
           <details class="solution">
             <summary>Show answer</summary>
             <div class="answer-box">
-              <p>GitLab runs inside the cluster and the subject demands that <strong>everything works on its own</strong> ("everything you did in Part 3 must work with your local GitLab"). No clicks: for Argo CD to sync you need 1) an existing repo (<code>root/Inception-of-Things_ravazque</code>) and 2) write access to it (push of <code>manifests/</code>). The <code>root</code> token (scopes <code>api</code> + <code>write_repository</code>) is generated with the Rails runner and stored in a Secret for reuse on later runs; the public project is created with a <code>POST</code> to <code>/api/v4/projects</code>. All reproducible, with no dependency on the UI.</p>
+              <p>GitLab runs inside the cluster and the subject demands that <strong>everything works on its own</strong> ("everything you did in Part 3 must work with your local GitLab"). No clicks: for Argo CD to sync you need 1) an existing repo (<code>root/Inception-of-Things_&lt;login&gt;</code>) and 2) write access to it (push of <code>manifests/</code>). The <code>root</code> token (scopes <code>api</code> + <code>write_repository</code>) is generated with the Rails runner and stored in a Secret for reuse on later runs; the public project is created with a <code>POST</code> to <code>/api/v4/projects</code>. All reproducible, with no dependency on the UI.</p>
             </div>
           </details>
         </div>
@@ -676,7 +676,7 @@ GitLab pod (ns gitlab)              Argo CD (ns argocd)
             <summary>Show answer</summary>
             <div class="answer-box">
               <p>It deploys nothing. In p3 the manifest <em>was</em> the source (Argo reads it from GitHub); in bonus the source is <strong>the repo inside GitLab</strong>, where <code>gitlab.sh</code> pushed a copy. Editing the local file only changes the template the script will copy next time.</p>
-              <p>The correct path (from the README): clone <code>http://oauth2:$TOKEN@127.0.0.1:8081/root/Inception-of-Things_ravazque.git</code>, edit <code>manifests/deployment.yaml</code> to <code>v2</code> and <code>git push</code>; or rerun <code>./scripts/install.sh</code> (which copies the local YAML and pushes it). Then poll (~3 min) or manual sync (<code>patch --operation</code>), and <code>curl localhost:8888</code> → <code>{"message": "v2"}</code>.</p>
+              <p>The correct path (from the README): clone <code>http://oauth2:$TOKEN@127.0.0.1:8081/root/Inception-of-Things_&lt;login&gt;.git</code>, edit <code>manifests/deployment.yaml</code> to <code>v2</code> and <code>git push</code>; or rerun <code>./scripts/install.sh</code> (which copies the local YAML and pushes it). Then poll (~3 min) or manual sync (<code>patch --operation</code>), and <code>curl localhost:8888</code> → <code>{"message": "v2"}</code>.</p>
             </div>
           </details>
         </div>
@@ -689,7 +689,7 @@ GitLab pod (ns gitlab)              Argo CD (ns argocd)
             <div class="answer-box">
               <p>A direct command on the Application:</p>
               <pre class="code">kubectl -n argocd get application playground -o jsonpath='{.spec.source.repoURL}{"\n"}'
-# http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_ravazque.git</pre>
+# http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_&lt;login&gt;.git</pre>
               <p>Complement: show the project lives inside the cluster (<code>kubectl get pods -n gitlab</code> with the <code>gitlab-...</code> pod Running), that the pods in <code>dev</code> exist (<code>kubectl -n dev get pods</code>), and that a change made <strong>in GitLab</strong> (web UI or clone+push) shows up in <code>curl http://localhost:8888</code>. The full chain proves "Part 3 working with local GitLab".</p>
             </div>
           </details>

@@ -47,8 +47,8 @@
         <a class="badge" href="../../proyectos/ft_ping/en.subject.pdf" target="_blank" rel="noopener">subject.pdf ↗</a>
       </div>
       <div class="overall-progress">
-        <span class="progress-track"><span class="progress-fill" data-project="ft_ping" data-total="8" data-progress-fill></span></span>
-        <span class="progress-label" data-project="ft_ping" data-total="8" data-progress-label>0 de 8 clases</span>
+        <span class="progress-track"><span class="progress-fill" data-project="ft_ping" data-total="10" data-progress-fill></span></span>
+        <span class="progress-label" data-project="ft_ping" data-total="10" data-progress-label>0 de 10 clases</span>
       </div>
     </section>
 
@@ -72,50 +72,62 @@
       <div class="soon-grid">
 
         <div class="soon-card">
-          <h4><span lang="es">Clase 1 · Subject y modelo ICMP</span><span lang="en">Class 1 · Subject and ICMP model</span></h4>
-          <p><span lang="es">Qué pide exactamente el subject, qué es ICMP Echo Request/Reply y qué significa "recodificar ping". Resultado: explicar el subject completo y el formato de salida esperado.</span><span lang="en">What the subject asks exactly, what ICMP Echo Request/Reply is, and what "recode ping" means. Result: explain the whole subject and the expected output format.</span></p>
+          <h4><span lang="es">Clase 1 · Qué hace ping y modelo ICMP</span><span lang="en">Class 1 · What ping does and the ICMP model</span></h4>
+          <p><span lang="es">Qué pide exactamente el subject, el modelo mental de ICMP Echo Request/Reply y qué significa "recodificar ping". Resultado: explicar el subject completo y el formato de salida esperado.</span><span lang="en">What the subject asks exactly, the mental model of ICMP Echo Request/Reply, and what "recode ping" means. Result: explain the whole subject and the expected output format.</span></p>
           <span class="badge amber" data-i18n="status.coming">En preparación</span>
         </div>
 
         <div class="soon-card">
-          <h4><span lang="es">Clase 2 · Argumentos y resolución</span><span lang="en">Class 2 · Arguments and resolution</span></h4>
-          <p><span lang="es">Parseo de <code>-v</code> y <code>-?</code>, un único destino IPv4/FQDN y <code>getaddrinfo</code>. Resultado: uso correcto y destino resuelto sin resolver el inverso en el retorno.</span><span lang="en">Parsing <code>-v</code> and <code>-?</code>, a single IPv4/FQDN target and <code>getaddrinfo</code>. Result: correct usage and a resolved target without reverse resolution on the return path.</span></p>
+          <h4><span lang="es">Clase 2 · Sockets, de básicos a raw</span><span lang="en">Class 2 · Sockets, from basics to raw</span></h4>
+          <p><span lang="es"><code>socket()</code>, <code>SOCK_RAW</code> + <code>IPPROTO_ICMP</code>, los privilegios (<code>CAP_NET_RAW</code>, <code>ping_group_range</code>) y por qué hacen falta. Resultado: abrir el socket y manejar <code>EPERM</code> con elegancia.</span><span lang="en"><code>socket()</code>, <code>SOCK_RAW</code> + <code>IPPROTO_ICMP</code>, the privileges (<code>CAP_NET_RAW</code>, <code>ping_group_range</code>) and why they are needed. Result: open the socket and handle <code>EPERM</code> gracefully.</span></p>
           <span class="badge amber" data-i18n="status.coming">En preparación</span>
         </div>
 
         <div class="soon-card">
-          <h4><span lang="es">Clase 3 · Socket raw y paquete Echo</span><span lang="en">Class 3 · Raw socket and Echo packet</span></h4>
-          <p><span lang="es">Socket <code>IPPROTO_ICMP</code>, cabecera ICMP, campos en <code>htons</code> y checksum. Resultado: enviar un Echo válido visible en <code>tcpdump</code>.</span><span lang="en">Raw socket <code>IPPROTO_ICMP</code>, ICMP header, <code>htons</code> fields and checksum. Result: send a valid Echo visible in <code>tcpdump</code>.</span></p>
+          <h4><span lang="es">Clase 3 · Cabecera ICMP y checksum</span><span lang="en">Class 3 · ICMP header and checksum</span></h4>
+          <p><span lang="es"><code>struct icmphdr</code>, tipos de mensaje, orden de bytes (<code>htons</code>/<code>ntohs</code>) y el algoritmo del Internet checksum, verificable sin red. Resultado: checksum validado contra una captura real.</span><span lang="en"><code>struct icmphdr</code>, message types, byte order (<code>htons</code>/<code>ntohs</code>) and the Internet checksum algorithm, testable without a network. Result: checksum validated against a real capture.</span></p>
           <span class="badge amber" data-i18n="status.coming">En preparación</span>
         </div>
 
         <div class="soon-card">
-          <h4><span lang="es">Clase 4 · Recepción con timeout</span><span lang="en">Class 4 · Reception with timeout</span></h4>
-          <p><span lang="es"><code>recvfrom</code>, <code>SO_RCVTIMEO</code>, saltar la cabecera IPv4 y validar tipo e id. Resultado: detectar una respuesta y parsearla.</span><span lang="en"><code>recvfrom</code>, <code>SO_RCVTIMEO</code>, skipping the IPv4 header and validating type and id. Result: detect and parse a reply.</span></p>
+          <h4><span lang="es">Clase 4 · Construir, resolver y enviar</span><span lang="en">Class 4 · Build, resolve and send</span></h4>
+          <p><span lang="es"><code>getaddrinfo</code> con FQDN (<code>gai_strerror</code>, <code>freeaddrinfo</code>) y <code>sendto()</code> sin puerto. Resultado: un Echo en el cable con su reply visible en <code>tcpdump</code>.</span><span lang="en"><code>getaddrinfo</code> with FQDN (<code>gai_strerror</code>, <code>freeaddrinfo</code>) and <code>sendto()</code> without a port. Result: an Echo on the wire with its reply visible in <code>tcpdump</code>.</span></p>
           <span class="badge amber" data-i18n="status.coming">En preparación</span>
         </div>
 
         <div class="soon-card">
-          <h4><span lang="es">Clase 5 · RTT y salida formateada</span><span lang="en">Class 5 · RTT and formatted output</span></h4>
-          <p><span lang="es">Medir el round-trip con <code>gettimeofday</code> y mostrar la línea al estilo <code>inetutils-2.0</code>, respetando la excepción de indentación (RTT y resolución inversa).</span><span lang="en">Measuring round-trip with <code>gettimeofday</code> and printing the line in <code>inetutils-2.0</code> style, honoring the indentation exception (RTT and reverse resolution).</span></p>
+          <h4><span lang="es">Clase 5 · Recibir y parsear</span><span lang="en">Class 5 · Receive and parse</span></h4>
+          <p><span lang="es"><code>recvfrom()</code>, saltar la cabecera IPv4 por IHL, validar antes de indexar y filtrar por id/seq (el raw socket recibe el ICMP de todos). Resultado: ciclo completo con ASan limpio.</span><span lang="en"><code>recvfrom()</code>, skipping the IPv4 header by IHL, validating before indexing and filtering by id/seq (the raw socket receives everyone's ICMP). Result: full round trip with clean ASan.</span></p>
           <span class="badge amber" data-i18n="status.coming">En preparación</span>
         </div>
 
         <div class="soon-card">
-          <h4><span lang="es">Clase 6 · Estadísticas y SIGINT</span><span lang="en">Class 6 · Statistics and SIGINT</span></h4>
-          <p><span lang="es">Recuento de enviados/recibidos/perdidos, min/avg/max del RTT y resumen al interrumpir con <code>SIGINT</code>. Resultado: salida final correcta.</span><span lang="en">Counts of sent/received/lost, RTT min/avg/max and summary on <code>SIGINT</code>. Result: correct final output.</span></p>
+          <h4><span lang="es">Clase 6 · Tiempos y RTT</span><span lang="en">Class 6 · Timing and RTT</span></h4>
+          <p><span lang="es"><code>CLOCK_MONOTONIC</code> frente al reloj de pared, timestamp en el payload y normalización del acarreo. Resultado: RTT de localhost por debajo de 1 ms y dentro de ±30 ms en un host remoto.</span><span lang="en"><code>CLOCK_MONOTONIC</code> vs the wall clock, a timestamp in the payload and carry normalization. Result: RTT under 1 ms to localhost and within ±30 ms to a remote host.</span></p>
           <span class="badge amber" data-i18n="status.coming">En preparación</span>
         </div>
 
         <div class="soon-card">
-          <h4><span lang="es">Clase 7 · Verbosidad <code>-v</code> y errores</span><span lang="en">Class 7 · Verbosity <code>-v</code> and errors</span></h4>
-          <p><span lang="es">Reportar errores de paquete (p. ej. TTL) sin detener el programa. Resultado: con <code>-v</code> los problemas se muestran y el bucle continúa.</span><span lang="en">Reporting packet errors (e.g. TTL) without stopping the program. Result: with <code>-v</code> problems are shown and the loop continues.</span></p>
+          <h4><span lang="es">Clase 7 · Señales y estadísticas</span><span lang="en">Class 7 · Signals and statistics</span></h4>
+          <p><span lang="es"><code>sigaction</code>, <code>SA_RESTART</code>/<code>EINTR</code>, async-signal-safety y estadísticas incrementales con <code>mdev</code>, incluido el caso de cero respuestas. Resultado: Ctrl+C imprime siempre un resumen correcto.</span><span lang="en"><code>sigaction</code>, <code>SA_RESTART</code>/<code>EINTR</code>, async-signal-safety and incremental statistics with <code>mdev</code>, including the zero-replies case. Result: Ctrl+C always prints a correct summary.</span></p>
           <span class="badge amber" data-i18n="status.coming">En preparación</span>
         </div>
 
         <div class="soon-card">
-          <h4><span lang="es">Clase 8 · Auditoría y defensa</span><span lang="en">Class 8 · Audit and defense</span></h4>
-          <p><span lang="es">Makefile incremental, matrices de prueba, caminos de error sin salida inesperada y preguntas de evaluador. Resultado: obligatoria cerrada y defendible antes del bonus.</span><span lang="en">Incremental Makefile, test matrices, error paths with no unexpected exit and evaluator questions. Result: mandatory part closed and defensible before the bonus.</span></p>
+          <h4><span lang="es">Clase 8 · CLI, errores y verbosidad <code>-v</code></span><span lang="en">Class 8 · CLI, errors and verbosity <code>-v</code></span></h4>
+          <p><span lang="es">Parser de argumentos, helpers de error centralizados y tabla de entradas adversas. Resultado: nunca cae de forma inesperada y con <code>-v</code> los errores de paquete se muestran sin detener el bucle.</span><span lang="en">Argument parser, centralized error helpers and an adversarial input table. Result: no unexpected exit ever, and with <code>-v</code> packet errors are shown without stopping the loop.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 9 · Salida exacta y Makefile</span><span lang="en">Class 9 · Exact output and Makefile</span></h4>
+          <p><span lang="es"><code>diff</code> y <code>cat -A</code> contra <code>inetutils-2.0</code> (salvo las líneas exentas) y dependencias autogeneradas <code>-MMD -MP</code>. Resultado: diff vacío y Makefile incremental correcto.</span><span lang="en"><code>diff</code> and <code>cat -A</code> against <code>inetutils-2.0</code> (except the exempt lines) and auto-generated <code>-MMD -MP</code> dependencies. Result: empty diff and a correct incremental Makefile.</span></p>
+          <span class="badge amber" data-i18n="status.coming">En preparación</span>
+        </div>
+
+        <div class="soon-card">
+          <h4><span lang="es">Clase 10 · Auditoría y defensa</span><span lang="en">Class 10 · Audit and defense</span></h4>
+          <p><span lang="es">Matrices de prueba, caminos de error sin salida inesperada y preguntas de evaluador. Resultado: parte obligatoria cerrada y defendible antes del bonus.</span><span lang="en">Test matrices, error paths with no unexpected exit and evaluator questions. Result: mandatory part closed and defensible before the bonus.</span></p>
           <span class="badge amber" data-i18n="status.coming">En preparación</span>
         </div>
 

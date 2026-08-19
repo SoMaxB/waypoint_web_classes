@@ -186,17 +186,19 @@ PING 127.0.0.1 (127.0.0.1) 56(84) bytes of data.
 
 ## 11. Programa de clases interactivas
 
-Cada sesión sigue el formato general: repaso, explicación con el modelo mental, predicciones, ejercicio, implementación conjunta, depuración real, preguntas tipo defensa, resumen y tarea.
+Cada sesión sigue el formato general: repaso, explicación con el modelo mental, predicciones, ejercicio, implementación conjunta, depuración real, preguntas tipo defensa, resumen y tarea. El itinerario es **conceptos primero, código después**: las primeras clases construyen el modelo mental (ICMP, sockets, checksum) antes de escribir nada; al final se cierra con auditoría y defensa.
 
-- **Clase 1:** subject, modelo ICMP Echo y qué significa "recodificar ping". Resultado: explicar el subject completo y el formato de salida esperado.
-- **Clase 2:** argumentos y resolución. Resultado: `-v`, `-?`, un IPv4/FQDN, y salida de uso correcta.
-- **Clase 3:** socket raw ICMP y construir el paquete Echo con checksum. Resultado: enviar un Echo válido visible en `tcpdump`.
-- **Clase 4:** recepción con timeout y parseo de la respuesta. Resultado: detectar una respuesta y saltar la cabecera IPv4.
-- **Clase 5:** medición del RTT y salida formateada como `inetutils`. Resultado: línea de respuesta correcta, respetando la excepción de indentación.
-- **Clase 6:** estadísticas y `SIGINT`. Resultado: resumen correcto al interrumpir.
-- **Clase 7:** verbosidad `-v` y errores de paquete (TTL). Resultado: reportar errores sin abortar.
-- **Clase 8:** auditoría de errores y matriz de pruebas. Resultado: parte obligatoria cerrada sin caminos con salida inesperada.
-- **Clase 9+:** bonus (flags extra) — solo cuando lo anterior es perfecto.
+- **Clase 1:** qué hace ping realmente, modelo ICMP Echo y subject completo. Resultado: explicar el subject y el formato de salida esperado.
+- **Clase 2:** sockets, de lo básico a los raw (privilegios, `CAP_NET_RAW`, `ping_group_range`). Resultado: abrir el socket y manejar `EPERM` con elegancia.
+- **Clase 3:** cabecera ICMP a fondo y algoritmo del checksum. Resultado: checksum validado contra una captura real, sin red.
+- **Clase 4:** resolución (`getaddrinfo`, FQDN) y construcción/envío del paquete Echo. Resultado: un Echo en el cable con su reply visible en `tcpdump`.
+- **Clase 5:** recepción con timeout y parseo de la respuesta (IHL, filtrado id/seq, validación antes de indexar). Resultado: ciclo completo correcto y ASan limpio.
+- **Clase 6:** medición del RTT (`CLOCK_MONOTONIC`, timestamp en payload). Resultado: RTT local < 1 ms y remoto dentro de ±30 ms.
+- **Clase 7:** estadísticas y `SIGINT` (async-signal-safety, `mdev`, caso cero respuestas). Resultado: resumen correcto al interrumpir.
+- **Clase 8:** parseo de la CLI, errores robustos y verbosidad `-v` (entradas adversas, valgrind). Resultado: nunca cae y reporta errores de paquete sin abortar.
+- **Clase 9:** formato de salida exacto y Makefile (`diff`/`cat -A` contra `inetutils-2.0`, `-MMD -MP`). Resultado: diff vacío salvo líneas exentas y make incremental correcto.
+- **Clase 10:** auditoría de la obligatoria y preguntas de defensa. Resultado: parte obligatoria cerrada y defendible.
+- **Clase 11+:** bonus (flags extra, por grupos de dependencia) — solo cuando lo anterior es perfecto.
 
 ## 12. Auditoría de la parte obligatoria
 

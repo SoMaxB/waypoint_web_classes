@@ -1,4 +1,4 @@
-# Guía de aprendizaje: Semáforos en C
+# Guía de aprendizaje: Semáforos POSIX
 
 Este concepto es transversal a varios proyectos de 42 (philosophers, minishell, ft_ping…). No depende de ningún subject: aquí el tema es la fuente de verdad. Se estudia con C y `semaphore.h` (POSIX) sobre Linux.
 
@@ -57,7 +57,7 @@ Antes de cerrar la clase 3 debes poder responder afirmativamente:
 
 ## 6. Siguientes pasos
 
-- El concepto de **POSIX Threads** profundiza en la creación y unión de hilos y en mutex.
+- El concepto de **Hilos POSIX** profundiza en la creación y unión de hilos y en mutex.
 - El concepto de **Sockets** usa la sincronización para servidores que atienden varios clientes.
 
 ## 7. Referencias

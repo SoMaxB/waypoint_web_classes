@@ -116,7 +116,7 @@ curl -X POST -H "PRIVATE-TOKEN: $PAT" "$API/projects"
      -d name=... -d path=... -d visibility=public
 ```
 
-- Crea `root/Inception-of-Things_ravazque` con `visibility=public`.
+- Crea `root/Inception-of-Things_<login>` con `visibility=public`.
 - Público es obligatorio: **Argo CD clonará sin credenciales** (recordar: no hay repo URL con password en la Application).
 
 ### Push de los manifests (v1)
@@ -124,7 +124,7 @@ curl -X POST -H "PRIVATE-TOKEN: $PAT" "$API/projects"
 ```bash
 mkdir WORK/manifests && cp confs/manifests/*.yaml WORK/manifests/
 git init -b main; git add -A; git commit -m "IoT app manifests (v1)"
-git push "http://oauth2:$PAT@127.0.0.1:$PORT/root/Inception-of-Things_ravazque.git" main
+git push "http://oauth2:$PAT@127.0.0.1:$PORT/root/Inception-of-Things_<login>.git" main
 ```
 
 - Crea un repo local temporal, copia SOLO los dos manifests de `confs/manifests/` y hace **push a GitLab** con el token como credencial `oauth2`.
@@ -198,7 +198,7 @@ La Application:
 
 ```yaml
 source:
-  repoURL: http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_ravazque.git
+  repoURL: http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_<login>.git
   targetRevision: main
   path: manifests
 ```
@@ -212,7 +212,7 @@ Por eso GitLab da su `external_url` a `http://gitlab.gitlab.svc.cluster.local` (
 
 ```
 kubectl -n argocd get application playground -o jsonpath='{.spec.source.repoURL}'
-# http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_ravazque.git
+# http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_<login>.git
 ```
 
 > El port-forward `8081` solo existe para que el `install.sh` (que corre en el host) pueda usar la **API de GitLab** durante la instalación y para que tú abras la UI en `http://localhost:8081` desde el navegador. El tráfico de GitOps (repo → Argo CD) no lo usa en absoluto.
@@ -287,7 +287,7 @@ Los PVCs se montan con `ReadWriteOnce` (un solo pod puede escribirlos a la vez).
 
 <details><summary>Solución</summary>
 
-GitLab corre dentro del cluster y el subject exige que **todo funcione por sí solo** ("everything you did in Part 3 must work with your local GitLab"). Nada de clicks: para que Argo CD sincronice hace falta 1) un repo existente (`root/Inception-of-Things_ravazque`) y 2) poder escribir en él (push de `manifests/`). El token de `root` (scopes `api` + `write_repository`) se genera con el Rails runner y se guarda en un Secret para ser reutilizado en ejecuciones siguientes; el proyecto público se crea con un `POST` a `/api/v4/projects`. Todo reproducible y sin dependencia de la UI.
+GitLab corre dentro del cluster y el subject exige que **todo funcione por sí solo** ("everything you did in Part 3 must work with your local GitLab"). Nada de clicks: para que Argo CD sincronice hace falta 1) un repo existente (`root/Inception-of-Things_<login>`) y 2) poder escribir en él (push de `manifests/`). El token de `root` (scopes `api` + `write_repository`) se genera con el Rails runner y se guarda en un Secret para ser reutilizado en ejecuciones siguientes; el proyecto público se crea con un `POST` a `/api/v4/projects`. Todo reproducible y sin dependencia de la UI.
 
 </details>
 
@@ -297,7 +297,7 @@ GitLab corre dentro del cluster y el subject exige que **todo funcione por sí s
 
 No despliega nada. En p3 el manifest *era* la fuente (Argo lo lee de GitHub); en bonus la fuente es **el repo dentro de GitLab**, al que `gitlab.sh` subió una copia. Editar el fichero local solo cambia la plantilla que el script copiará la próxima vez.
 
-La vía correcta (la del README): clonar `http://oauth2:$TOKEN@127.0.0.1:8081/root/Inception-of-Things_ravazque.git`, editar `manifests/deployment.yaml` a `v2` y hacer `git push`; o volver a lanzar `./scripts/install.sh` (que copia el YAML local y lo empuja). Luego, poll (~3 min) o sync manual (`patch --operation`), y `curl localhost:8888` → `{"message": "v2"}`.
+La vía correcta (la del README): clonar `http://oauth2:$TOKEN@127.0.0.1:8081/root/Inception-of-Things_<login>.git`, editar `manifests/deployment.yaml` a `v2` y hacer `git push`; o volver a lanzar `./scripts/install.sh` (que copia el YAML local y lo empuja). Luego, poll (~3 min) o sync manual (`patch --operation`), y `curl localhost:8888` → `{"message": "v2"}`.
 
 </details>
 
@@ -309,7 +309,7 @@ Comando directo sobre la Application:
 
 ```bash
 kubectl -n argocd get application playground -o jsonpath='{.spec.source.repoURL}{"\n"}'
-# http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_ravazque.git
+# http://gitlab.gitlab.svc.cluster.local/root/Inception-of-Things_<login>.git
 ```
 
 Complemento: mostrar que el proyecto vive dentro del cluster (`kubectl get pods -n gitlab` con el pod `gitlab-...` Running), que los pods en `dev` existen (`kubectl -n dev get pods`), y que un cambio hecho **en GitLab** (web UI o clone+push) se refleja en `curl http://localhost:8888`. La cadena completa demuestra "Part 3 funcionando con GitLab local".

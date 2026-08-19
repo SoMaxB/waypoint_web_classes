@@ -62,7 +62,7 @@ Antes de cerrar debes responder afirmativamente:
 ## 6. Siguientes pasos
 
 - El concepto de **ft_ping** explora los sockets raw (`SOCK_RAW` + `IPPROTO_ICMP`).
-- Para servidores de alto volumen, se combinan hilos (**POSIX Threads**) y `select`/`poll`.
+- Para servidores de alto volumen, se combinan hilos (**Hilos POSIX**) y `select`/`poll`.
 
 ## 7. Referencias
 

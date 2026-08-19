@@ -27,6 +27,17 @@ Este documento reúne las siglas, estructuras, funciones y herramientas que apar
 | `AF_INET` | Address Family, Internet | Familia de direcciones IPv4 usada al crear el socket. |
 | `SOCK_RAW` | Socket tipo raw | Tipo de socket que da acceso al protocolo ICMP a nivel de paquete. |
 | `IPPROTO_ICMP` | Internet Protocol, ICMP | Protocolo pasado a `socket()` para indicar que se trabajará con ICMP. |
+| `CAP_NET_RAW` | Capability, Network, Raw | Permiso concreto que habilita los raw sockets; lo tiene root o se concede por separado (`setcap cap_net_raw+ep`). Sin él, `socket()` falla con `EPERM`. |
+
+## Opciones de socket
+
+| Nombre | Significado literal | Descripción de uso |
+|---|---|---|
+| `IP_HDRINCL` | IP Header Included | "La cabecera IP la construyo yo, no me la montes tú". No hace falta para la parte obligatoria; sí para el bonus `--ip-timestamp`. |
+| `IP_TTL` | IP Time To Live | Fija el contador de saltos de los paquetes que envías; el flag `-T`. |
+| `SO_DONTROUTE` | Socket Option, Don't Route | Sáltate la tabla de rutas; envía solo a una red directamente conectada. El flag `-r`. |
+| `SO_RCVTIMEO` | Socket Option, Receive Timeout | Tiempo máximo de espera de `recvfrom`. |
+| `MSG_TRUNC` | Message Truncated | Flag que significa "el paquete era mayor que tu buffer; el resto se ha perdido". |
 | `sockaddr_in` | Socket address, Internet | Estructura que guarda una dirección IPv4 y un puerto. |
 | `inet_pton` | Internet, Presentation to Network | Convierte una dirección IPv4 en texto (`127.0.0.1`) a su forma binaria. |
 | `getaddrinfo` | Get address info | Función de libc que resuelve un nombre o servicio a una o varias direcciones (`addrinfo`). |
@@ -52,8 +63,29 @@ Este documento reúne las siglas, estructuras, funciones y herramientas que apar
 | Nombre | Significado literal | Descripción de uso |
 |---|---|---|
 | `SIGINT` | Signal Interrupt | Señal enviada con Ctrl-C. Ping la usa para detener el bucle y mostrar las estadísticas finales. |
+| `SIGALRM` | Signal Alarm | Señal de temporizador vencido. |
+| `sig_atomic_t` | Signal atomic type | Un tipo que se lee y escribe en un solo paso indivisible, para que una señal no lo pille a medias. Lo único que puedes tocar dentro de un handler. |
+| `SA_RESTART` | Sigaction Action: Restart | Flag de `sigaction` que decide si una syscall interrumpida se reanuda sola o devuelve `EINTR`. Es una decisión real, no un valor por defecto. |
+| `EINTR` | Error Interrupted | Llegó una señal en mitad de una syscall. No es un error real: reintenta o sal a propósito. |
+| `CLOCK_MONOTONIC` | Clock Monotonic | Un reloj que nunca salta hacia atrás. El correcto para medir duraciones (RTT). |
+| `CLOCK_REALTIME` | Clock Real Time | Fecha y hora reales de pared — pueden saltar cuando NTP corrige. Incorrecto para medir duraciones. |
+| mdev | Mean deviation | Cuánto se desvían los RTT individuales de la media. Bajo = latencia estable; alto = jitter. |
 | min / avg / max | Mínimo, medio, máximo | Resumen del RTT en las estadísticas finales. |
 | paquetes perdidos | Lost packets | Diferencia entre Echo Request enviados y Reply recibidos, con su porcentaje. |
+
+## Errores y códigos
+
+Las constantes de error empiezan todas por `E` de Error; `errno` solo tiene sentido inmediatamente después de la llamada fallida.
+
+| Nombre | Significado literal | Descripción de uso |
+|---|---|---|
+| `EPERM` | Error Permission denied | Al abrir un raw socket sin root ni `CAP_NET_RAW`. |
+| `EINVAL` | Error Invalid argument | Le has pasado algo sin sentido. |
+| `EAGAIN` | Error try again | Ahora mismo no hay nada que leer en un socket no bloqueante. |
+| `EMSGSIZE` | Error Message Size | Paquete demasiado grande para enviarlo; suele ser cosa de la MTU. |
+| `errno` | Error number | Global con el último error. Solo tiene sentido justo después de la llamada fallida. |
+| `perror` | Print error | Imprime tu mensaje seguido del texto del `errno` actual. |
+| `strerror` | String for error | Devuelve el texto del error como cadena, para formatearlo tú. |
 
 ## Herramientas de verificación
 
@@ -65,6 +97,11 @@ Este documento reúne las siglas, estructuras, funciones y herramientas que apar
 | `gdb` | GNU Debugger | Permite detener el programa y observar buffers y campos de cabecera. |
 | `getent` | Get entries | Comprueba la resolución de nombres (FQDN) en el sistema. |
 | `inetutils-2.0` | GNU inetutils | Referencia de comportamiento de `ping`: su formato de salida es el modelo a reproducir, salvo excepciones. |
+| ASan | Address Sanitizer | Función del compilador (`-fsanitize=address`) que detecta lecturas/escrituras fuera de buffers en tiempo de ejecución. |
+| valgrind | — | Detecta fugas de memoria y accesos inválidos; `--leak-check=full --show-leak-kinds=all` para auditorías de error. |
+| `-MMD -MP` | Make Make Dependencies / Make Phony | Flags de compilación que generan automáticamente las dependencias de cabeceras, para que `make` recompile bien cuando cambia un `.h`. |
+| RFC | Request For Comments | Los documentos que definen los protocolos de internet; pese al nombre modesto, son los estándares. RFC 792 = ICMP, RFC 1071 = checksum, RFC 791 = IP. |
+| IANA | Internet Assigned Numbers Authority | Mantiene el registro oficial de números de protocolo, tipos ICMP y puertos. |
 
 ## Regla de lectura
 

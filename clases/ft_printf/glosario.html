@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glosario — ft_printf</title>
+  <meta name="description" content="Referencia de siglas, funciones, flags y tipos variádicos del proyecto ft_printf.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="ft_printf/glosario">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <label class="visually-hidden" for="site-search" data-i18n="search.label">Buscar proyecto</label>
+        <input id="site-search" type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="index.html" data-i18n="p.ft_printf.name">ft_printf</a><span class="sep">/</span>
+        <span data-i18n="gloss">Glosario</span>
+      </nav>
+      <h1 data-i18n="gloss">Glosario</h1>
+      <div class="class-toolbar">
+        <span class="toolbar-hint mono">referencia · no memorizar de golpe</span>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p><span lang="es">Este documento reúne las siglas, tipos, funciones y conceptos que aparecen durante el proyecto. No hace falta memorizarlo de una vez: úsalo como referencia mientras lees <code>ft_printf.h</code> o haces ejercicios.</span><span lang="en">This document collects the acronyms, types, functions and concepts that come up during the project. You do not need to memorize it all at once: use it as a reference while reading <code>ft_printf.h</code> or doing exercises.</span></p>
+
+      <h2><span lang="es">Funciones variádicas</span><span lang="en">Variadic functions</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">variádica</td><td><span lang="es">Argumentos variables</span><span lang="en">Variable arguments</span></td><td><span lang="es">Función que acepta una cantidad y tipos de argumentos no fijos, declarada con <code>...</code> en el prototipo.</span><span lang="en">Function accepting a variable count and types of arguments, declared with <code>...</code> in the prototype.</span></td></tr>
+          <tr><td class="mono-col">va_list</td><td>Variable argument list</td><td><span lang="es">Tipo opaco que representa la lista de argumentos variádicos; se pasa por puntero a <code>va_start</code>, <code>va_arg</code> y <code>va_end</code>.</span><span lang="en">Opaque type representing the variadic argument list; passed by pointer to <code>va_start</code>, <code>va_arg</code> and <code>va_end</code>.</span></td></tr>
+          <tr><td class="mono-col">va_start</td><td>Variable argument start</td><td><span lang="es">Inicializa la lista a partir del último parámetro nombrado: <code>va_start(ap, format)</code>.</span><span lang="en">Initializes the list from the last named parameter: <code>va_start(ap, format)</code>.</span></td></tr>
+          <tr><td class="mono-col">va_arg</td><td>Variable argument get</td><td><span lang="es">Extrae el siguiente argumento con el tipo indicado: <code>va_arg(ap, int)</code>. Debe coincidir con el tipo real.</span><span lang="en">Reads the next argument with the given type: <code>va_arg(ap, int)</code>. It must match the real type.</span></td></tr>
+          <tr><td class="mono-col">va_copy</td><td>Variable argument copy</td><td><span lang="es">Copia una lista ya iniciada; autorizada por el subject aunque esta implementación no la usa.</span><span lang="en">Copies an already started list; allowed by the subject although this implementation does not use it.</span></td></tr>
+          <tr><td class="mono-col">va_end</td><td>Variable argument end</td><td><span lang="es">Cierra la lista; debe llamarse antes de retornar.</span><span lang="en">Closes the list; it must be called before returning.</span></td></tr>
+          <tr><td class="mono-col">promoción por defecto</td><td><span lang="es">Default argument promotion</span><span lang="en">Default argument promotion</span></td><td><span lang="es">Regla de C: en los argumentos variádicos, <code>char</code>/<code>short</code> suben a <code>int</code> y <code>float</code> sube a <code>double</code>. Por eso <code>%c</code> extrae un <code>int</code>.</span><span lang="en">C rule: in variadic arguments, <code>char</code>/<code>short</code> promote to <code>int</code> and <code>float</code> promotes to <code>double</code>. That is why <code>%c</code> reads an <code>int</code>.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">El formato y el estado <code>t_fmt</code></span><span lang="en">The format and the <code>t_fmt</code> state</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">format</td><td><span lang="es">Formato</span><span lang="en">Format</span></td><td><span lang="es">Cadena de control que <code>ft_printf</code> recorre: texto literal más conversiones que empiezan por <code>%</code>.</span><span lang="en">Control string that <code>ft_printf</code> scans: literal text plus conversions starting with <code>%</code>.</span></td></tr>
+          <tr><td class="mono-col">conversión</td><td><span lang="es">Conversion</span><span lang="en">Conversion</span></td><td><span lang="es">Bloque <code>%[flags][width][.precision]spec</code> que describe cómo imprimir un argumento.</span><span lang="en">Block <code>%[flags][width][.precision]spec</code> describing how to print an argument.</span></td></tr>
+          <tr><td class="mono-col">t_fmt</td><td><span lang="es">Formato tipado</span><span lang="en">Typed format</span></td><td><span lang="es">Estructura con el estado de una conversión parseada: <code>left</code>, <code>zero</code>, <code>hash</code>, <code>space</code>, <code>plus</code>, <code>width</code>, <code>precision</code>, <code>has_precision</code> y <code>spec</code>.</span><span lang="en">Struct holding the state of a parsed conversion: <code>left</code>, <code>zero</code>, <code>hash</code>, <code>space</code>, <code>plus</code>, <code>width</code>, <code>precision</code>, <code>has_precision</code> and <code>spec</code>.</span></td></tr>
+          <tr><td class="mono-col">spec</td><td>Specifier</td><td><span lang="es">El carácter final que elige el tipo: <code>c s p d i u x X %</code>.</span><span lang="en">The final character choosing the type: <code>c s p d i u x X %</code>.</span></td></tr>
+          <tr><td class="mono-col">has_precision</td><td><span lang="es">Tener precisión</span><span lang="en">Has precision</span></td><td><span lang="es">Marca que apareció el <code>.</code> aunque la precisión valga 0; en <code>%d</code> es importante distinguir <code>%.0d</code> de no poner precisión.</span><span lang="en">Marks that the <code>.</code> appeared even if the precision is 0; for <code>%d</code> it matters to tell <code>%.0d</code> apart from no precision.</span></td></tr>
+          <tr><td class="mono-col">parser</td><td><span lang="es">Analizador</span><span lang="en">Parser</span></td><td><span lang="es">Parte que lee el formato y rellena <code>t_fmt</code> (<code>ft_parse</code>).</span><span lang="en">Part that reads the format and fills <code>t_fmt</code> (<code>ft_parse</code>).</span></td></tr>
+          <tr><td class="mono-col">dispatch</td><td><span lang="es">Distribución</span><span lang="en">Dispatch</span></td><td><span lang="es">Parte que, según <code>spec</code>, llama a la función de formateo adecuada (<code>ft_format</code>).</span><span lang="en">Part that, based on <code>spec</code>, calls the right formatting function (<code>ft_format</code>).</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Conversiones de la parte obligatoria</span><span lang="en">Mandatory conversions</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">%c</td><td><span lang="es">Carácter</span><span lang="en">Character</span></td><td><span lang="es">Imprime un carácter (extraído como <code>int</code>).</span><span lang="en">Prints a single character (read as <code>int</code>).</span></td></tr>
+          <tr><td class="mono-col">%s</td><td><span lang="es">Cadena</span><span lang="en">String</span></td><td><span lang="es">Imprime una cadena terminada en <code>\0</code>; con <code>NULL</code> imprime <code>(null)</code> en glibc.</span><span lang="en">Prints a NUL-terminated string; with <code>NULL</code> it prints <code>(null)</code> on glibc.</span></td></tr>
+          <tr><td class="mono-col">%p</td><td><span lang="es">Puntero</span><span lang="en">Pointer</span></td><td><span lang="es">Imprime un puntero <code>void *</code> en hexadecimal precedido de <code>0x</code>; con <code>NULL</code> imprime <code>(nil)</code>.</span><span lang="en">Prints a <code>void *</code> pointer in hex prefixed with <code>0x</code>; with <code>NULL</code> it prints <code>(nil)</code>.</span></td></tr>
+          <tr><td class="mono-col">%d</td><td><span lang="es">Decimal</span><span lang="en">Decimal</span></td><td><span lang="es">Número entero con signo en base 10.</span><span lang="en">Signed integer in base 10.</span></td></tr>
+          <tr><td class="mono-col">%i</td><td><span lang="es">Integer</span><span lang="en">Integer</span></td><td><span lang="es">Número entero con signo en base 10; en este proyecto se comporta igual que <code>%d</code>.</span><span lang="en">Signed integer in base 10; it behaves like <code>%d</code> in this project.</span></td></tr>
+          <tr><td class="mono-col">%u</td><td><span lang="es">Sin signo</span><span lang="en">Unsigned</span></td><td><span lang="es">Número entero sin signo en base 10.</span><span lang="en">Unsigned integer in base 10.</span></td></tr>
+          <tr><td class="mono-col">%x</td><td><span lang="es">Hexadecimal (minúsculas)</span><span lang="en">Hexadecimal (lowercase)</span></td><td><span lang="es">Número sin signo en base 16 con dígitos <code>0-9a-f</code>.</span><span lang="en">Unsigned number in base 16 with digits <code>0-9a-f</code>.</span></td></tr>
+          <tr><td class="mono-col">%X</td><td><span lang="es">Hexadecimal (mayúsculas)</span><span lang="en">Hexadecimal (uppercase)</span></td><td><span lang="es">Número sin signo en base 16 con dígitos <code>0-9A-F</code>.</span><span lang="en">Unsigned number in base 16 with digits <code>0-9A-F</code>.</span></td></tr>
+          <tr><td class="mono-col">%%</td><td><span lang="es">Por ciento</span><span lang="en">Percent</span></td><td><span lang="es">Imprime el carácter literal <code>%</code>.</span><span lang="en">Prints the literal <code>%</code> character.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Flags, ancho y precisión</span><span lang="en">Flags, width and precision</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">flag</td><td><span lang="es">Bandera, marca</span><span lang="en">Flag</span></td><td><span lang="es">Carácter de control entre <code>%</code> y el ancho. Los de este proyecto son <code>-</code>, <code>0</code>, <code>#</code>, <code> </code> y <code>+</code>.</span><span lang="en">Control character between <code>%</code> and the width. This project's flags are <code>-</code>, <code>0</code>, <code>#</code>, <code> </code> and <code>+</code>.</span></td></tr>
+          <tr><td class="mono-col">-</td><td><span lang="es">Izquierda</span><span lang="en">Left</span></td><td><span lang="es">Alinea a la izquierda: el padding va detrás del contenido. También anula el flag <code>0</code>.</span><span lang="en">Left-aligns: the padding goes after the content. It also overrides the <code>0</code> flag.</span></td></tr>
+          <tr><td class="mono-col">0</td><td><span lang="es">Cero</span><span lang="en">Zero</span></td><td><span lang="es">Rellena con ceros a la izquierda. Se ignora con <code>-</code> o cuando hay precisión.</span><span lang="en">Pads with zeros on the left. Ignored with <code>-</code> or when there is a precision.</span></td></tr>
+          <tr><td class="mono-col">#</td><td><span lang="es">Alternativa</span><span lang="en">Alternative</span></td><td><span lang="es">Añade <code>0x</code>/<code>0X</code> a <code>%x</code>/<code>%X</code> solo si el valor no es 0.</span><span lang="en">Adds <code>0x</code>/<code>0X</code> to <code>%x</code>/<code>%X</code> only if the value is not 0.</span></td></tr>
+          <tr><td class="mono-col">+</td><td><span lang="es">Signo</span><span lang="en">Sign</span></td><td><span lang="es">Fuerza el signo <code>+</code> en números no negativos.</span><span lang="en">Forces a <code>+</code> sign on non-negative numbers.</span></td></tr>
+          <tr><td class="mono-col">(espacio)</td><td><span lang="es">Space</span><span lang="en">Space</span></td><td><span lang="es">Deja un espacio de signo en números no negativos. <code>+</code> gana al espacio.</span><span lang="en">Leaves a sign space on non-negative numbers. <code>+</code> beats space.</span></td></tr>
+          <tr><td class="mono-col">ancho</td><td><span lang="es">Width</span><span lang="en">Width</span></td><td><span lang="es">Número mínimo de caracteres de la salida; se rellena con espacios si el contenido es más corto.</span><span lang="en">Minimum number of output characters; filled with spaces when the content is shorter.</span></td></tr>
+          <tr><td class="mono-col">precisión</td><td><span lang="es">Precision</span><span lang="en">Precision</span></td><td><span lang="es">Tras <code>.</code>: para números, número mínimo de dígitos; para <code>%s</code>, número máximo de bytes.</span><span lang="en">After <code>.</code>: for numbers, minimum digit count; for <code>%s</code>, maximum byte count.</span></td></tr>
+          <tr><td class="mono-col">padding</td><td><span lang="es">Relleno</span><span lang="en">Padding</span></td><td><span lang="es">Espacios o ceros que completan hasta el ancho.</span><span lang="en">Spaces or zeros filling up to the width.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Números y bases</span><span lang="en">Numbers and bases</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">base</td><td><span lang="es">Base de numeración</span><span lang="en">Number base</span></td><td><span lang="es">Cantidad de dígitos usada: 10 (decimal), 16 (hexadecimal).</span><span lang="en">Count of digits used: 10 (decimal), 16 (hexadecimal).</span></td></tr>
+          <tr><td class="mono-col">dígito</td><td><span lang="es">Digit</span><span lang="en">Digit</span></td><td><span lang="es">Símbolo de una base; en hexadecimal de 0 a 15 (<code>0-9a-f</code> / <code>0-9A-F</code>).</span><span lang="en">Symbol of a base; in hex from 0 to 15 (<code>0-9a-f</code> / <code>0-9A-F</code>).</span></td></tr>
+          <tr><td class="mono-col">prefijo</td><td><span lang="es">Prefix</span><span lang="en">Prefix</span></td><td><span lang="es">Texto que precede a los dígitos: signo (<code>-</code>, <code>+</code>, espacio) o <code>0x</code>/<code>0X</code>.</span><span lang="en">Text preceding the digits: a sign (<code>-</code>, <code>+</code>, space) or <code>0x</code>/<code>0X</code>.</span></td></tr>
+          <tr><td class="mono-col">buffer inverso</td><td><span lang="es">Reverse buffer</span><span lang="en">Reverse buffer</span></td><td><span lang="es">Técnica de <code>ft_putnum</code>: los dígitos se escriben en un <code>char buf[32]</code> desde el final hacia el principio y se imprimen después en orden correcto, sin reservar memoria.</span><span lang="en"><code>ft_putnum</code>'s technique: digits are written into a <code>char buf[32]</code> from the end backwards and printed later in the right order, without allocating memory.</span></td></tr>
+          <tr><td class="mono-col">INT_MIN</td><td>Minimum int</td><td><span lang="es"><code>-2147483648</code>. Su negación desborda como <code>int</code>; la referencia la niega en <code>long</code> primero.</span><span lang="en"><code>-2147483648</code>. Negating it overflows as <code>int</code>; the reference negates it in <code>long</code> first.</span></td></tr>
+          <tr><td class="mono-col">UINT_MAX</td><td>Maximum unsigned int</td><td><span lang="es"><code>4294967295</code>; lo imprime <code>%u</code> (o <code>%x</code>) al pasar <code>-1</code>.</span><span lang="en"><code>4294967295</code>; printed by <code>%u</code> (or <code>%x</code>) when passing <code>-1</code>.</span></td></tr>
+          <tr><td class="mono-col">(nil)</td><td><span lang="es">Literal de puntero nulo</span><span lang="en">Null pointer literal</span></td><td><span lang="es">Salida de <code>%p</code> con puntero nulo en glibc/Linux.</span><span lang="en">Output of <code>%p</code> with a null pointer on glibc/Linux.</span></td></tr>
+          <tr><td class="mono-col">(null)</td><td><span lang="es">Literal de cadena nula</span><span lang="en">Null string literal</span></td><td><span lang="es">Salida de <code>%s</code> con cadena nula en glibc/Linux.</span><span lang="en">Output of <code>%s</code> with a null string on glibc/Linux.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Salida, errores y retorno</span><span lang="en">Output, errors and return value</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">write</td><td><span lang="es">Escribir</span><span lang="en">Write</span></td><td><span lang="es">Syscall/libc que emite bytes a un descriptor de archivo; devuelve bytes escritos o <code>-1</code> en error.</span><span lang="en">Syscall/libc that emits bytes to a file descriptor; returns bytes written or <code>-1</code> on error.</span></td></tr>
+          <tr><td class="mono-col">descriptor 1</td><td>stdout</td><td><span lang="es">El flujo estándar de salida al que se envía el texto.</span><span lang="en">The standard output stream the text is sent to.</span></td></tr>
+          <tr><td class="mono-col">valor de retorno</td><td><span lang="es">Return value</span><span lang="en">Return value</span></td><td><span lang="es">De <code>ft_printf</code>: el número de caracteres escritos; <code>-1</code> si <code>write</code> falla o si <code>format</code> es <code>NULL</code>.</span><span lang="en">Of <code>ft_printf</code>: the number of characters written; <code>-1</code> if <code>write</code> fails or <code>format</code> is <code>NULL</code>.</span></td></tr>
+          <tr><td class="mono-col">ft_putstrn</td><td>Put string n</td><td><span lang="es">Escribe <code>n</code> bytes de una cadena char a char y cuenta cuántos escribió.</span><span lang="en">Writes <code>n</code> bytes of a string char by char and counts how many were written.</span></td></tr>
+          <tr><td class="mono-col">ft_putnchar</td><td>Put char n times</td><td><span lang="es">Escribe <code>n</code> veces el mismo carácter y cuenta cuántos escribió.</span><span lang="en">Writes the same character <code>n</code> times and counts how many were written.</span></td></tr>
+          <tr><td class="mono-col">propagación de error</td><td><span lang="es">Propagar</span><span lang="en">Propagate</span></td><td><span lang="es">Devolver <code>-1</code> hacia arriba para que <code>ft_printf</code> retorne <code>-1</code> sin contar caracteres falsos.</span><span lang="en">Returning <code>-1</code> upward so <code>ft_printf</code> returns <code>-1</code> without counting fake characters.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Makefile y biblioteca</span><span lang="en">Makefile and library</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">libftprintf.a</td><td><span lang="es">Archivo estático de ft_printf</span><span lang="en">ft_printf static archive</span></td><td><span lang="es">Biblioteca estática obligatoria creada en la raíz del repositorio.</span><span lang="en">Mandatory static library created at the repository root.</span></td></tr>
+          <tr><td class="mono-col">ar rcs</td><td><span lang="es">Archiver</span><span lang="en">Archive</span></td><td><span lang="es">Comando que empaqueta objetos en la biblioteca; <code>libtool</code> está prohibido.</span><span lang="en">Command packing objects into the library; <code>libtool</code> is forbidden.</span></td></tr>
+          <tr><td class="mono-col">NAME</td><td><span lang="es">Nombre</span><span lang="en">Name</span></td><td><span lang="es">Variable del Makefile con la salida (<code>libftprintf.a</code>).</span><span lang="en">Makefile variable with the output (<code>libftprintf.a</code>).</span></td></tr>
+          <tr><td class="mono-col">all</td><td><span lang="es">Todo</span><span lang="en">All</span></td><td><span lang="es">Objetivo por defecto: construir la biblioteca.</span><span lang="en">Default target: build the library.</span></td></tr>
+          <tr><td class="mono-col">clean</td><td><span lang="es">Limpiar</span><span lang="en">Clean</span></td><td><span lang="es">Borra objetos (y el centinela <code>.bonus</code>).</span><span lang="en">Deletes objects (and the <code>.bonus</code> stamp).</span></td></tr>
+          <tr><td class="mono-col">fclean</td><td><span lang="es">Limpiar del todo</span><span lang="en">Fully clean</span></td><td><span lang="es">Borra objetos y la biblioteca.</span><span lang="en">Deletes objects and the library.</span></td></tr>
+          <tr><td class="mono-col">re</td><td><span lang="es">Reconstruir</span><span lang="en">Rebuild</span></td><td><span lang="es"><code>fclean</code> + <code>all</code>.</span><span lang="en"><code>fclean</code> + <code>all</code>.</span></td></tr>
+          <tr><td class="mono-col">bonus</td><td><span lang="es">Extra</span><span lang="en">Bonus</span></td><td><span lang="es">Objetivo que incorpora los archivos <code>_bonus</code> dentro de la biblioteca sin contaminar <code>all</code>.</span><span lang="en">Target adding the <code>_bonus</code> files into the library without contaminating <code>all</code>.</span></td></tr>
+          <tr><td class="mono-col">centinela .bonus</td><td><span lang="es">Archivo marcador</span><span lang="en">Stamp file</span></td><td><span lang="es">Archivo vacío que evita re-archivar el bonus si no cambió nada.</span><span lang="en">Empty file that avoids re-archiving the bonus when nothing changed.</span></td></tr>
+          <tr><td class="mono-col">relink</td><td><span lang="es">Reenlazar</span><span lang="en">Relink</span></td><td><span lang="es">Volver a construir o archivar lo que no cambió; el Makefile debe evitarlo.</span><span lang="en">Rebuilding or re-archiving what did not change; the Makefile must avoid it.</span></td></tr>
+          <tr><td class="mono-col">Norma 42</td><td><span lang="es">42 Norm</span><span lang="en">42 Norm</span></td><td><span lang="es">Reglas de estilo obligatorias para todo <code>.c</code>/<code>.h</code> del proyecto.</span><span lang="en">Mandatory style rules for every <code>.c</code>/<code>.h</code> in the project.</span></td></tr>
+          <tr><td class="mono-col">-Wall -Wextra -Werror</td><td><span lang="es">Flags de warnings</span><span lang="en">Warning flags</span></td><td><span lang="es">Advertencias estrictas tratadas como errores de compilación.</span><span lang="en">Strict warnings treated as compilation errors.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Herramientas de verificación</span><span lang="en">Verification tools</span></h2>
+      <table>
+        <thead><tr><th>Term</th><th><span lang="es">Significado literal</span><span lang="en">Literal meaning</span></th><th><span lang="es">Descripción de uso</span><span lang="en">Usage description</span></th></tr></thead>
+        <tbody>
+          <tr><td class="mono-col">make</td><td>Make</td><td><span lang="es">Ejecuta los objetivos del Makefile solo sobre lo que cambió.</span><span lang="en">Runs the Makefile targets only for what changed.</span></td></tr>
+          <tr><td class="mono-col">ar t</td><td>Archive table</td><td><span lang="es">Lista los objetos que contiene una biblioteca.</span><span lang="en">Lists the objects inside a library.</span></td></tr>
+          <tr><td class="mono-col">nm -g --defined-only</td><td>Name list</td><td><span lang="es">Lista los símbolos públicos definidos: <code>ft_printf</code>, <code>ft_parse</code>, etc.</span><span lang="en">Lists the public symbols defined: <code>ft_printf</code>, <code>ft_parse</code>, etc.</span></td></tr>
+          <tr><td class="mono-col">gdb</td><td>GNU Debugger</td><td><span lang="es">Detiene el programa, pone breakpoints en <code>ft_parse</code>/<code>ft_print_number</code> y sigue el flujo paso a paso.</span><span lang="en">Stops the program, sets breakpoints in <code>ft_parse</code>/<code>ft_print_number</code> and steps through the flow.</span></td></tr>
+          <tr><td class="mono-col">Valgrind</td><td><span lang="es">Nombre de la herramienta</span><span lang="en">Tool name</span></td><td><span lang="es">Detecta fugas y accesos inválidos en el tester.</span><span lang="en">Detects leaks and invalid accesses in the tester.</span></td></tr>
+          <tr><td class="mono-col">diff</td><td><span lang="es">Diferencia</span><span lang="en">Difference</span></td><td><span lang="es">Compara las salidas de <code>printf</code> y <code>ft_printf</code> byte a byte.</span><span lang="en">Compares <code>printf</code> and <code>ft_printf</code> outputs byte by byte.</span></td></tr>
+          <tr><td class="mono-col">printf(3)</td><td>Libc printf</td><td><span lang="es">Función de referencia contra la que se valida todo el comportamiento.</span><span lang="en">Reference function against which all behavior is validated.</span></td></tr>
+        </tbody>
+      </table>
+
+      <h2><span lang="es">Regla de lectura</span><span lang="en">Reading rule</span></h2>
+      <p><span lang="es">Cuando te encuentres una conversión nueva, pregúntate:</span><span lang="en">When you meet a new conversion, ask yourself:</span></p>
+      <pre class="code">1. ¿Qué spec tengo y qué tipo debo extraer con va_arg?
+2. ¿Qué flags, ancho o precisión ha rellenado el parser en t_fmt?
+3. ¿Cuántos dígitos o caracteres se imprimirán (len)?
+4. ¿Los ceros vienen de la precisión o del flag '0' + ancho?
+5. ¿En qué orden se escribe: espacios, prefijo, ceros, dígitos (y espacios si es '-')?
+6. ¿Cuántos caracteres he escrito en total y cómo se acumulan?</pre>
+      <p><span lang="es">Esta secuencia evita intentar entender todo el formateo de golpe.</span><span lang="en">This sequence keeps you from trying to understand all the formatting at once.</span></p>
+    </div>
+
+    <nav class="pager">
+      <a href="index.html">
+        <small data-i18n="back.project">Volver al proyecto</small>
+        <strong data-i18n="p.ft_printf.name">ft_printf</strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>

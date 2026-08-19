@@ -73,7 +73,7 @@
         <h2>2. El token del cluster — el truco central</h2>
         <p>Cuando el instalador de K3s corre en modo <code>server</code>, <strong>genera un token aleatorio</strong> y lo guarda en <code>/var/lib/rancher/k3s/server/node-token</code>. El agente necesita <strong>ese mismo token</strong> para autenticarse. Copiar el fichero entre máquinas obliga a sincronizar (orden de arranque, <code>scp</code>, carpeta compartida) — frágil e innecesario. Además, aquí la synced folder está <strong>desactivada</strong>.</p>
         <p><strong>Solución del repo: fijar el token nosotros</strong> en el <code>Vagrantfile</code> y pasárselo a ambos scripts vía <code>args</code>:</p>
-        <pre class="code">K3S_TOKEN = "iot-ravazque-k3s-token"
+        <pre class="code">K3S_TOKEN = "iot-&lt;login&gt;-k3s-token"
 
 server.vm.provision "shell", path: "scripts/server.sh", args: [SERVER_IP, K3S_TOKEN]
 worker.vm.provision "shell", path: "scripts/worker.sh", args: [SERVER_IP, WORKER_IP, K3S_TOKEN]</pre>
@@ -237,7 +237,7 @@ worker.vm.provision "shell", path: "scripts/worker.sh", args: [SERVER_IP, WORKER
         <h2>2. The cluster token — the central trick</h2>
         <p>When the K3s installer runs in <code>server</code> mode it <strong>generates a random token</strong> at <code>/var/lib/rancher/k3s/server/node-token</code>. The agent needs <strong>that same token</strong> to authenticate. Copying the file between machines forces sync (boot order, <code>scp</code>, shared folder) — fragile and unnecessary. Here the synced folder is even <strong>disabled</strong>.</p>
         <p><strong>Repo solution: pin the token ourselves</strong> in the <code>Vagrantfile</code> and pass it to both scripts via <code>args</code>:</p>
-        <pre class="code">K3S_TOKEN = "iot-ravazque-k3s-token"
+        <pre class="code">K3S_TOKEN = "iot-&lt;login&gt;-k3s-token"
 
 server.vm.provision "shell", path: "scripts/server.sh", args: [SERVER_IP, K3S_TOKEN]
 worker.vm.provision "shell", path: "scripts/worker.sh", args: [SERVER_IP, WORKER_IP, K3S_TOKEN]</pre>

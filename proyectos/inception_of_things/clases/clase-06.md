@@ -43,7 +43,7 @@ Es el mismo orden del subject (IV.1 → IV.2 → IV.3 → V). Cada parte **deja 
 - **`--node-ip`, `--advertise-address`, `--tls-san`, `--write-kubeconfig-mode=644`**: cada flag resuelve un problema real (saber "sin él qué pasa/no funciona").
 - **Synced folders deshabilitadas**: los provisioners `file`/`shell` suben lo que el guest necesita; no existe `/vagrant`.
 
-**Verificación:** `vagrant ssh ravazqueS -c "kubectl get nodes -o wide"` → `ravazques` y `ravazquesw`, ambos `Ready`. **No hace falta pedir permiso**: la verificación se hace pidiendo "demuestre 2 nodos".
+**Verificación:** `vagrant ssh <login>S -c "kubectl get nodes -o wide"` → `<login>s` y `<login>sw`, ambos `Ready`. **No hace falta pedir permiso**: la verificación se hace pidiendo "demuestre 2 nodos".
 
 ### p2 — 3 apps + Ingress
 
@@ -107,13 +107,13 @@ Cada escenario: síntoma → diagnóstico en orden → causa → arreglo. **Prio
 ### El worker de p1 no aparece como `Ready`
 
 ```
-síntoma: kubectl get nodes  →  ravazquesw  NotReady / falta el nodo
+síntoma: kubectl get nodes  →  <login>sw  NotReady / falta el nodo
 ```
 
 ```bash
-vagrant ssh ravazqueS  -c "kubectl get nodes -o wide"
-vagrant ssh ravazqueSW -c "systemctl status k3s-agent"        # ¿arrancó?
-vagrant ssh ravazqueSW -c "journalctl -u k3s-agent -n 50"      # ¿por qué falla?
+vagrant ssh <login>S  -c "kubectl get nodes -o wide"
+vagrant ssh <login>SW -c "systemctl status k3s-agent"        # ¿arrancó?
+vagrant ssh <login>SW -c "journalctl -u k3s-agent -n 50"      # ¿por qué falla?
 ```
 
 - **¿No existe el nodo?** el agente no llegó a registrarse → mirar logs de `k3s-agent`; token incorrecto → `403/401 (Bootstrap already done?)` en journal.
@@ -201,7 +201,7 @@ sudo usermod -aG docker $USER          # si error de permisos → cerrar sesión
 2. **`--node-ip` que no coincide con el rango de la red privada** → el kubelet se registra con una IP inalcanzable para el server.
 3. **Recursos mínimos** (1 CPU/1 GiB, o el host saturado) → el kubelet no termina de arrancar.
 
-Prueba sin reinstalar: `vagrant ssh ravazqueSW -c "systemctl status k3s-agent"` + logs; en el server `kubectl describe node ravazquesw` para ver las conditions/mensajes; `kubectl get node ravazquesw -o yaml` para ver `NodeAddresses` y `kubeletReady`.
+Prueba sin reinstalar: `vagrant ssh <login>SW -c "systemctl status k3s-agent"` + logs; en el server `kubectl describe node <login>sw` para ver las conditions/mensajes; `kubectl get node <login>sw -o yaml` para ver `NodeAddresses` y `kubeletReady`.
 
 </details>
 

@@ -41,7 +41,7 @@ La **consistencia de estilo se impone en la creación**, en el draft `clase-NN.m
 
 ## Estructura de un concepto (`conceptos/<concepto>/`)
 
-Un concepto es un curso transversal (p. ej. Semáforos en C, Sockets, POSIX Threads) con la misma estructura que un proyecto pero **sin `en.subject.pdf`** ni `AGENTS.md` propio: la guía ES la fuente de verdad del tema.
+Un concepto es un curso transversal (p. ej. Semáforos POSIX, Sockets, Hilos POSIX) con la misma estructura que un proyecto pero **sin `en.subject.pdf`** ni `AGENTS.md` propio: la guía ES la fuente de verdad del tema.
 
 - `GUIA_<CONCEPTO>.md` — itinerario de clases (objetivo, conceptos y resultado por clase), con la API y el modelo mental mínimos.
 - `GLOSARIO_<CONCEPTO>.md` — glosario de referencia en español (modelo: `conceptos/semaforos/GLOSARIO_SEMAFOROS.md`).
@@ -104,14 +104,24 @@ Convenciones de los drafts:
 - Tablas Markdown para contratos y casos de prueba; bloques de código para ejemplos.
 - La estructura didáctica (objetivo → predicciones → errores → resumen → defensa → criterio) es obligatoria; los títulos de las secciones centrales pueden variar por tema.
 
+Convenciones de contenido (norma "conceptos primero, código después", modelo de `proyectos/ft_ping/GUIA_FT_PING.md`):
+
+- **Modelo mental antes que código:** cada clase arranca con una "versión llana" en lenguaje sencillo (qué se construye y por qué), desglosando cada sigla y término la primera vez que aparece (un acrónimo sin desglosar es un fallo; pertenece al glosario). Las primeras clases de un curso pueden ser solo de concepto; en cuanto el tema lo admita, se pasa a código.
+- **Ejercicios accionables:** toda clase debe incluir ejercicios que obliguen a **escribir, compilar y ejecutar código real** siempre que el tema lo permita. Compilar con `-Wall -Wextra -Werror`; validar contra herramientas reales y observables (`tcpdump`, `valgrind`, `-fsanitize=address`, `strace`, `diff` contra la referencia, hexdumps). Un ejercicio que no se pueda ejecutar deja la clase incompleta.
+- **Criterio observable "Terminado cuando":** cada ejercicio y la clase entera cierran con un criterio de finalización concreto y comprobable (p. ej. "tcpdump muestra el request y su reply", "ASan limpio", "RTT dentro de ±30 ms"), no con un "comprende el tema".
+- **Lista de lecturas:** cada clase termina con las lecturas relevantes del momento (man pages y secciones concretas de los RFC), no con referencias genéricas.
+
 ## Modo de enseñanza (Teaching Mode)
 
 Aplica a todas las clases, de cualquier proyecto:
 
 - Leer primero el `AGENTS.md` del proyecto y su `GUIA_<PROYECTO>.md`: son el agente especializado en el subject y definen las restricciones de evaluación, el entorno y el itinerario de clases.- Tratar cada sesión como una lección interactiva para un principiante: explicar el modelo mental, pedir predicciones y solo después implementar y depurar.
 - Escalar la ayuda gradualmente: de preguntas a pistas, pseudocódigo, fragmentos y solo al final la implementación completa. No convertir los ejercicios en soluciones copiadas sin explicación.
+- **Escribir, compilar y ejecutar en cada sesión cuando sume:** el alumno teclea el código, lo compila (con `-Wall -Wextra -Werror`), lo ejecuta y depura contra la realidad (`tcpdump`, `strace`, `valgrind`, ASan, `diff` contra una referencia). No dejar la sesión en solo lectura: sin algo ejecutado y verificado, la lección no se considera dada.
 - Revisar el código en términos de ABI, tiempo de vida de registros, flags, alineación de pila, direcciones efectivas, ownership y comportamiento observable.
-- Cerrar cada lección con un resumen, preguntas tipo defensa, un pequeño ejercicio y un criterio de finalización explícito.
+- Cerrar cada lección con un resumen, preguntas tipo defensa, un pequeño ejercicio ejecutado y un criterio de finalización explícito.
+
+Cuando el usuario traiga **material ya escrito** (de un compañero o de una carpeta local), absorberlo: leerlo, ubicar el proyecto y pulirlo al formato canónico. Sirve como base para sesiones o para drafts en preparación; conservar lo bueno aunque difiera en estilo (p. ej. itinerario conceptos-primero, ejercicios de ejecución, glosario desglosado).
 
 ## Formato de una clase publicada (`clases/<proyecto>/clase-NN.html`)
 

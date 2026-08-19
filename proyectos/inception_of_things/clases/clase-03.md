@@ -19,7 +19,7 @@ srcs/p2/
 
 | Fichero | Rol |
 |---|---|
-| `Vagrantfile` | 1 VM (`ravazqueS`, `192.168.56.110`), sin worker ni token: cluster de un nodo |
+| `Vagrantfile` | 1 VM (`<login>S`, `192.168.56.110`), sin worker ni token: cluster de un nodo |
 | `scripts/setup.sh` | Instala K3s y aplica los manifiestos con esperas (`rollout status`) |
 | `confs/app{1,2,3}.yaml` | Cada app: ConfigMap + Deployment + Service |
 | `confs/ingress.yaml` | Enrutado por `Host`: `app1.com`→app1, `app2.com`→app2, sin host→app3 |

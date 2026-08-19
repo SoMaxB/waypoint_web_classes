@@ -108,7 +108,7 @@ Necesitamos una herramienta que:
 - No dependa de adivinar el interleaving.
 - Funcione agente casual: dé resultados reproducibles.
 
-Esa herramienta, en este concepto, es el **semáforo** (clase 2). Existe otra, el **mutex**, que veremos a fondo en POSIX Threads.
+Esa herramienta, en este concepto, es el **semáforo** (clase 2). Existe otra, el **mutex**, que veremos a fondo en Hilos POSIX.
 
 ## 6. Cuándo hace falta sincronización
 

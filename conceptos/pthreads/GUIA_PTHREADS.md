@@ -1,6 +1,6 @@
-# Guía de aprendizaje: POSIX Threads
+# Guía de aprendizaje: Hilos POSIX
 
-Concepto que profundiza en la concurrencia con `pthreads` de C sobre Linux. Complementa a "Semáforos en C": aquí el foco son la creación/unión de hilos, el mutex (con *owner*) y las variables de condición. No depende de un subject; el tema es la fuente de verdad.
+Concepto que profundiza en la concurrencia con `pthreads` de C sobre Linux. Complementa a "Semáforos POSIX": aquí el foco son la creación/unión de hilos, el mutex (con *owner*) y las variables de condición. No depende de un subject; el tema es la fuente de verdad.
 
 El objetivo es manejar hilos como primitivas de primera clase: crearlos, unirlos, proteger recursos compartidos con un mutex y coordinar esperas con variables de condición, entendiendo cuándo cada herramienta es la correcta.
 
@@ -54,7 +54,7 @@ Antes de cerrar debes responder afirmativamente:
 
 ## 6. Siguientes pasos
 
-- **Semáforos en C** aporta el contador y señalización; combinando mutex + condiciones se resuelven los mismos patrones de forma más expresiva.
+- **Semáforos POSIX** aporta el contador y señalización; combinando mutex + condiciones se resuelven los mismos patrones de forma más expresiva.
 - En **Sockets**, los hilos sirven para atender varios clientes a la vez.
 
 ## 7. Referencias

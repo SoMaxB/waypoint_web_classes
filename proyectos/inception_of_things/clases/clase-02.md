@@ -1,7 +1,7 @@
 # Inception of Things — Clase 2 / Class 2
 
 > **Tema / Topic:** Vagrant, máquinas virtuales y p1 — *Vagrant, virtual machines and p1*
-> **Proyecto:** Inception of Things (IoT) — [subject](https://github.com/ravazque/Inception-of-Things_ravazque/blob/main/max_docs/en.subject.pdf)
+> **Proyecto:** Inception of Things (IoT) — [subject](https://github.com/<login>/Inception-of-Things_<login>/blob/main/max_docs/en.subject.pdf)
 
 ---
 
@@ -17,8 +17,8 @@ Entender cómo se crea un **cluster K3s de dos nodos** con Vagrant: qué son Vag
 
 ```
 Vagrant          →  crea y provisiona las VMs   (orquestador de máquinas)
-  └─ K3s server  →  control-plane + API server  (ravazqueS, 192.168.56.110)
-  └─ K3s agent   →  worker                      (ravazqueSW, 192.168.56.111)
+  └─ K3s server  →  control-plane + API server  (<login>S, 192.168.56.110)
+  └─ K3s agent   →  worker                      (<login>SW, 192.168.56.111)
 ```
 
 | Fichero | Rol |
@@ -36,7 +36,7 @@ El instalador oficial de K3s en el server **genera un token aleatorio** en `/var
 **Solución del repo: fijar el token nosotros** y pasárselo a ambos scripts vía `args`:
 
 ```ruby
-K3S_TOKEN = "iot-ravazque-k3s-token"
+K3S_TOKEN = "iot-<login>-k3s-token"
 ```
 
 ```ruby
@@ -99,7 +99,7 @@ K3S_URL="https://192.168.56.110:6443" K3S_TOKEN="${TOKEN}" INSTALL_K3S_EXEC="age
 
 ## Predicción / Ejercicio 2.4 — Diagnosticar "worker NotReady"
 
-`vagrant up` terminó pero `kubectl get nodes` solo muestra `ravazqueS` Ready; `ravazqueSW` en `NotReady`. Orden de sospechas — de más probable a más rara:
+`vagrant up` terminó pero `kubectl get nodes` solo muestra `<login>S` Ready; `<login>SW` en `NotReady`. Orden de sospechas — de más probable a más rara:
 
 1. **Flannel / interfaz mal resuelta** — si el worker registró una IP de la NAT (10.0.2.x). Confirmar:
    ```bash
@@ -166,8 +166,8 @@ K3S_URL="https://192.168.56.110:6443" K3S_TOKEN="${TOKEN}" INSTALL_K3S_EXEC="age
 
 ## Preguntas tipo defensa
 
-- ¿Cómo se une `ravaz:SW` a `ravazqueS` sin copiar el `node-token`?
-- ¿Qué cambiarías para un tercer worker `ravazqueSW2` con `192.168.56.112`?
+- ¿Cómo se une `<login>SW` a `<login>S` sin copiar el `node-token`?
+- ¿Qué cambiarías para un tercer worker `<login>SW2` con `192.168.56.112`?
 - Sin `--tls-san`, ¿qué error verías en el worker y en qué línea está el fix?
 - ¿Por qué no se puede hardcodear `eth1` como `--flannel-iface`?
 - `kubectl get notes` da el worker `NotReady`; ¿cuál es tu primer comando y por qué?
@@ -195,7 +195,7 @@ Marca cada ítem cuando lo digas "sin apuntes":
 
 <h2>The joining story – fixed token</h2>
 <p>K3s's server installer generates a random token at <code>/var/lib/rancher/k3s/server/node-token</code>. The agent needs that token to authenticate. Copying files between machines is fragile (order dependency, synced folder disabled here). The repo instead <strong>binds a token in the <code>Vagrantfile</code></strong> and passes it to both scripts:</p>
-<pre><code>K3S_TOKEN = "iot-ravazque-k3s-token"
+<pre><code>K3S_TOKEN = "iot-&lt;login&gt;-k3s-token"
 args: [SERVER_IP, K3S_TOKEN]
 args: [SERVER_IP, WORKER_IP, K3S_TOKEN]</code></pre>
 <p>The installer honors env <code>K3S_TOKEN</code>, so no random token is generated and no copy is needed.</p>
@@ -232,7 +232,7 @@ args: [SERVER_IP, WORKER_IP, K3S_TOKEN]</code></pre>
 
 <h2>Defense-style questions</h2>
 <ul>
-<li>How does <code>ravazqueSW</code> join without copying <code>node-token</code>?</li>
+<li>How does <code>&lt;login&gt;SW</code> join without copying <code>node-token</code>?</li>
 <li>What changes to add a third worker at <code>192.168.56.112</code>?</li>
 <li>Without <code>--tls-san</code>, what error appears where?</li>
 <li>Why not hardcode <code>--flannel-iface=eth1</code>?</li>

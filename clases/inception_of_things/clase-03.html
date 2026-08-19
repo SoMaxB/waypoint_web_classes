@@ -56,7 +56,7 @@
         <h2>1. La topología de p2 — ficheros</h2>
         <p>En <code>srcs/p2/</code> hay cuatro piezas:</p>
         <pre class="code">srcs/p2/
-├── Vagrantfile          1 VM (uxS, 192.168.56.110), sin worker ni token
+├── Vagrantfile          1 VM (&lt;login&gt;S, 192.168.56.110), sin worker ni token
 ├── scripts/setup.sh     instala K3s y aplica los manifiestos con esperas
 └── confs/
     ├── app1.yaml        1 réplica
@@ -329,7 +329,7 @@ kubectl get endpoints app2        # IPs tras el Service app2 (3 endpoints)</pre>
         <h2>1. The p2 topology — files</h2>
         <p>There are four pieces in <code>srcs/p2/</code>:</p>
         <pre class="code">srcs/p2/
-├── Vagrantfile          1 VM (uxS, 192.168.56.110), no worker, no token
+├── Vagrantfile          1 VM (&lt;login&gt;S, 192.168.56.110), no worker, no token
 ├── scripts/setup.sh     installs K3s and applies manifests with waits
 └── confs/
     ├── app1.yaml        1 replica
