@@ -214,3 +214,10 @@ La clase queda completada cuando puedes recorrer a mano una cadena vacía, una c
 ## Siguiente clase
 
 La clase 3 usa este modelo de registros y control de flujo para introducir la ABI System V: cómo llegan los argumentos desde C, cómo se devuelve el resultado en `rax`, qué hace `call` y `ret` con la pila y qué registros debes preservar.
+
+## Lista de lecturas
+
+- `man 1 as` — el ensamblador GNU: sintaxis de instrucciones y etiquetas.
+- `man 1 objdump` (`objdump -d`) — desensamblar y ver en qué instrucciones quedó tu código.
+- Intel SDM, Vol. 1, §3.4 — la vista general de los registros de 64, 32, 16 y 8 bits (`rax`/`eax`/`ax`/`al`).
+- Intel SDM, Vol. 2 — entradas de `MOV`, `LEA`, `CMP` y `Jcc`: qué modifica cada una y qué flags actualiza.

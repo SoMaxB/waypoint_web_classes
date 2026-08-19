@@ -424,3 +424,10 @@ Framebuffer: guarda la imagen final que se mostrara en la ventana.
 ## Siguiente clase
 
 En la siguiente clase prepararemos el entorno: ventana, contexto grafico, bucle de eventos y primer triangulo. El resultado sera abrir una ventana y dibujar un triangulo de color, todavia sin parser `.obj`, para aislar primero la comunicacion minima con el GPU.
+
+## Lista de lecturas
+
+- Subject de Scop — lo que el proyecto pide cargar (`.obj` Wavefront).
+- Especificación del formato Wavefront OBJ — caras, índices base 1 y conversión a triángulos.
+- Khronos, OpenGL 3.3 Core Profile spec — espacio de clip y división por perspectiva en el pipeline de vértices.
+- Khronos, GLSL 3.30 spec — vertex y fragment shaders; `layout(location = N)`.

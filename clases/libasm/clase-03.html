@@ -416,6 +416,13 @@ valor final devuelto en rax = 3</pre>
           <li>Una función hoja simple puede evitar tocar la pila y usar solo registros volátiles.</li>
           <li><code>cmp byte [rdi + rax], 0</code> lee un byte de memoria en la dirección calculada y compara ese byte contra cero.</li>
         </ul>
+
+        <h2>Lista de lecturas</h2>
+        <ul>
+          <li>System V ABI (AMD64), §3.2 — la secuencia de llamada a función: argumentos, retorno en <code>rax</code> y alineación de pila de 16 bytes.</li>
+          <li>System V ABI (AMD64), §3.2.1 — registros volátiles y preservados (callee-saved: <code>rbx</code>, <code>rbp</code>, <code>r12</code>-<code>r15</code>).</li>
+          <li>Intel SDM, Vol. 1, §6 — la pila y el par <code>push</code>/<code>pop</code> sobre <code>rsp</code>.</li>
+        </ul>
       </section>
 
       <!-- ============ ENGLISH ============ -->
@@ -787,6 +794,13 @@ final value returned in rax = 3</pre>
           <li><code>rbx</code>, <code>rbp</code> and <code>r12</code>-<code>r15</code> must keep their value if a function uses them.</li>
           <li>A simple leaf function can avoid touching the stack and use only volatile registers.</li>
           <li><code>cmp byte [rdi + rax], 0</code> reads a memory byte at the computed address and compares that byte against zero.</li>
+        </ul>
+
+        <h2>Reading list</h2>
+        <ul>
+          <li>System V ABI (AMD64), §3.2 — the function calling sequence: arguments, return in <code>rax</code> and 16-byte stack alignment.</li>
+          <li>System V ABI (AMD64), §3.2.1 — volatile and preserved registers (callee-saved: <code>rbx</code>, <code>rbp</code>, <code>r12</code>-<code>r15</code>).</li>
+          <li>Intel SDM, Vol. 1, §6 — the stack and the <code>push</code>/<code>pop</code> pair over <code>rsp</code>.</li>
         </ul>
       </section>
     </div>

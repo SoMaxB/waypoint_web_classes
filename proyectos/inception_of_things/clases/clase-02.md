@@ -251,3 +251,9 @@ args: [SERVER_IP, WORKER_IP, K3S_TOKEN]</code></pre>
 
 <p>When everything is checked, Class 2 is mastered. Next: <strong>Class 3 — Kubernetes basics and p2</strong>.</p>
 </section>
+
+## Lista de lecturas
+
+- K3s docs — flags del server (`--disable`, `--flannel-iface`) y del agent (`K3S_URL`, `K3S_TOKEN`).
+- K3s docs — el token del cluster y por qué el worker no necesita copiarlo a mano.
+- `man 1 ip` — de la IP a la interfaz de red (`ip -4 addr`): la resolución de `IFACE`.

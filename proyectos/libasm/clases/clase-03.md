@@ -557,3 +557,9 @@ La clase queda completada cuando puedes explicar como llegan argumentos desde C 
 ## Siguiente clase
 
 La clase 4 parte de este modelo de ABI y pila para bajar hasta el artefacto real: secciones ELF, símbolos, relocaciones, el enlazador `ld`, la biblioteca estática y las herramientas (`nasm`, `ar`, `readelf`, `objdump`, `nm`, `gdb`) con las que se inspecciona todo.
+
+## Lista de lecturas
+
+- System V ABI (AMD64), §3.2 — la secuencia de llamada a función: argumentos, retorno en `rax` y alineación de pila de 16 bytes.
+- System V ABI (AMD64), §3.2.1 — registros volátiles y preservados (callee-saved: `rbx`, `rbp`, `r12`-`r15`).
+- Intel SDM, Vol. 1, §6 — la pila y el par `push`/`pop` sobre `rsp`.

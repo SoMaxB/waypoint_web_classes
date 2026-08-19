@@ -324,3 +324,9 @@ Marca cada ítem cuando lo digas "sin apuntes":
 ## Siguiente clase
 
 Con la clase 6 cierras las 6 clases del plan. Para el repaso final antes de la defensa, relee `clase-01.md` (mapa mental) y esta clase (diagnóstico).
+
+## Lista de lecturas
+
+- RFC 9110 §15 — 404 (regla), 502 (backend roto) y 503 (sin endpoints).
+- Argo CD docs — estados de sincronización: `OutOfSync` (intención) vs `ComparisonError` (rotura).
+- Kubernetes docs — diagnóstico de nodos: `kubectl get nodes`, `describe node` y logs del kubelet.

@@ -290,3 +290,10 @@ La clase queda completada cuando puedes, sin apuntes:
 ## Siguiente clase
 
 La clase 4 empieza p3 y cambia la orquestación: **K3d, Argo CD y GitOps**, cómo se despliega una aplicación desde GitHub mediante Argo CD con los conceptos de namespaces, Application CRD, `repoURL` y `syncPolicy.automated`.
+
+## Lista de lecturas
+
+- Kubernetes docs — Labels and selectors: el pegamento entre Deployment, Service y Pods.
+- Kubernetes docs — Ingress e ingress controllers (Traefik); enrutado por `Host`.
+- Kubernetes docs — Services y Endpoints (`kubectl get endpoints` para el 503).
+- RFC 9110 §15 — códigos de estado 404, 502 y 503.

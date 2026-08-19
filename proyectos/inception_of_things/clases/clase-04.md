@@ -330,3 +330,9 @@ Marca cada ítem cuando lo digas "sin apuntes":
 ## Siguiente clase
 
 La clase 5 cubre el **bonus: GitLab local** — cómo se cierra el flujo GitOps sin salir del cluster: un GitLab CE corriendo dentro de K3d con PVCs, y Argo CD leyendo desde el GitLab local en vez de GitHub.
+
+## Lista de lecturas
+
+- Argo CD docs — la Application CRD: `source` (`repoURL`, `path`, `targetRevision`) y `syncPolicy.automated` (`prune`, `selfHeal`).
+- K3s docs — qué es K3s en oposición a k3d: el debate que el subject obliga a saber.
+- K3d docs — por qué el cluster de p3 corre dentro de Docker.

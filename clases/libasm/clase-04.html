@@ -296,6 +296,14 @@ nm libasm.a | grep " T "
           <li>Un breakpoint de GDB congela la CPU antes de la instrucción, mostrando el estado previo.</li>
           <li>La primera pregunta ante un bug de ensamblador es sobre el estado real de la CPU, no sobre el algoritmo.</li>
         </ul>
+
+        <h2>Lista de lecturas</h2>
+        <ul>
+          <li><code>man 5 elf</code> — el formato ELF: secciones (<code>.text</code>, <code>.data</code>, <code>.rodata</code>, <code>.bss</code>) y sus banderas.</li>
+          <li><code>man 1 readelf</code> y <code>man 1 nm</code> — cabeceras de sección y tabla de símbolos (<code>UND</code>/<code>GLOBAL</code>/<code>LOCAL</code>).</li>
+          <li><code>man 1 ar</code> — crear la biblioteca estática <code>libft.a</code> y por qué va al final del enlace.</li>
+          <li><code>man 1 gdb</code> — breakpoints y el estado de la CPU justo antes de una instrucción.</li>
+        </ul>
       </section>
 
       <!-- ============ ENGLISH ============ -->
@@ -543,6 +551,14 @@ nm libasm.a | grep " T "
           <li>The library goes at the end of the link because it only extracts objects that resolve already-pending symbols.</li>
           <li>A GDB breakpoint freezes the CPU before the instruction, showing the previous state.</li>
           <li>The first question for an assembly bug is about the real CPU state, not the algorithm.</li>
+        </ul>
+
+        <h2>Reading list</h2>
+        <ul>
+          <li><code>man 5 elf</code> — the ELF format: sections (<code>.text</code>, <code>.data</code>, <code>.rodata</code>, <code>.bss</code>) and their flags.</li>
+          <li><code>man 1 readelf</code> and <code>man 1 nm</code> — section headers and the symbol table (<code>UND</code>/<code>GLOBAL</code>/<code>LOCAL</code>).</li>
+          <li><code>man 1 ar</code> — creating the static library <code>libft.a</code> and why it goes at the end of the link.</li>
+          <li><code>man 1 gdb</code> — breakpoints and the CPU state right before an instruction.</li>
         </ul>
       </section>
     </div>

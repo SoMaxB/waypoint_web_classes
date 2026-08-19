@@ -487,3 +487,9 @@ glfwPollEvents: procesa eventos pendientes de teclado, raton, cierre, resize y f
 ## Siguiente clase
 
 En la siguiente clase entraremos en el parser `.obj`: leeremos lineas `v`, `vt`, `vn` y `f`, adaptaremos indices base uno a arrays base cero y convertiremos caras en triangulos. El resultado sera leer y validar un `.obj` sencillo antes de conectarlo al pipeline grafico.
+
+## Lista de lecturas
+
+- Documentación de GLFW — `glfwCreateWindow`, `glfwMakeContextCurrent`, `glfwPollEvents` y `glfwSwapBuffers` (doble buffer).
+- Khronos, OpenGL 3.3 spec — buffer objects (VBO) y vertex array objects (VAO); `glVertexAttribPointer`.
+- Khronos, GLSL 3.30 spec — compilar, enlazar y usar shaders (`glShaderSource`/`glLinkProgram`).

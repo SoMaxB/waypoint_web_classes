@@ -243,3 +243,10 @@ La clase queda completada cuando puedes explicar qué hace cada herramienta (`na
 ## Siguiente clase
 
 Con la herramienta en mano, la clase 5 cierra el salto del modelo mental a la primera función real: recorrer memoria con el terminador `\0`, mantener invariantes y devolver `size_t`, hasta implementar y probar `ft_strlen` contra `strlen`.
+
+## Lista de lecturas
+
+- `man 5 elf` — el formato ELF: secciones (`.text`, `.data`, `.rodata`, `.bss`) y sus banderas.
+- `man 1 readelf` y `man 1 nm` — cabeceras de sección y tabla de símbolos (`UND`/`GLOBAL`/`LOCAL`).
+- `man 1 ar` — crear la biblioteca estática `libft.a` y por qué va al final del enlace.
+- `man 1 gdb` — breakpoints y el estado de la CPU justo antes de una instrucción.

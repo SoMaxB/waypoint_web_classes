@@ -132,3 +132,10 @@ La clase está dominada cuando puedes, sin apuntes:
 ## Siguiente clase
 
 La clase 2 baja a la primera capa real: Vagrant, máquinas virtuales y la parte 1. Verás cómo se crea un cluster K3s de dos nodos, con `Vagrantfile`, `server.sh` y `worker.sh`, y cómo se une el worker al server sin copiar el `node-token`.
+
+## Lista de lecturas
+
+- Subject de Inception of Things — la fuente normativa del proyecto.
+- K3s docs — arquitectura: nodos server y agent (worker) y cómo se une un nodo.
+- K3d docs — qué hace k3d por dentro (cluster en Docker) y en qué se diferencia de K3s.
+- Vagrant docs — máquinas múltiples y provisionamiento por shell (la base de p1).

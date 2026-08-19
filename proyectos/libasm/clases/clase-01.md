@@ -420,3 +420,10 @@ La clase está completada cuando puedes:
 ## Siguiente clase
 
 La clase 2 utiliza este modelo de memoria para introducir los registros de la CPU y las instrucciones `mov`, `lea`, aritmética, `cmp`, flags y saltos.
+
+## Lista de lecturas
+
+- `man 7 ascii` — el conjunto ASCII y el carácter nulo `\0` que termina toda cadena C.
+- `man 3 strlen` — la longitud de una cadena C terminada en nulo (la función que implementarás).
+- `man 1 od` (`od -tx1`) — volcar la memoria en hexadecimal y ver el orden little-endian.
+- Intel SDM, Vol. 1, §3.3.3 — el orden de bytes (little-endian) de los valores multibyte.

@@ -208,6 +208,13 @@ worker.vm.provision "shell", path: "scripts/worker.sh", args: [SERVER_IP, WORKER
         </ul>
 
         <p><strong>Siguiente clase:</strong> la clase 3 entra en <strong>Kubernetes básico y p2</strong>: deployments, servicios, replicas e Ingress; cómo una sola IP (<code>192.168.56.110</code>) sirve tres aplicaciones según el <code>Host</code> header.</p>
+
+        <h2>Lista de lecturas</h2>
+        <ul>
+          <li>K3s docs — flags del server (<code>--disable</code>, <code>--flannel-iface</code>) y del agent (<code>K3S_URL</code>, <code>K3S_TOKEN</code>).</li>
+          <li>K3s docs — el token del cluster y por qué el worker no necesita copiarlo a mano.</li>
+          <li><code>man 1 ip</code> — de la IP a la interfaz de red (<code>ip -4 addr</code>): la resolución de <code>IFACE</code>.</li>
+        </ul>
       </section>
 
       <!-- ============ ENGLISH ============ -->
@@ -372,6 +379,13 @@ worker.vm.provision "shell", path: "scripts/worker.sh", args: [SERVER_IP, WORKER
         </ul>
 
         <p><strong>Next class:</strong> class 3 dives into <strong>basic Kubernetes and p2</strong>: deployments, services, replicas and Ingress; how a single IP (<code>192.168.56.110</code>) serves three apps based on the <code>Host</code> header.</p>
+
+        <h2>Reading list</h2>
+        <ul>
+          <li>K3s docs — server flags (<code>--disable</code>, <code>--flannel-iface</code>) and agent ones (<code>K3S_URL</code>, <code>K3S_TOKEN</code>).</li>
+          <li>K3s docs — the cluster token and why the worker never copies it by hand.</li>
+          <li><code>man 1 ip</code> — from IP to network interface (<code>ip -4 addr</code>): the <code>IFACE</code> resolution.</li>
+        </ul>
       </section>
     </div>
 

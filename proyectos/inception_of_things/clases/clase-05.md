@@ -370,3 +370,9 @@ Marca cada ítem cuando lo digas "sin apuntes":
 ## Siguiente clase
 
 La clase 6 cierra el curso: **Defensa y troubleshooting** — el orden de demostración del proyecto completo, qué enseñar y justificar en cada parte, y cómo diagnosticar los fallos que un evaluador puede provocar.
+
+## Lista de lecturas
+
+- GitLab (omnibus) docs — la imagen Docker de GitLab CE y su arranque.
+- Kubernetes docs — PersistentVolumes y PersistentVolumeClaims para los datos de GitLab.
+- Argo CD docs — repositorios y credenciales; por qué `repoURL` es el DNS del Service.
