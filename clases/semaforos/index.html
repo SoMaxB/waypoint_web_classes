@@ -55,7 +55,7 @@
     <section class="prose">
       <div class="panel">
         <span class="label"><span lang="es">Cómo tomar esta clase</span><span lang="en">How to take this class</span></span>
-        <p><span lang="es">Estas clases se toman como se recibe una clase en directo. Antes de leer, cierra cada <strong>predicción o ejercicio</strong> y razona tu respuesta; solo después despliega la solución. Traza el código línea por línea. Finalmente, responde en voz alta las <strong>preguntas de defensa</strong> y marca el <strong>criterio de finalización</strong>. Todo tu progreso se guarda en tu navegador.</span><span lang="en">These classes are meant to be taken the way you receive a live class. Before reading further, close each <strong>prediction or exercise</strong> and reason out your answer; only then unfold the solution. Trace the code line by line. Finally, answer the <strong>defense questions</strong> out loud and check off the <strong>completion criteria</strong>. All your progress is stored in your browser.</span></p>
+        <p><span lang="es">Estas clases se toman como se recibe una clase en directo. Antes de leer, cierra cada <strong>predicción o ejercicio</strong> y razona tu respuesta; solo después despliega la solución. Traza el código línea por línea. Cuando la clase lo pida, escribe el código, compílalo con <code>-Wall -Wextra -Werror</code> y ejecútalo: la clase no está completa hasta que has visto correr el programa. Finalmente, responde en voz alta las <strong>preguntas de defensa</strong> y marca el <strong>criterio de finalización</strong>. Todo tu progreso se guarda en tu navegador.</span><span lang="en">These classes are meant to be taken the way you receive a live class. Before reading further, close each <strong>prediction or exercise</strong> and reason out your answer; only then unfold the solution. Trace the code line by line. When the class asks for it, write the code, compile it with <code>-Wall -Wextra -Werror</code> and run it: the class is not complete until you have seen the program run. Finally, answer the <strong>defense questions</strong> out loud and check off the <strong>completion criteria</strong>. All your progress is stored in your browser.</span></p>
       </div>
       <div class="panel">
         <span class="label"><span lang="es">Glosario</span><span lang="en">Glossary</span></span>
@@ -73,19 +73,19 @@
 
         <div class="soon-card">
           <h4><span lang="es">Clase 1 · Procesos, hilos, carrera y sección crítica</span><span lang="en">Class 1 · Processes, threads, races and critical sections</span></h4>
-          <p><span lang="es"><code>i++</code> no es atómico, interleaving y condición de carrera: la base de la sincronización.</span><span lang="en"><code>i++</code> is not atomic, interleaving and race conditions: the basis of synchronization.</span></p>
+          <p><span lang="es"><code>i++</code> no es atómico: interleaving y condición de carrera, la base de la sincronización. Resultado: escribir y compilar (<code>cc -pthread</code>) un programa con varios hilos incrementando una misma variable y observar que el contador final no es el esperado.</span><span lang="en"><code>i++</code> is not atomic: interleaving and race conditions, the basis of synchronization. Result: write and compile (<code>cc -pthread</code>) a program with several threads incrementing one shared variable and observe the final counter is not the expected one.</span></p>
           <span class="badge amber" data-i18n="status.coming">En preparación</span>
         </div>
 
         <div class="soon-card">
           <h4><span lang="es">Clase 2 · Semáforos POSIX y sección crítica</span><span lang="en">Class 2 · POSIX semaphores and critical sections</span></h4>
-          <p><span lang="es"><code>sem_t</code>, <code>sem_init</code>, <code>sem_wait</code>, <code>sem_post</code>: proteger un recurso compartido y predecir el valor del contador.</span><span lang="en"><code>sem_t</code>, <code>sem_init</code>, <code>sem_wait</code>, <code>sem_post</code>: protecting a shared resource and predicting the counter value.</span></p>
+          <p><span lang="es"><code>sem_t</code>, <code>sem_init</code>, <code>sem_wait</code>, <code>sem_post</code>: proteger un recurso compartido y predecir el valor del contador. Resultado: arreglar el programa de la clase 1 con un semáforo y verificar con <code>-fsanitize=thread</code> que la carrera desaparece.</span><span lang="en"><code>sem_t</code>, <code>sem_init</code>, <code>sem_wait</code>, <code>sem_post</code>: protecting a shared resource and predicting the counter value. Result: fix the class-1 program with a semaphore and verify with <code>-fsanitize=thread</code> that the race goes away.</span></p>
           <span class="badge amber" data-i18n="status.coming">En preparación</span>
         </div>
 
         <div class="soon-card">
           <h4><span lang="es">Clase 3 · Productor-consumidor y problemas clásicos</span><span lang="en">Class 3 · Producer-consumer and classic problems</span></h4>
-          <p><span lang="es">Buffer compartido con <code>empty</code>/<code>full</code>/<code>mutex</code>, valores iniciales y deadlock.</span><span lang="en">Shared buffer with <code>empty</code>/<code>full</code>/<code>mutex</code>, initial values and deadlock.</span></p>
+          <p><span lang="es">Buffer compartido con <code>empty</code>/<code>full</code>/<code>mutex</code>, valores iniciales y deadlock. Resultado: un productor-consumidor ejecutable cuyo contador final es siempre exacto, y poder provocar y explicar un deadlock.</span><span lang="en">Shared buffer with <code>empty</code>/<code>full</code>/<code>mutex</code>, initial values and deadlock. Result: a runnable producer-consumer whose final counter is always exact, and being able to trigger and explain a deadlock.</span></p>
           <span class="badge amber" data-i18n="status.coming">En preparación</span>
         </div>
       </div>
