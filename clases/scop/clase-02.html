@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Clase 2 · Entorno y primer triángulo — Scop</title>
-  <meta name="description" content="Ventana GLFW, contexto OpenGL, bucle de eventos, VBO y VAO, shaders mínimos y doble buffer.">
+  <meta name="description" content="Ventana GLFW, contexto OpenGL, cargador manual de funciones, bucle de eventos, VBO y VAO, shaders mínimos y doble buffer.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -37,10 +37,10 @@
         <span><span lang="es">Clase 2</span><span lang="en">Class 2</span></span>
       </nav>
 
-      <h1><span lang="es">Clase 2 · entorno y primer triángulo</span><span lang="en">Class 2 · environment and first triangle</span></h1>
+      <h1><span lang="es">Clase 2 · entorno, cargador manual y primer triángulo</span><span lang="en">Class 2 · environment, manual loader and first triangle</span></h1>
 
       <div class="class-toolbar">
-        <span class="toolbar-hint mono">OpenGL · GLFW · VBO · VAO</span>
+        <span class="toolbar-hint mono">OpenGL · GLFW · glfwGetProcAddress · VBO · VAO</span>
       </div>
     </div>
 
@@ -50,35 +50,36 @@
       <section lang="es">
         <div class="objective">
           <span class="label">Objetivo</span>
-          <p>Entender qué piezas mínimas hacen falta para abrir una ventana OpenGL y dibujar el primer triángulo. Al terminar esta clase debes poder explicar qué aporta GLFW, qué es un contexto OpenGL, para qué sirven VBO y VAO, cómo se conectan los atributos del shader con los datos del buffer y por qué el bucle de render necesita <code>glfwSwapBuffers()</code> y <code>glfwPollEvents()</code>.</p>
+          <p>Montar el esqueleto real de Scop sobre el que se construirán todas las demás clases: ventana GLFW, contexto OpenGL, cargador manual de las funciones de OpenGL, shaders mínimos, VBO/VAO y bucle de render. Al terminar esta clase debes poder explicar qué aporta GLFW, qué es un contexto OpenGL y por qué debe ser actual, por qué las funciones de OpenGL hay que cargarlas en runtime y no enlazarlas, qué diferencia hay entre declarar, definir y asignar un puntero a función, cómo se conectan los atributos del shader con los datos del buffer y por qué el bucle de render necesita <code>glfwSwapBuffers()</code> y <code>glfwPollEvents()</code>.</p>
         </div>
-        <p>Esta clase se basa en la clase 1: ya tenemos el pipeline mental, ahora montamos la infraestructura mínima para dibujar.</p>
+        <p>Esta clase se tomó de forma interactiva y cumple la regla del proyecto: se escribió, compiló con <code>-Wall -Wextra -Werror</code> y ejecutó código real. El resultado observable fue una ventana clara y un triángulo naranja dibujado por nuestro propio pipeline.</p>
 
         <h2>1. Qué estamos aislando</h2>
-        <p>Esta clase no carga todavía <code>.obj</code>, no usa matrices MVP y no aplica texturas. Aísla una sola pregunta:</p>
-        <pre class="code">¿Qué tiene que existir antes de que el GPU pueda dibujar algo?</pre>
+        <p>Esta clase no carga todavía <code>.obj</code>, no usa matrices MVP y no aplica texturas. Aísla dos preguntas:</p>
+        <pre class="code">1. ¿Qué tiene que existir antes de que el GPU pueda dibujar algo?
+2. ¿Cómo se obtienen las funciones de OpenGL que el GPU va a ejecutar?</pre>
         <p>El flujo mínimo es:</p>
         <pre class="code">programa
   ↓
-inicializar librería de ventana
+inicializar librería de ventana (glfwInit)
   ↓
-crear ventana + contexto OpenGL
+pedir contexto core 3.3 (glfwWindowHint ANTES de crear ventana)
   ↓
-hacer el contexto actual
+crear ventana + contexto OpenGL (glfwCreateWindow)
   ↓
-cargar funciones OpenGL si hace falta
+hacer el contexto actual (glfwMakeContextCurrent)
   ↓
-crear shaders
+cargar funciones OpenGL (cargador manual, después del contexto)
   ↓
-crear datos del triángulo
+crear shaders y compilarlos
   ↓
-subirlos a VBO/VAO
+crear datos del triángulo y subirlos a VBO/VAO
   ↓
-bucle de eventos
+bucle de eventos (glfwWindowShouldClose)
   ↓
 dibujar cada frame
   ↓
-swap buffers</pre>
+swap buffers + poll events</pre>
         <p>La ventana no es la escena. Es el destino donde OpenGL presentará el framebuffer final.</p>
 
         <h2>2. Qué permite el subject</h2>
@@ -88,6 +89,7 @@ swap buffers</pre>
           <li>Crear el contexto OpenGL.</li>
           <li>Gestionar teclado, ratón y cierre de ventana.</li>
           <li>Mantener el bucle de eventos.</li>
+          <li>Exponer <code>glfwGetProcAddress</code>, el punto de entrada para resolver funciones de OpenGL en runtime.</li>
         </ul>
         <p>Pero no debe encargarse de las partes que el subject exige implementar o entender personalmente:</p>
         <ul>
@@ -95,36 +97,126 @@ swap buffers</pre>
           <li>Matrices y transformaciones.</li>
           <li>Carga/compilación de shaders como caja negra externa.</li>
           <li>Renderizador completo.</li>
+          <li>El cargador de funciones de OpenGL: conviene hacerlo a mano para poder defender que no se usan librerías externas más allá de la de ventana/eventos.</li>
         </ul>
         <p>GLFW está permitido porque resuelve infraestructura de ventana/contexto/eventos, no el problema central de Scop.</p>
 
         <h2>3. Ventana, contexto y bucle mínimo</h2>
-        <p>Un esqueleto conceptual con GLFW es:</p>
-        <pre class="code">if (!glfwInit())
-    fail();
+        <p>El esqueleto real que se escribió es:</p>
+        <pre class="code">glfwSetErrorCallback(error_callback);
+
+if (!glfwInit())
+    return 1;
+
+glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 GLFWwindow *window = glfwCreateWindow(800, 600, "scop", NULL, NULL);
 if (!window)
-    fail();
+    return 1;
 
 glfwMakeContextCurrent(window);
 
+init_gl_functions();   /* el cargador manual */
+
 while (!glfwWindowShouldClose(window))
 {
-    render();
-
+    /* ... limpiar, dibujar ... */
     glfwSwapBuffers(window);
     glfwPollEvents();
 }
 
 glfwTerminate();</pre>
-        <p>La llamada crítica es:</p>
-        <pre class="code">glfwMakeContextCurrent(window);</pre>
-        <p>OpenGL trabaja sobre un contexto actual asociado al hilo. Sin contexto actual, llamadas como crear buffers, compilar shaders o limpiar la pantalla no tienen un estado OpenGL válido sobre el que operar.</p>
-        <p>El contexto OpenGL no contiene el <code>.obj</code> parseado. El modelo parseado vive primero en memoria de CPU y después sus datos se suben a buffers del GPU.</p>
+        <p>Dos detalles críticos de orden:</p>
+        <ul>
+          <li>Los <code>glfwWindowHint</code> se llaman <strong>antes</strong> de <code>glfwCreateWindow</code>. La petición de contexto (versión y perfil) se formaliza en el instante de crear la ventana: los hints se consumen ahí y quedan fijados para la vida de esa ventana. Si se llaman después, crean un contexto con el perfil por defecto (legacy) y no se cambia retroactivamente.</li>
+          <li><code>glfwMakeContextCurrent(window)</code> hace el contexto actual para el hilo. Sin contexto actual, llamadas como crear buffers, compilar shaders o limpiar la pantalla no tienen estado OpenGL válido sobre el que operar. El cargador manual va <strong>después</strong> de esta llamada, porque solo a partir de ahí <code>glfwGetProcAddress</code> devuelve punteros válidos del driver.</li>
+        </ul>
 
-        <h2>4. El primer triángulo</h2>
-        <p>Un triángulo mínimo puede escribirse como posiciones hardcodeadas:</p>
+        <h2>4. Por qué hay que cargar las funciones de OpenGL a mano</h2>
+        <p>En Linux, las funciones de OpenGL 3.3+ no se exponen como símbolos normales enlazados en compilación. Se resuelven en runtime apuntando a direcciones de memoria del driver. La razón tiene dos capas:</p>
+        <ul>
+          <li>El API de OpenGL es <strong>extensible por diseño</strong>: extensiones (<code>GL_ARB_...</code>) y vendors pueden añadir funciones que la librería base ni conoce. Las firmas de esas funciones futuras no existen en el momento de compilar, así que el punto de entrada (<code>glfwGetProcAddress</code>) no puede declarar un tipo concreto: devuelve un puntero genérico que luego se castea a la firma real de cada función.</li>
+          <li>La implementación la decide el driver de la GPU (Mesa, NVIDIA, AMD...) que se carga cuando se crea el contexto. Hasta que existe contexto no hay una dirección única y válida para cada función.</li>
+        </ul>
+        <p>Por eso el flujo es: la librería de ventana crea el contexto, el conductor se carga con el contexto, y <code>glfwGetProcAddress</code> consulta al driver "dame tu implementación de tal función". El puntero-cast es el puente entre lo genérico del loader y lo concreto de cada firma.</p>
+
+        <h2>5. El cargador manual: header, tipos y constantes</h2>
+        <p>GLFW, por defecto, incluye <code>&lt;GL/gl.h&gt;</code> al incluir su header. Ese header del sistema declara algunas funciones legacy como símbolos reales (por ejemplo <code>glClearColor</code>, <code>glClear</code>, <code>glDrawArrays</code>). Si nosotros declaramos punteros a función con esos mismos nombres, el compilador responde: <code>'glClearColor' redeclared as different kind of symbol</code>.</p>
+        <p>La solución canónica (la misma que usa GLAD) es evitar que GLFW meta <code>gl.h</code> y declarar nosotros los tipos y constantes mínimos que consumimos:</p>
+        <pre class="code">/* src/gl_loader.h */
+#ifndef GL_LOADER_H
+#define GL_LOADER_H
+
+#include &lt;stddef.h&gt;
+#include &lt;stdint.h&gt;
+
+#define GLFW_INCLUDE_NONE          /* GLFW no incluye &lt;GL/gl.h&gt; */
+#include &lt;GLFW/glfw3.h&gt;
+
+typedef uint32_t   GLenum;
+typedef uint32_t   GLbitfield;
+typedef uint32_t   GLuint;
+typedef int32_t    GLint;
+typedef int32_t    GLsizei;
+typedef uint8_t    GLboolean;
+typedef uint8_t    GLubyte;
+typedef float      GLfloat;
+typedef char       GLchar;
+typedef ptrdiff_t  GLsizeiptr;
+
+enum {
+    GL_COLOR_BUFFER_BIT = 0x00004000, /* glClear : buffer de color */
+    GL_VERSION          = 0x1F02,     /* glGetString : versión */
+    GL_FLOAT            = 0x1406,
+    GL_FALSE            = 0,
+    GL_VERTEX_SHADER    = 0x8B31,
+    GL_FRAGMENT_SHADER  = 0x8B30,
+    GL_ARRAY_BUFFER     = 0x8892,
+    GL_STATIC_DRAW      = 0x88E4,
+    GL_TRIANGLES        = 0x0004
+};
+
+void init_gl_functions(void);
+
+extern void (*glClearColor)(GLfloat, GLfloat, GLfloat, GLfloat);
+extern void (*glClear)(GLbitfield);
+extern const GLubyte *(*glGetString)(GLenum);
+/* ... resto de punteros a función con su firma exacta ... */
+
+#endif</pre>
+        <p>Un detalle que se pagó caro en la sesión: los valores de <code>GL_COLOR_BUFFER_BIT</code> y <code>GL_VERSION</code> son de la spec de Khronos, no inventados. Y en el <code>enum</code>, cada constante va separada por coma; olvidar una coma rompe la compilación.</p>
+
+        <h2>6. Declarar, definir y asignar: las tres vidas de un puntero a función</h2>
+        <p>El error de enlazado más instructivo de la sesión fue:</p>
+        <pre class="code">referencia a 'glClearColor' sin definir</pre>
+        <p>Porque hay tres momentos distintos para un puntero a función global, y confundirlos rompe el build:</p>
+        <ul>
+          <li><strong>Declarar</strong> (<code>extern void (*glClearColor)(...);</code> en el header): "existe un símbolo con esta firma, será definido en otro lado". Repetible en cada archivo que lo necesite.</li>
+          <li><strong>Definir</strong> (<code>void (*glClearColor)(...);</code> en el <code>.c</code>): reserva el almacenamiento real del símbolo. Debe existir exactamente una vez en todo el programa; si dos archivos definieran el mismo símbolo, el linker fallaría con <em>multiple definition</em>.</li>
+          <li><strong>Asignar</strong> (<code>glClearColor = (void *)glfwGetProcAddress("glClearColor");</code>): ponerle un valor en runtime. Asignar no define: sin la definición previa, el símbolo no existe para el linker.</li>
+        </ul>
+        <p>Las definiciones van en el <code>.c</code> del loader (no en el header, que solo declara). Con las definiciones en un solo <code>.c</code>, main y loader comparten las declaraciones del header, el <code>.c</code> posee el almacenamiento, e <code>init_gl_functions()</code> lo inicializa con las direcciones del driver.</p>
+        <p>Las asignaciones se hacen con una macro que también incluye el guard de error:</p>
+        <pre class="code">#define GL_LOAD(name)                                                       \
+    do {                                                                    \
+        name = (void *)glfwGetProcAddress(#name);                           \
+        if (name == NULL) {                                                 \
+            fprintf(stderr, "GL: %s no disponible (contexto core?)\n", #name); \
+            exit(1);                                                        \
+        }                                                                   \
+    } while (0)</pre>
+        <p>La macro resuelve dos problemas a la vez:</p>
+        <ul>
+          <li><code>#name</code> (stringification) convierte el nombre del parámetro en string para el mensaje de error, sin repetir el nombre a mano.</li>
+          <li><code>do { } while (0)</code> hace que la macro se comporte como una sentencia normal y no rompa estructuras de control (<code>if (x) GL_LOAD(a); else ...</code>).</li>
+          <li>Las barras <code>\</code> al final de cada línea pegan la macro en una sola directiva del preprocesador; deben ser el último carácter de la línea, sin espacios después, o la macro se corta y aparecen errores raros del tipo <code>stray '#' in program</code>.</li>
+        </ul>
+        <p>El guard es obligatorio: si el driver no implementa una función (o el contexto no es core), <code>glfwGetProcAddress</code> devuelve <code>NULL</code>. Un programa que llamara a un puntero <code>NULL</code> crashearía sin aviso; el guard lo convierte en un mensaje claro y salida con código de error.</p>
+
+        <h2>7. El primer triángulo</h2>
+        <p>El dato mínimo es un array de posiciones hardcodeadas:</p>
         <pre class="code">float vertices[] = {
     -0.5f, -0.5f, 0.0f,
      0.5f, -0.5f, 0.0f,
@@ -132,119 +224,56 @@ glfwTerminate();</pre>
 };</pre>
         <p>Cada vértice tiene tres <code>float</code>:</p>
         <pre class="code">x y z</pre>
-        <p>Por tanto:</p>
-        <pre class="code">9 floats / 3 floats por vértice = 3 vértices</pre>
-        <p>Estos datos no aparecen en pantalla por estar en un array C. El GPU no lee automáticamente la RAM de tu programa. Debes subirlos a memoria del GPU.</p>
-
-        <h2>5. VBO y VAO</h2>
-        <p>Dos objetos aparecen enseguida:</p>
-        <pre class="code">VBO = Vertex Buffer Object
-VAO = Vertex Array Object</pre>
-        <p>La forma simple de recordarlos es:</p>
-        <pre class="code">VBO:
-  contiene los datos crudos de vértices en memoria del GPU
-
-VAO:
-  recuerda cómo interpretar esos datos</pre>
-        <p>Ejemplo conceptual:</p>
-        <pre class="code">VBO:
-  -0.5 -0.5 0.0   0.5 -0.5 0.0   0.0 0.5 0.0
-
-VAO:
-  location 0 = leer 3 floats por vértice
-  stride = 3 floats
-  offset = 0</pre>
-        <p>El VBO responde:</p>
-        <pre class="code">¿Dónde están los datos?</pre>
-        <p>El VAO responde:</p>
-        <pre class="code">¿Cómo se leen esos datos?</pre>
-        <p>Código conceptual:</p>
-        <pre class="code">unsigned int vao;
-unsigned int vbo;
-
+        <p>Por tanto: <code>9 floats / 3 floats por vértice = 3 vértices</code>.</p>
+        <p>Estos datos no aparecen en pantalla por estar en un array C. El GPU no lee automáticamente la RAM del programa; hay que subirlos a memoria del GPU:</p>
+        <pre class="code">GLuint vao, vbo;
 glGenVertexArrays(1, &amp;vao);
-glGenBuffers(1, &amp;vbo);
-
 glBindVertexArray(vao);
 
+glGenBuffers(1, &amp;vbo);
 glBindBuffer(GL_ARRAY_BUFFER, vbo);
 glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-glVertexAttribPointer(
-    0,                  // location = 0
-    3,                  // 3 floats: x, y, z
-    GL_FLOAT,
-    GL_FALSE,
-    3 * sizeof(float),  // stride
-    (void *)0           // offset
-);
+glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
 glEnableVertexAttribArray(0);</pre>
-        <p>Más adelante, cuando cada vértice tenga posición, color y UV, el VAO será aún más importante:</p>
-        <pre class="code">x y z   r g b   u v</pre>
-        <p>Entonces necesitaremos describir varios atributos:</p>
-        <pre class="code">location 0: posición, 3 floats, empieza en offset 0
-location 1: color,    3 floats, empieza después de posición
-location 2: UV,       2 floats, empieza después de color</pre>
+        <ul>
+          <li><strong>VBO</strong> (Vertex Buffer Object): guarda los datos crudos de vértices en memoria del GPU. Responde "¿dónde están los datos?".</li>
+          <li><strong>VAO</strong> (Vertex Array Object): recuerda cómo se interpretan esos datos (location, tamaño, stride, offset). Responde "¿cómo se leen?".</li>
+          <li><code>glVertexAttribPointer</code> conecta el dato con el shader: el atributo <code>location 0</code> se lee con 3 floats por vértice, stride de 3 floats, offset 0.</li>
+          <li><code>(void *)0</code> es un offset en bytes desde el inicio del buffer, no un puntero real: es deuda histórica del API. Para un segundo atributo que empezara después de la posición, iría <code>(void *)(3 * sizeof(float))</code>.</li>
+        </ul>
+        <p>Más adelante, cuando cada vértice tenga posición, color y UV, el VAO describirá tres atributos:</p>
+        <pre class="code">location 0: posición, 3 floats, offset 0
+location 1: color,    3 floats, offset tras posición
+location 2: UV,       2 floats, offset tras color</pre>
 
-        <h2>6. Shaders mínimos</h2>
-        <p>El vertex shader debe tener una entrada compatible con el atributo configurado en el VAO:</p>
-        <pre class="code">#version 330 core
+        <h2>8. Shaders mínimos</h2>
+        <p>Los shaders en esta clase van como strings; en el proyecto real se cargarán desde archivos con código propio.</p>
+        <pre class="code">const char *vs_src =
+    "#version 330 core\n"
+    "layout(location = 0) in vec3 aPos;\n"
+    "void main() { gl_Position = vec4(aPos, 1.0); }\n";
 
-layout (location = 0) in vec3 aPos;
-
-void main()
-{
-    gl_Position = vec4(aPos, 1.0);
-}</pre>
+const char *fs_src =
+    "#version 330 core\n"
+    "out vec4 FragColor;\n"
+    "void main() { FragColor = vec4(0.8, 0.4, 0.2, 1.0); }\n";</pre>
         <p>La conexión importante es:</p>
-        <pre class="code">VAO dice: location 0 contiene 3 floats por vértice
-shader dice: layout(location = 0) in vec3 aPos</pre>
-        <p>Si el VAO configura <code>location = 0</code> pero el shader espera <code>location = 1</code>, el shader está mirando otra entrada. El resultado puede ser que no se vea nada o que se lean datos incorrectos.</p>
-        <p>El fragment shader puede devolver un color fijo:</p>
-        <pre class="code">#version 330 core
+        <pre class="code">VAO dice:  location 0 contiene 3 floats por vértice
+shader:    layout(location = 0) in vec3 aPos</pre>
+        <p>Si el VAO configura <code>location = 0</code> pero el shader espera <code>location = 1</code>, el shader está mirando otra entrada: puede no verse nada o leerse datos incorrectos.</p>
+        <p>El flujo de compilación y enlazado:</p>
+        <pre class="code">glCreateShader → glShaderSource → glCompileShader
+glCreateProgram → glAttachShader(vertex) → glAttachShader(fragment) → glLinkProgram
+glDeleteShader(vs) → glDeleteShader(fs) → glUseProgram</pre>
+        <p>El subject no prohíbe escribir funciones propias como <code>load_shader_file()</code> o <code>compile_shader()</code>. Lo que no se debe hacer es delegar esa responsabilidad a una librería externa que oculte la carga, compilación, enlazado y reporte de errores. Además, en el proyecto real convendrá comprobar los errores de compilación con <code>glGetShaderiv</code>/<code>glGetShaderInfoLog</code> y los de enlazado con <code>glGetProgramiv</code>/<code>glGetProgramInfoLog</code>.</p>
 
-out vec4 FragColor;
-
-void main()
-{
-    FragColor = vec4(1.0, 0.5, 0.2, 1.0);
-}</pre>
-        <p>Ese <code>vec4</code> representa:</p>
-        <pre class="code">rojo, verde, azul, alfa</pre>
-        <p>con valores entre <code>0.0</code> y <code>1.0</code>.</p>
-
-        <h2>7. Compilar y enlazar shaders</h2>
-        <p>El flujo conceptual de shaders es:</p>
-        <pre class="code">código fuente GLSL
-  ↓
-glCreateShader
-  ↓
-glShaderSource
-  ↓
-glCompileShader
-  ↓
-comprobar errores
-  ↓
-glCreateProgram
-  ↓
-glAttachShader(vertex)
-  ↓
-glAttachShader(fragment)
-  ↓
-glLinkProgram
-  ↓
-comprobar errores
-  ↓
-glUseProgram</pre>
-        <p>El subject no prohíbe escribir funciones propias como <code>load_shader_file()</code> o <code>compile_shader()</code>. Lo que no debes hacer es delegar esa responsabilidad a una librería externa que oculte la carga, compilación, enlazado y reporte de errores.</p>
-        <p>Para aprender, en esta clase los shaders pueden estar como strings. En el proyecto real convendrá cargarlos desde archivos usando código propio.</p>
-
-        <h2>8. Dibujar cada frame</h2>
+        <h2>9. Dibujar cada frame</h2>
         <p>Un frame mínimo hace esto:</p>
         <pre class="code">glClearColor(0.1f, 0.1f, 0.12f, 1.0f);
 glClear(GL_COLOR_BUFFER_BIT);
 
-glUseProgram(shader_program);
+glUseProgram(program);
 glBindVertexArray(vao);
 glDrawArrays(GL_TRIANGLES, 0, 3);
 
@@ -257,29 +286,25 @@ glfwPollEvents();</pre>
             <tr><td class="mono-col"><code>glClearColor</code></td><td>Define el color con el que se limpiará el fondo.</td></tr>
             <tr><td class="mono-col"><code>glClear</code></td><td>Limpia el framebuffer actual.</td></tr>
             <tr><td class="mono-col"><code>glUseProgram</code></td><td>Activa el programa de shaders.</td></tr>
-            <tr><td class="mono-col"><code>glBindVertexArray</code></td><td>Activa la receta para leer vértices.</td></tr>
+            <tr><td class="mono-col"><code>glBindVertexArray</code></td><td>Activa la receta para leer vértices. Rebindear cada frame es la convención que no falla: el binding del VAO es estado global de GL, y con varios objetos cada draw usa su receta.</td></tr>
             <tr><td class="mono-col"><code>glDrawArrays</code></td><td>Ordena dibujar vértices secuenciales como triángulos.</td></tr>
-            <tr><td class="mono-col"><code>glfwSwapBuffers</code></td><td>Muestra el frame renderizado.</td></tr>
+            <tr><td class="mono-col"><code>glfwSwapBuffers</code></td><td>Muestra el frame renderizado (doble buffer).</td></tr>
             <tr><td class="mono-col"><code>glfwPollEvents</code></td><td>Procesa teclado, ratón, cierre, resize y otros eventos.</td></tr>
           </tbody>
         </table>
-        <p>Si olvidas <code>glfwPollEvents()</code>, la ventana puede no responder a cierre, teclado o ratón.</p>
+        <p>Si olvidas <code>glfwPollEvents()</code>, la ventana puede no responder a cierre, teclado o ratón. Si olvidas <code>glfwSwapBuffers()</code>, el frame no se presenta.</p>
 
-        <h2>9. Doble buffer</h2>
-        <p>Normalmente no dibujas directamente sobre la imagen visible. Se usa doble buffer:</p>
-        <pre class="code">front buffer:
-  imagen visible ahora
+        <h2>10. Verificación real de la sesión</h2>
+        <p>Al ejecutar el programa, la terminal imprimió:</p>
+        <pre class="code">OpenGL 4.6 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.2 (cargador manual OK)</pre>
+        <p>Lección de la salida: se pidió un contexto core 3.3, pero el driver entregó 4.6. Los hints piden el <strong>mínimo</strong> (<code>&gt;= 3.3</code>), y el driver da el contexto más nuevo compatible hacia atrás. El código sigue siendo válido en 3.3 y en 4.6: el loader resuelve funciones por nombre, no por versión fija.</p>
+        <p>El criterio observable de la clase: se abrió una ventana, se dibujó un triángulo naranja (fragment shader con <code>vec4(0.8, 0.4, 0.2, 1.0)</code>, RGBA) sobre fondo azul-negro (<code>glClearColor(0.1, 0.1, 0.12, 1.0)</code>), sin avisos de compilación con <code>-Wall -Wextra -Werror</code>, con el cargador manual cargando las 22 funciones sin ningún fallo de <code>NULL</code>.</p>
 
-back buffer:
-  imagen que estoy dibujando para el siguiente frame</pre>
-        <p>Cuando terminas de dibujar:</p>
-        <pre class="code">glfwSwapBuffers(window);</pre>
-        <p>el back buffer pasa a verse y el programa empieza a preparar el siguiente frame. Esto evita parpadeos y frames parcialmente dibujados.</p>
-
-        <h2>10. Qué queda para el Scop real</h2>
+        <h2>11. Qué queda para el Scop real</h2>
         <p>El triángulo hardcodeado es temporal, pero la infraestructura seguirá existiendo:</p>
         <pre class="code">ventana
 contexto
+cargador manual de OpenGL
 carga/compilación de shaders
 VAO/VBO
 render loop
@@ -303,7 +328,7 @@ VAO
   ↓ leído por
 vertex shader</pre>
 
-        <h2>11. Predicciones y ejercicios</h2>
+        <h2>12. Predicciones y ejercicios</h2>
         <p>Conviene intentar cada ejercicio antes de consultar la solución.</p>
 
         <div class="exercise">
@@ -318,54 +343,77 @@ vertex shader</pre>
         </div>
 
         <div class="exercise">
-          <span class="ex-tag">Ejercicio 2 · location desalineada</span>
-          <p>Si configuras el VAO con <code>location = 0</code>, pero el vertex shader espera <code>layout(location = 1) in vec3 aPos;</code>, ¿qué problema conceptual hay?</p>
+          <span class="ex-tag">Ejercicio 2 · quién carga las funciones de OpenGL</span>
+          <p>¿Quién carga las funciones de OpenGL en Linux y cómo?</p>
           <details class="solution">
             <summary>Mostrar solución</summary>
             <div class="answer-box">
-              <p>El shader está mirando otra entrada distinta. El VAO puso los datos en <code>location 0</code>, pero el shader los pide en <code>location 1</code>.</p>
+              <p>El cargador las resuelve en runtime con <code>glfwGetProcAddress</code> para cada función, casteando el puntero genérico a la firma exacta. <code>glfwGetProcAddress</code> devuelve un puntero genérico; no puede devolver <code>char*</code> ni una firma concreta porque el API es extensible y las firmas futuras no existen al compilar.</p>
             </div>
           </details>
         </div>
 
         <div class="exercise">
-          <span class="ex-tag">Ejercicio 3 · poll events olvidado</span>
-          <p>Si olvidas llamar a <code>glfwPollEvents()</code> dentro del bucle, ¿qué problema práctico esperas?</p>
+          <span class="ex-tag">Ejercicio 3 · el tipo del loader</span>
+          <p>¿Qué tipo devuelve <code>glfwGetProcAddress</code> y qué hay que hacer con él para poder llamar a la función?</p>
           <details class="solution">
             <summary>Mostrar solución</summary>
             <div class="answer-box">
-              <p>La ventana puede dejar de responder a cierre, teclado, ratón, redimensionado u otros eventos.</p>
+              <p>Devuelve un puntero genérico a función. Hay que declarar un puntero con la firma exacta de la función y asignar el genérico con un cast. Sin el cast y la firma correcta, C no sabe cómo invocarla.</p>
             </div>
           </details>
         </div>
 
         <div class="exercise">
-          <span class="ex-tag">Ejercicio 4 · sin doble buffer</span>
-          <p>Si dibujaras directamente sobre la imagen visible, sin doble buffer, ¿qué efecto visual podría aparecer?</p>
+          <span class="ex-tag">Ejercicio 4 · loader antes del contexto</span>
+          <p>¿Qué problema práctico aparece si llamas a <code>init_gl_functions()</code> antes de crear la ventana/contexto?</p>
           <details class="solution">
             <summary>Mostrar solución</summary>
             <div class="answer-box">
-              <p>Podrían aparecer parpadeos o frames parcialmente dibujados. El doble buffer evita mostrar la imagen mientras aún se está construyendo.</p>
+              <p>El driver aún no se ha cargado, así que <code>glfwGetProcAddress</code> devuelve <code>NULL</code> para las funciones 3.x y el guard de la macro aborta con un mensaje de error. La cadena correcta es: contexto primero, loader después.</p>
             </div>
           </details>
         </div>
 
         <div class="exercise">
-          <span class="ex-tag">Ejercicio 5 · qué sobrevive</span>
-          <p>En el proyecto final, ¿qué parte de esta clase seguirá existiendo aunque ya no dibujemos un triángulo hardcodeado?</p>
+          <span class="ex-tag">Ejercicio 5 · la macro rota</span>
+          <p>Si olvidas las llaves <code>\</code> al final de cada línea de la macro, ¿qué tipo de error de preprocesador aparece?</p>
           <details class="solution">
             <summary>Mostrar solución</summary>
             <div class="answer-box">
-              <p>Segurán existiendo ventana, contexto, shaders, VAO/VBO, render loop, swap buffers, poll events y cleanup. Lo que desaparece es el triángulo hardcodeado como fuente fija de datos.</p>
+              <p>La macro se corta en la primera línea y el cuerpo queda suelto como código normal: errores del estilo <code>expected identifier or '(' before 'do'</code> y <code>stray '#' in program</code> por el <code>#</code> de la stringification. El <code>\</code> debe ser el último carácter de la línea.</p>
             </div>
           </details>
         </div>
 
         <div class="exercise">
-          <span class="ex-tag">Ejercicio 6 · completa cada pieza</span>
+          <span class="ex-tag">Ejercicio 6 · dónde se definen los punteros</span>
+          <p>¿Por qué las definiciones de los punteros van en el <code>.c</code> y no en el header?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>Porque un símbolo se define una sola vez en todo el programa. Si dos <code>.c</code> definieran el mismo símbolo, el linker fallaría con <em>multiple definition</em>. En el header solo van las declaraciones <code>extern</code>, repetibles en cada archivo que las necesite.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 7 · qué imprime el driver</span>
+          <p>¿Qué esperas que imprima <code>glGetString(GL_VERSION)</code> si pediste un contexto 3.3 en un driver que soporta más?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>Puede imprimir la versión exacta pedida (3.3) o la del contexto más nuevo que el driver decida crear (en la sesión real imprimió <code>4.6 (Core Profile) Mesa ...</code>). Los hints piden el mínimo, no fijan el valor exacto.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 8 · completa cada pieza</span>
           <p>Completa con una frase cada pieza:</p>
           <pre class="code">GLFW:
 Contexto OpenGL:
+Cargador manual:
 VBO:
 VAO:
 Vertex shader:
@@ -378,6 +426,7 @@ glfwPollEvents:</pre>
             <div class="answer-box">
               <pre class="code">GLFW: librería permitida para crear ventana, contexto OpenGL y gestionar eventos.
 Contexto OpenGL: estado OpenGL asociado a una ventana/hilo que permite hacer llamadas OpenGL válidas.
+Cargador manual: código propio que resuelve los punteros de las funciones de OpenGL en runtime con glfwGetProcAddress.
 VBO: buffer en memoria del GPU que contiene datos crudos de vértices.
 VAO: objeto que recuerda cómo interpretar los datos del VBO: location, tamaño, stride y offset.
 Vertex shader: programa que corre por vértice y produce `gl_Position`.
@@ -385,6 +434,42 @@ Fragment shader: programa que corre por fragmento y decide el color final.
 glDrawArrays: draw call que ordena dibujar vértices secuenciales desde el VAO activo.
 glfwSwapBuffers: intercambia el back buffer dibujado con el front buffer visible.
 glfwPollEvents: procesa eventos pendientes de teclado, ratón, cierre, resize y foco.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 9 · compilar y ejecutar (obligatorio)</span>
+          <p>Crea un <code>Makefile</code> con <code>-Wall -Wextra -Werror</code> y la línea de dependencias usando <code>pkg-config --cflags --libs glfw3</code>. Compila y ejecuta. El criterio observable: la ventana se abre con un triángulo naranja sobre fondo azul-negro, la terminal imprime la línea del driver, y no hay ningún aviso del compilador.</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>Makefile de referencia:</p>
+              <pre class="code">NAME    = scop
+CC      = cc
+CFLAGS  = -Wall -Wextra -Werror
+GLFW    = $(shell pkg-config --cflags --libs glfw3)
+SRCS    = src/main.c src/gl_loader.c
+OBJ     = $(SRCS:.c=.o)
+
+all: $(NAME)
+
+$(NAME): $(OBJ)
+	$(CC) $(CFLAGS) -o $@ $(OBJ) $(GLFW)
+
+%.o: %.c src/gl_loader.h
+	$(CC) $(CFLAGS) $(shell pkg-config --cflags glfw3) -c $&lt; -o $@
+
+clean:
+	rm -f $(OBJ)
+
+fclean: clean
+	rm -f $(NAME)
+
+re: fclean all
+
+.PHONY: all clean fclean re</pre>
+              <p>En la sesión real el makefile se guardó inicialmente en <code>src/</code> y hubo que moverlo a la raíz del repo: <code>make</code> se ejecuta desde la raíz y sus rutas <code>src/...</code> se resuelven ahí, no desde dentro de <code>src/</code>.</p>
             </div>
           </details>
         </div>
@@ -400,6 +485,12 @@ glfwPollEvents: procesa eventos pendientes de teclado, ratón, cierre, resize y 
             <li>Olvidar <code>glfwPollEvents()</code> y obtener una ventana que no responde.</li>
             <li>Olvidar <code>glfwSwapBuffers()</code> y no presentar correctamente el frame.</li>
             <li>Creer que el triángulo hardcodeado es parte del proyecto final; solo es una prueba mínima del pipeline.</li>
+            <li>Usar el cargador manual antes de <code>glfwMakeContextCurrent</code>.</li>
+            <li>Poner los <code>glfwWindowHint</code> después de <code>glfwCreateWindow</code>: el contexto nace con el perfil por defecto.</li>
+            <li>Olvidar las comas en el <code>enum</code> de constantes y ver errores de declaración confusos.</li>
+            <li>Olvidar las definiciones de los punteros en el <code>.c</code> y sufrir <em>undefined reference</em> en el enlazado.</li>
+            <li>Dejar espacios después de las <code>\</code> de la macro y ver <code>stray '#' in program</code>.</li>
+            <li>Confundir <code>(void *)0</code> de <code>glVertexAttribPointer</code> con un puntero real, cuando es un offset en bytes.</li>
           </ul>
         </div>
 
@@ -408,25 +499,30 @@ glfwPollEvents: procesa eventos pendientes de teclado, ratón, cierre, resize y 
           <li>Antes de dibujar necesitas ventana, contexto OpenGL actual, shaders, buffers y bucle de render.</li>
           <li>GLFW está permitido porque gestiona ventana, contexto y eventos, no el parser ni las matemáticas del renderer.</li>
           <li>OpenGL necesita un contexto actual antes de ejecutar llamadas válidas.</li>
-          <li>El VBO contiene datos de vértices en GPU.</li>
-          <li>El VAO recuerda cómo interpretar esos datos para los atributos del shader.</li>
-          <li><code>layout(location = N)</code> debe coincidir con el atributo configurado en <code>glVertexAttribPointer</code>.</li>
+          <li>Las funciones de OpenGL se resuelven en runtime con <code>glfwGetProcAddress</code> porque el API es extensible y el driver se carga con el contexto; no hay símbolos enlazables para OpenGL 3.3+.</li>
+          <li><code>GLFW_INCLUDE_NONE</code> evita que GLFW meta <code>&lt;GL/gl.h&gt;</code> y choque con nuestros punteros a función.</li>
+          <li>Extern declara, el <code>.c</code> define, y la asignación en runtime llena el valor; los tres momentos son distintos.</li>
+          <li>La macro <code>GL_LOAD</code> con <code>#name</code> y <code>do { } while (0)</code> carga cada función y aborta con mensaje claro si el driver no la da.</li>
+          <li>El VBO contiene datos; el VAO recuerda cómo leerlos; <code>layout(location = N)</code> debe coincidir con <code>glVertexAttribPointer</code>.</li>
           <li>El vertex shader trabaja por vértice; el fragment shader decide colores por fragmento.</li>
           <li><code>glDrawArrays(GL_TRIANGLES, 0, 3)</code> dibuja tres vértices secuenciales como un triángulo.</li>
           <li><code>glfwSwapBuffers()</code> presenta el frame terminado y <code>glfwPollEvents()</code> procesa eventos.</li>
+          <li>Pedir un contexto 3.3 pide un mínimo, no un valor exacto: el driver puede entregar una versión mayor compatible.</li>
         </ul>
 
         <h2>Preguntas tipo defensa</h2>
         <p>Responde en voz alta, sin mirar los apuntes:</p>
         <ol class="checklist">
           <li class="chk"><label><input type="checkbox" data-id="d1"><span>¿Por qué GLFW está permitido por el subject?</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="d2"><span>¿Por qué necesitas llamar a <code>glfwMakeContextCurrent(window)</code> antes de usar OpenGL?</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="d3"><span>¿Cuál es la diferencia entre VBO y VAO?</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="d4"><span>¿Por qué el <code>layout(location = 0)</code> del shader debe coincidir con el atributo configurado en <code>glVertexAttribPointer</code>?</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="d5"><span>¿Para qué sirve <code>glfwSwapBuffers()</code>?</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="d6"><span>¿Para qué sirve <code>glfwPollEvents()</code>?</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="d7"><span>¿Qué parte del primer triángulo desaparecerá cuando empecemos a cargar <code>.obj</code>, y qué parte seguirá existiendo?</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="d8"><span>¿Por qué no conviene mezclar en una sola función ventana, parser <code>.obj</code>, shaders, buffers y render?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d2"><span>¿Por qué las funciones de OpenGL 3.3+ no se enlazan en compilación y hay que cargarlas en runtime?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d3"><span>¿Por qué hay que llamar a <code>glfwMakeContextCurrent(window)</code> antes del cargador manual?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d4"><span>¿Qué diferencia hay entre declarar, definir y asignar un puntero a función global?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d5"><span>¿Por qué los <code>glfwWindowHint</code> van antes de <code>glfwCreateWindow</code> y no después?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d6"><span>¿Qué significa <code>(void *)0</code> en <code>glVertexAttribPointer</code> y qué indicaría un segundo atributo?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d7"><span>¿Qué hace <code>#name</code> en la macro <code>GL_LOAD</code> y por qué el cuerpo va encerrado en <code>do { } while (0)</code>?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d8"><span>¿Por qué el <code>layout(location = 0)</code> del shader debe coincidir con el atributo configurado en <code>glVertexAttribPointer</code>?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d9"><span>¿Por qué rebindear el VAO en cada frame es la convención segura con varios objetos?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d10"><span>¿Qué parte del primer triángulo desaparecerá cuando empecemos a cargar <code>.obj</code>, y qué parte seguirá existiendo?</span></label></li>
         </ol>
 
         <h2>Criterio de finalización</h2>
@@ -434,21 +530,24 @@ glfwPollEvents: procesa eventos pendientes de teclado, ratón, cierre, resize y 
         <ol class="checklist">
           <li class="chk"><label><input type="checkbox" data-id="c1"><span>Explicar qué responsabilidades cubre GLFW y cuáles no debe cubrir.</span></label></li>
           <li class="chk"><label><input type="checkbox" data-id="c2"><span>Explicar qué es un contexto OpenGL y por qué debe ser actual.</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Contar cuántos vértices hay en un array de floats según el stride.</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Distinguir VBO de VAO sin confundir datos con interpretación.</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Explicar la relación entre <code>glVertexAttribPointer</code> y <code>layout(location = ...)</code>.</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="c6"><span>Describir el trabajo mínimo de un vertex shader y de un fragment shader.</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="c7"><span>Ordenar mentalmente un frame: limpiar, usar shader, bind VAO, draw call, swap buffers, poll events.</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="c8"><span>Explicar qué desaparece del triángulo hardcodeado cuando el <code>.obj</code> sea la fuente de datos.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Explicar por qué las funciones de OpenGL se cargan en runtime y cómo se hace con <code>glfwGetProcAddress</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Distinguir declarar, definir y asignar un puntero a función, y ubicar cada paso en el código del loader.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Contar cuántos vértices hay en un array de floats según el stride.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c6"><span>Distinguir VBO de VAO sin confundir datos con interpretación.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c7"><span>Explicar la relación entre <code>glVertexAttribPointer</code> y <code>layout(location = ...)</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c8"><span>Ordenar mentalmente un frame: limpiar, usar shader, bind VAO, draw call, swap buffers, poll events.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c9"><span>Haber escrito, compilado con <code>-Wall -Wextra -Werror</code> y ejecutado el código: la ventana se abrió y el triángulo naranja se vio en pantalla.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c10"><span>Explicar qué desaparece del triángulo hardcodeado cuando el <code>.obj</code> sea la fuente de datos.</span></label></li>
         </ol>
 
-        <p><strong>Siguiente clase:</strong> entraremos en el parser <code>.obj</code>: leeremos líneas <code>v</code>, <code>vt</code>, <code>vn</code> y <code>f</code>, adaptaremos índices base uno a arrays base cero y convertiremos caras en triángulos. El resultado será leer y validar un <code>.obj</code> sencillo antes de conectarlo al pipeline gráfico.</p>
+        <p><strong>Siguiente clase:</strong> entraremos en el parser <code>.obj</code>: leeremos líneas <code>v</code>, <code>vt</code>, <code>vn</code> y <code>f</code>, adaptaremos índices base uno a arrays base cero y convertiremos caras en triángulos. El resultado será leer y validar un <code>.obj</code> sencillo y cargarlo en el mismo esqueleto de la clase 2, antes de conectarlo al pipeline gráfico.</p>
 
         <h2>Lista de lecturas</h2>
         <ul>
-          <li>Documentación de GLFW — <code>glfwCreateWindow</code>, <code>glfwMakeContextCurrent</code>, <code>glfwPollEvents</code> y <code>glfwSwapBuffers</code> (doble buffer).</li>
-          <li>Khronos, OpenGL 3.3 spec — buffer objects (VBO) y vertex array objects (VAO); <code>glVertexAttribPointer</code>.</li>
+          <li>Documentación oficial de GLFW — <code>glfwCreateWindow</code>, <code>glfwWindowHint</code>, <code>glfwMakeContextCurrent</code>, <code>glfwPollEvents</code>, <code>glfwSwapBuffers</code> y <code>glfwGetProcAddress</code>.</li>
+          <li>Khronos, OpenGL 3.3 Core Profile spec — buffer objects (VBO), vertex array objects (VAO) y <code>glVertexAttribPointer</code>; espacio de clip y división por perspectiva.</li>
           <li>Khronos, GLSL 3.30 spec — compilar, enlazar y usar shaders (<code>glShaderSource</code>/<code>glLinkProgram</code>).</li>
+          <li>Especificación de Khronos de las constantes de OpenGL — valores de <code>GL_COLOR_BUFFER_BIT</code>, <code>GL_VERTEX_SHADER</code>, <code>GL_ARRAY_BUFFER</code>, <code>GL_STATIC_DRAW</code> y <code>GL_TRIANGLES</code>.</li>
         </ul>
       </section>
 
@@ -456,35 +555,36 @@ glfwPollEvents: procesa eventos pendientes de teclado, ratón, cierre, resize y 
       <section lang="en">
         <div class="objective">
           <span class="label">Objective</span>
-          <p>Understand the minimum pieces needed to open an OpenGL window and draw the first triangle. By the end of this class you must be able to explain what GLFW provides, what an OpenGL context is, what VBO and VAO are for, how the shader attributes connect to the buffer data, and why the render loop needs <code>glfwSwapBuffers()</code> and <code>glfwPollEvents()</code>.</p>
+          <p>Set up the real Scop skeleton on which all the other classes will be built: a GLFW window, an OpenGL context, a manual OpenGL function loader, minimal shaders, VBO/VAO and a render loop. By the end of this class you must be able to explain what GLFW provides, what an OpenGL context is and why it must be current, why OpenGL functions must be loaded at runtime instead of linked, the difference between declaring, defining and assigning a function pointer, how the shader attributes connect to the buffer data, and why the render loop needs <code>glfwSwapBuffers()</code> and <code>glfwPollEvents()</code>.</p>
         </div>
-        <p>This class builds on class 1: we already have the mental pipeline, now we set up the minimum infrastructure to draw.</p>
+        <p>This class was taken interactively and follows the project rule: real code was written, compiled with <code>-Wall -Wextra -Werror</code> and run. The observable result was a clear window and an orange triangle drawn by our own pipeline.</p>
 
         <h2>1. What we are isolating</h2>
-        <p>This class does not load <code>.obj</code> files yet, does not use MVP matrices and does not apply textures. It isolates a single question:</p>
-        <pre class="code">What must exist before the GPU can draw anything?</pre>
+        <p>This class does not load <code>.obj</code> files yet, does not use MVP matrices and does not apply textures. It isolates two questions:</p>
+        <pre class="code">1. What must exist before the GPU can draw anything?
+2. How do you obtain the OpenGL functions the GPU will execute?</pre>
         <p>The minimum flow is:</p>
         <pre class="code">program
   ↓
-initialize window library
+initialize window library (glfwInit)
   ↓
-create window + OpenGL context
+request a core 3.3 context (glfwWindowHint BEFORE creating the window)
   ↓
-make the context current
+create window + OpenGL context (glfwCreateWindow)
   ↓
-load OpenGL functions if needed
+make the context current (glfwMakeContextCurrent)
   ↓
-create shaders
+load OpenGL functions (manual loader, after the context)
   ↓
-create triangle data
+create and compile shaders
   ↓
-upload it to VBO/VAO
+create triangle data and upload it to VBO/VAO
   ↓
-event loop
+event loop (glfwWindowShouldClose)
   ↓
 draw each frame
   ↓
-swap buffers</pre>
+swap buffers + poll events</pre>
         <p>The window is not the scene. It is the destination where OpenGL will present the final framebuffer.</p>
 
         <h2>2. What the subject allows</h2>
@@ -494,6 +594,7 @@ swap buffers</pre>
           <li>Creating the OpenGL context.</li>
           <li>Handling keyboard, mouse and window close.</li>
           <li>Running the event loop.</li>
+          <li>Exposing <code>glfwGetProcAddress</code>, the entry point to resolve OpenGL functions at runtime.</li>
         </ul>
         <p>But it must not take care of the parts the subject requires you to implement or understand yourself:</p>
         <ul>
@@ -501,36 +602,126 @@ swap buffers</pre>
           <li>Matrices and transformations.</li>
           <li>Shader loading/compilation as an external black box.</li>
           <li>The full renderer.</li>
+          <li>The OpenGL loader: do it by hand so you can defend that no external libraries are used beyond the window/event one.</li>
         </ul>
         <p>GLFW is allowed because it solves window/context/event infrastructure, not the core problem of Scop.</p>
 
         <h2>3. Window, context and minimal loop</h2>
-        <p>A conceptual skeleton with GLFW is:</p>
-        <pre class="code">if (!glfwInit())
-    fail();
+        <p>The real skeleton that was written is:</p>
+        <pre class="code">glfwSetErrorCallback(error_callback);
+
+if (!glfwInit())
+    return 1;
+
+glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 GLFWwindow *window = glfwCreateWindow(800, 600, "scop", NULL, NULL);
 if (!window)
-    fail();
+    return 1;
 
 glfwMakeContextCurrent(window);
 
+init_gl_functions();   /* the manual loader */
+
 while (!glfwWindowShouldClose(window))
 {
-    render();
-
+    /* ... clear, draw ... */
     glfwSwapBuffers(window);
     glfwPollEvents();
 }
 
 glfwTerminate();</pre>
-        <p>The critical call is:</p>
-        <pre class="code">glfwMakeContextCurrent(window);</pre>
-        <p>OpenGL works on a current context associated with the thread. Without a current context, calls like creating buffers, compiling shaders or clearing the screen have no valid OpenGL state to operate on.</p>
-        <p>The OpenGL context does not contain the parsed <code>.obj</code>. The parsed model first lives in CPU memory and later its data is uploaded to GPU buffers.</p>
+        <p>Two critical ordering details:</p>
+        <ul>
+          <li>The <code>glfwWindowHint</code> calls come <strong>before</strong> <code>glfwCreateWindow</code>. The context request (version and profile) is finalized at the moment the window is created: the hints are consumed then and stay fixed for that window's lifetime. If called afterwards, the context is born with the default profile (legacy) and cannot be changed retroactively.</li>
+          <li><code>glfwMakeContextCurrent(window)</code> makes the context current for the thread. Without a current context, calls like creating buffers, compiling shaders or clearing the screen have no valid OpenGL state to operate on. The manual loader goes <strong>after</strong> this call, because only from that point on <code>glfwGetProcAddress</code> returns valid driver pointers.</li>
+        </ul>
 
-        <h2>4. The first triangle</h2>
-        <p>A minimal triangle can be written as hardcoded positions:</p>
+        <h2>4. Why OpenGL functions must be loaded by hand</h2>
+        <p>On Linux, OpenGL 3.3+ functions are not exposed as normal symbols linked at compile time. They are resolved at runtime by pointing to driver memory addresses. The reason has two layers:</p>
+        <ul>
+          <li>The OpenGL API is <strong>extensible by design</strong>: extensions (<code>GL_ARB_...</code>) and vendors can add functions the base library does not even know about. The signatures of those future functions do not exist at compile time, so the entry point (<code>glfwGetProcAddress</code>) cannot declare a concrete type: it returns a generic pointer that is later cast to each function's real signature.</li>
+          <li>The implementation is decided by the GPU driver (Mesa, NVIDIA, AMD...) which loads when the context is created. Until a context exists there is no single valid address for each function.</li>
+        </ul>
+        <p>That is why the flow is: the window library creates the context, the driver loads with the context, and <code>glfwGetProcAddress</code> asks the driver "give me your implementation of this function". The pointer cast is the bridge between the generic loader and the concrete signature.</p>
+
+        <h2>5. The manual loader: header, types and constants</h2>
+        <p>By default, GLFW includes <code>&lt;GL/gl.h&gt;</code> when you include its header. That system header declares some legacy functions as real symbols (for example <code>glClearColor</code>, <code>glClear</code>, <code>glDrawArrays</code>). If we declare function pointers with those same names, the compiler answers: <code>'glClearColor' redeclared as different kind of symbol</code>.</p>
+        <p>The canonical solution (the same one used by GLAD) is to stop GLFW from including <code>gl.h</code> and declare the minimal types and constants we consume ourselves:</p>
+        <pre class="code">/* src/gl_loader.h */
+#ifndef GL_LOADER_H
+#define GL_LOADER_H
+
+#include &lt;stddef.h&gt;
+#include &lt;stdint.h&gt;
+
+#define GLFW_INCLUDE_NONE          /* GLFW does not include &lt;GL/gl.h&gt; */
+#include &lt;GLFW/glfw3.h&gt;
+
+typedef uint32_t   GLenum;
+typedef uint32_t   GLbitfield;
+typedef uint32_t   GLuint;
+typedef int32_t    GLint;
+typedef int32_t    GLsizei;
+typedef uint8_t    GLboolean;
+typedef uint8_t    GLubyte;
+typedef float      GLfloat;
+typedef char       GLchar;
+typedef ptrdiff_t  GLsizeiptr;
+
+enum {
+    GL_COLOR_BUFFER_BIT = 0x00004000, /* glClear : color buffer */
+    GL_VERSION          = 0x1F02,     /* glGetString : version */
+    GL_FLOAT            = 0x1406,
+    GL_FALSE            = 0,
+    GL_VERTEX_SHADER    = 0x8B31,
+    GL_FRAGMENT_SHADER  = 0x8B30,
+    GL_ARRAY_BUFFER     = 0x8892,
+    GL_STATIC_DRAW      = 0x88E4,
+    GL_TRIANGLES        = 0x0004
+};
+
+void init_gl_functions(void);
+
+extern void (*glClearColor)(GLfloat, GLfloat, GLfloat, GLfloat);
+extern void (*glClear)(GLbitfield);
+extern const GLubyte *(*glGetString)(GLenum);
+/* ... the rest of the function pointers with their exact signatures ... */
+
+#endif</pre>
+        <p>One detail that cost time in the session: the <code>GL_COLOR_BUFFER_BIT</code> and <code>GL_VERSION</code> values come from the Khronos spec, they are not invented. And in the <code>enum</code>, each constant is separated by a comma; forgetting a comma breaks the build.</p>
+
+        <h2>6. Declare, define and assign: the three lives of a function pointer</h2>
+        <p>The most instructive linking error of the session was:</p>
+        <pre class="code">reference to 'glClearColor' undefined</pre>
+        <p>Because there are three different moments for a global function pointer, and confusing them breaks the build:</p>
+        <ul>
+          <li><strong>Declare</strong> (<code>extern void (*glClearColor)(...);</code> in the header): "a symbol with this signature exists, it will be defined elsewhere". Repeatable in every file that needs it.</li>
+          <li><strong>Define</strong> (<code>void (*glClearColor)(...);</code> in the <code>.c</code>): reserves the real storage of the symbol. It must exist exactly once in the whole program; if two files defined the same symbol, the linker would fail with <em>multiple definition</em>.</li>
+          <li><strong>Assign</strong> (<code>glClearColor = (void *)glfwGetProcAddress("glClearColor");</code>): give it a value at runtime. Assigning is not defining: without the previous definition, the symbol does not exist for the linker.</li>
+        </ul>
+        <p>The definitions live in the loader's <code>.c</code> file (not in the header, which only declares). With the definitions in a single <code>.c</code>, main and loader share the header declarations, the <code>.c</code> owns the storage, and <code>init_gl_functions()</code> initializes it with the driver addresses.</p>
+        <p>The assignments are made with a macro that also includes the error guard:</p>
+        <pre class="code">#define GL_LOAD(name)                                                       \
+    do {                                                                    \
+        name = (void *)glfwGetProcAddress(#name);                           \
+        if (name == NULL) {                                                 \
+            fprintf(stderr, "GL: %s not available (core context?)\n", #name); \
+            exit(1);                                                        \
+        }                                                                   \
+    } while (0)</pre>
+        <p>The macro solves two problems at once:</p>
+        <ul>
+          <li><code>#name</code> (stringification) turns the parameter name into a string for the error message, without repeating the name by hand.</li>
+          <li><code>do { } while (0)</code> makes the macro behave like a normal statement and does not break control structures (<code>if (x) GL_LOAD(a); else ...</code>).</li>
+          <li>The backslashes <code>\</code> at the end of each line join the macro into a single preprocessor directive; they must be the last character of the line, with no trailing space, or the macro breaks and you see odd errors like <code>stray '#' in program</code>.</li>
+        </ul>
+        <p>The guard is mandatory: if the driver does not implement a function (or the context is not core), <code>glfwGetProcAddress</code> returns <code>NULL</code>. A program that called a <code>NULL</code> pointer would crash without warning; the guard turns it into a clear message and an error exit code.</p>
+
+        <h2>7. The first triangle</h2>
+        <p>The minimal data is an array of hardcoded positions:</p>
         <pre class="code">float vertices[] = {
     -0.5f, -0.5f, 0.0f,
      0.5f, -0.5f, 0.0f,
@@ -538,119 +729,56 @@ glfwTerminate();</pre>
 };</pre>
         <p>Each vertex has three <code>float</code>s:</p>
         <pre class="code">x y z</pre>
-        <p>Therefore:</p>
-        <pre class="code">9 floats / 3 floats per vertex = 3 vertices</pre>
-        <p>These data do not show up on screen just because they are in a C array. The GPU does not automatically read your program's RAM. You must upload them to GPU memory.</p>
-
-        <h2>5. VBO and VAO</h2>
-        <p>Two objects show up right away:</p>
-        <pre class="code">VBO = Vertex Buffer Object
-VAO = Vertex Array Object</pre>
-        <p>The simple way to remember them:</p>
-        <pre class="code">VBO:
-  holds the raw vertex data in GPU memory
-
-VAO:
-  remembers how to interpret that data</pre>
-        <p>Conceptual example:</p>
-        <pre class="code">VBO:
-  -0.5 -0.5 0.0   0.5 -0.5 0.0   0.0 0.5 0.0
-
-VAO:
-  location 0 = read 3 floats per vertex
-  stride = 3 floats
-  offset = 0</pre>
-        <p>The VBO answers:</p>
-        <pre class="code">Where is the data?</pre>
-        <p>The VAO answers:</p>
-        <pre class="code">How is that data read?</pre>
-        <p>Conceptual code:</p>
-        <pre class="code">unsigned int vao;
-unsigned int vbo;
-
+        <p>Therefore: <code>9 floats / 3 floats per vertex = 3 vertices</code>.</p>
+        <p>These data do not show up on screen just because they are in a C array. The GPU does not automatically read your program's RAM; you must upload them to GPU memory:</p>
+        <pre class="code">GLuint vao, vbo;
 glGenVertexArrays(1, &amp;vao);
-glGenBuffers(1, &amp;vbo);
-
 glBindVertexArray(vao);
 
+glGenBuffers(1, &amp;vbo);
 glBindBuffer(GL_ARRAY_BUFFER, vbo);
 glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-glVertexAttribPointer(
-    0,                  // location = 0
-    3,                  // 3 floats: x, y, z
-    GL_FLOAT,
-    GL_FALSE,
-    3 * sizeof(float),  // stride
-    (void *)0           // offset
-);
+glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
 glEnableVertexAttribArray(0);</pre>
-        <p>Later, when each vertex has position, color and UV, the VAO becomes even more important:</p>
-        <pre class="code">x y z   r g b   u v</pre>
-        <p>Then we will need to describe several attributes:</p>
-        <pre class="code">location 0: position, 3 floats, starts at offset 0
-location 1: color,    3 floats, starts after position
-location 2: UV,       2 floats, starts after color</pre>
+        <ul>
+          <li><strong>VBO</strong> (Vertex Buffer Object): holds the raw vertex data in GPU memory. It answers "where is the data?"</li>
+          <li><strong>VAO</strong> (Vertex Array Object): remembers how to interpret that data (location, size, stride, offset). It answers "how is it read?"</li>
+          <li><code>glVertexAttribPointer</code> connects the data with the shader: attribute <code>location 0</code> is read as 3 floats per vertex, stride of 3 floats, offset 0.</li>
+          <li><code>(void *)0</code> is a byte offset from the start of the buffer, not a real pointer: it is historical API debt. A second attribute starting right after the position would use <code>(void *)(3 * sizeof(float))</code>.</li>
+        </ul>
+        <p>Later, when each vertex has position, color and UV, the VAO will describe three attributes:</p>
+        <pre class="code">location 0: position, 3 floats, offset 0
+location 1: color,    3 floats, offset after position
+location 2: UV,       2 floats, offset after color</pre>
 
-        <h2>6. Minimal shaders</h2>
-        <p>The vertex shader must have an input compatible with the attribute configured in the VAO:</p>
-        <pre class="code">#version 330 core
+        <h2>8. Minimal shaders</h2>
+        <p>In this class the shaders live as strings; in the real project they will be loaded from files with your own code.</p>
+        <pre class="code">const char *vs_src =
+    "#version 330 core\n"
+    "layout(location = 0) in vec3 aPos;\n"
+    "void main() { gl_Position = vec4(aPos, 1.0); }\n";
 
-layout (location = 0) in vec3 aPos;
-
-void main()
-{
-    gl_Position = vec4(aPos, 1.0);
-}</pre>
+const char *fs_src =
+    "#version 330 core\n"
+    "out vec4 FragColor;\n"
+    "void main() { FragColor = vec4(0.8, 0.4, 0.2, 1.0); }\n";</pre>
         <p>The important connection is:</p>
-        <pre class="code">VAO says: location 0 holds 3 floats per vertex
-shader says: layout(location = 0) in vec3 aPos</pre>
-        <p>If the VAO configures <code>location = 0</code> but the shader expects <code>location = 1</code>, the shader is looking at another input. The result may be that nothing is visible or that wrong data is read.</p>
-        <p>The fragment shader can return a fixed color:</p>
-        <pre class="code">#version 330 core
+        <pre class="code">VAO says:  location 0 holds 3 floats per vertex
+shader:    layout(location = 0) in vec3 aPos</pre>
+        <p>If the VAO configures <code>location = 0</code> but the shader expects <code>location = 1</code>, the shader is looking at another input: nothing may be visible or wrong data may be read.</p>
+        <p>The compile and link flow:</p>
+        <pre class="code">glCreateShader → glShaderSource → glCompileShader
+glCreateProgram → glAttachShader(vertex) → glAttachShader(fragment) → glLinkProgram
+glDeleteShader(vs) → glDeleteShader(fs) → glUseProgram</pre>
+        <p>The subject does not forbid writing your own functions such as <code>load_shader_file()</code> or <code>compile_shader()</code>. What you must not do is delegate that responsibility to an external library that hides loading, compilation, linking and error reporting. In the real project you will also want to check compile errors with <code>glGetShaderiv</code>/<code>glGetShaderInfoLog</code> and linking errors with <code>glGetProgramiv</code>/<code>glGetProgramInfoLog</code>.</p>
 
-out vec4 FragColor;
-
-void main()
-{
-    FragColor = vec4(1.0, 0.5, 0.2, 1.0);
-}</pre>
-        <p>That <code>vec4</code> represents:</p>
-        <pre class="code">red, green, blue, alpha</pre>
-        <p>with values between <code>0.0</code> and <code>1.0</code>.</p>
-
-        <h2>7. Compiling and linking shaders</h2>
-        <p>The conceptual shader flow is:</p>
-        <pre class="code">GLSL source code
-  ↓
-glCreateShader
-  ↓
-glShaderSource
-  ↓
-glCompileShader
-  ↓
-check errors
-  ↓
-glCreateProgram
-  ↓
-glAttachShader(vertex)
-  ↓
-glAttachShader(fragment)
-  ↓
-glLinkProgram
-  ↓
-check errors
-  ↓
-glUseProgram</pre>
-        <p>The subject does not forbid writing your own functions such as <code>load_shader_file()</code> or <code>compile_shader()</code>. What you must not do is delegate that responsibility to an external library that hides loading, compilation, linking and error reporting.</p>
-        <p>To learn, in this class the shaders can live as strings. In the real project you will want to load them from files using your own code.</p>
-
-        <h2>8. Drawing each frame</h2>
+        <h2>9. Drawing each frame</h2>
         <p>A minimal frame does this:</p>
         <pre class="code">glClearColor(0.1f, 0.1f, 0.12f, 1.0f);
 glClear(GL_COLOR_BUFFER_BIT);
 
-glUseProgram(shader_program);
+glUseProgram(program);
 glBindVertexArray(vao);
 glDrawArrays(GL_TRIANGLES, 0, 3);
 
@@ -663,29 +791,25 @@ glfwPollEvents();</pre>
             <tr><td class="mono-col"><code>glClearColor</code></td><td>Sets the color used to clear the background.</td></tr>
             <tr><td class="mono-col"><code>glClear</code></td><td>Clears the current framebuffer.</td></tr>
             <tr><td class="mono-col"><code>glUseProgram</code></td><td>Activates the shader program.</td></tr>
-            <tr><td class="mono-col"><code>glBindVertexArray</code></td><td>Activates the recipe for reading vertices.</td></tr>
+            <tr><td class="mono-col"><code>glBindVertexArray</code></td><td>Activates the recipe for reading vertices. Rebinding it every frame is the convention that never fails: the VAO binding is global GL state, and with several objects each draw uses its own recipe.</td></tr>
             <tr><td class="mono-col"><code>glDrawArrays</code></td><td>Tells the GPU to draw sequential vertices as triangles.</td></tr>
-            <tr><td class="mono-col"><code>glfwSwapBuffers</code></td><td>Shows the rendered frame.</td></tr>
+            <tr><td class="mono-col"><code>glfwSwapBuffers</code></td><td>Shows the rendered frame (double buffering).</td></tr>
             <tr><td class="mono-col"><code>glfwPollEvents</code></td><td>Processes keyboard, mouse, close, resize and other events.</td></tr>
           </tbody>
         </table>
-        <p>If you forget <code>glfwPollEvents()</code>, the window may stop responding to close, keyboard or mouse.</p>
+        <p>If you forget <code>glfwPollEvents()</code>, the window may stop responding to close, keyboard or mouse. If you forget <code>glfwSwapBuffers()</code>, the frame is never presented.</p>
 
-        <h2>9. Double buffering</h2>
-        <p>Usually you do not draw directly on the visible image. Double buffering is used:</p>
-        <pre class="code">front buffer:
-  image visible now
+        <h2>10. Real verification of the session</h2>
+        <p>When the program ran, the terminal printed:</p>
+        <pre class="code">OpenGL 4.6 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.2 (manual loader OK)</pre>
+        <p>Lesson from the output: a core 3.3 context was requested, but the driver delivered 4.6. The hints request the <strong>minimum</strong> (<code>&gt;= 3.3</code>), and the driver gives the newest backward-compatible context. The code remains valid on 3.3 and 4.6: the loader resolves functions by name, not by a fixed version.</p>
+        <p>The observable criterion of the class: a window opened, an orange triangle was drawn (fragment shader with <code>vec4(0.8, 0.4, 0.2, 1.0)</code>, RGBA) on a blue-black background (<code>glClearColor(0.1, 0.1, 0.12, 1.0)</code>), no compiler warnings with <code>-Wall -Wextra -Werror</code>, and the manual loader loaded all 22 functions without a single <code>NULL</code> failure.</p>
 
-back buffer:
-  image I am drawing for the next frame</pre>
-        <p>When you finish drawing:</p>
-        <pre class="code">glfwSwapBuffers(window);</pre>
-        <p>the back buffer becomes visible and the program starts preparing the next frame. This avoids flicker and partially drawn frames.</p>
-
-        <h2>10. What remains for the real Scop</h2>
+        <h2>11. What remains for the real Scop</h2>
         <p>The hardcoded triangle is temporary, but the infrastructure will remain:</p>
         <pre class="code">window
 context
+manual OpenGL loader
 shader loading/compilation
 VAO/VBO
 render loop
@@ -709,7 +833,7 @@ VAO
   ↓ read by
 vertex shader</pre>
 
-        <h2>11. Predictions and exercises</h2>
+        <h2>12. Predictions and exercises</h2>
         <p>Try each exercise before checking the answer.</p>
 
         <div class="exercise">
@@ -724,54 +848,77 @@ vertex shader</pre>
         </div>
 
         <div class="exercise">
-          <span class="ex-tag">Exercise 2 · misaligned location</span>
-          <p>If you configure the VAO with <code>location = 0</code>, but the vertex shader expects <code>layout(location = 1) in vec3 aPos;</code>, what conceptual problem is there?</p>
+          <span class="ex-tag">Exercise 2 · who loads OpenGL functions</span>
+          <p>Who loads the OpenGL functions on Linux, and how?</p>
           <details class="solution">
             <summary>Show answer</summary>
             <div class="answer-box">
-              <p>The shader is looking at a different input. The VAO put the data at <code>location 0</code>, but the shader asks for it at <code>location 1</code>.</p>
+              <p>The loader resolves them at runtime with <code>glfwGetProcAddress</code> for each function, casting the generic pointer to the exact signature. <code>glfwGetProcAddress</code> returns a generic pointer; it cannot return <code>char*</code> or a concrete signature because the API is extensible and future signatures do not exist at compile time.</p>
             </div>
           </details>
         </div>
 
         <div class="exercise">
-          <span class="ex-tag">Exercise 3 · forgotten poll events</span>
-          <p>If you forget to call <code>glfwPollEvents()</code> inside the loop, what practical problem do you expect?</p>
+          <span class="ex-tag">Exercise 3 · the loader's type</span>
+          <p>What type does <code>glfwGetProcAddress</code> return, and what do you have to do to it before you can call the function?</p>
           <details class="solution">
             <summary>Show answer</summary>
             <div class="answer-box">
-              <p>The window may stop responding to close, keyboard, mouse, resizing or other events.</p>
+              <p>It returns a generic function pointer. You must declare a pointer with the exact signature of the function and assign the generic pointer to it with a cast. Without the cast and the correct signature, C does not know how to invoke it.</p>
             </div>
           </details>
         </div>
 
         <div class="exercise">
-          <span class="ex-tag">Exercise 4 · without double buffering</span>
-          <p>If you drew directly on the visible image, without double buffering, what visual effect could appear?</p>
+          <span class="ex-tag">Exercise 4 · loader before the context</span>
+          <p>What practical problem appears if you call <code>init_gl_functions()</code> before creating the window/context?</p>
           <details class="solution">
             <summary>Show answer</summary>
             <div class="answer-box">
-              <p>Flicker or partially drawn frames could appear. Double buffering avoids showing the image while it is still being built.</p>
+              <p>The driver has not loaded yet, so <code>glfwGetProcAddress</code> returns <code>NULL</code> for the 3.x functions and the macro guard aborts with an error message. The correct chain is: context first, loader after.</p>
             </div>
           </details>
         </div>
 
         <div class="exercise">
-          <span class="ex-tag">Exercise 5 · what survives</span>
-          <p>In the final project, what part of this class will still exist even if we no longer draw a hardcoded triangle?</p>
+          <span class="ex-tag">Exercise 5 · the broken macro</span>
+          <p>If you forget the backslashes <code>\</code> at the end of each macro line, what kind of preprocessor error appears?</p>
           <details class="solution">
             <summary>Show answer</summary>
             <div class="answer-box">
-              <p>Window, context, shaders, VAO/VBO, render loop, swap buffers, poll events and cleanup will all remain. What disappears is the hardcoded triangle as the fixed source of data.</p>
+              <p>The macro is cut at the first line and the body stays loose as regular code: errors like <code>expected identifier or '(' before 'do'</code> and <code>stray '#' in program</code> because of the stringification <code>#</code>. The <code>\</code> must be the last character of the line.</p>
             </div>
           </details>
         </div>
 
         <div class="exercise">
-          <span class="ex-tag">Exercise 6 · complete each piece</span>
+          <span class="ex-tag">Exercise 6 · where the pointers are defined</span>
+          <p>Why do the pointer definitions go in the <code>.c</code> file and not in the header?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>Because a symbol is defined only once across the whole program. If two <code>.c</code> files defined the same symbol, the linker would fail with <em>multiple definition</em>. The header only carries <code>extern</code> declarations, repeatable in every file that needs them.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 7 · what the driver prints</span>
+          <p>What do you expect <code>glGetString(GL_VERSION)</code> to print if you requested a 3.3 context on a driver that supports more?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>It may print the exact requested version (3.3) or the newest context the driver decides to create (in the real session it printed <code>4.6 (Core Profile) Mesa ...</code>). The hints request the minimum, they do not fix the exact value.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 8 · complete each piece</span>
           <p>Complete each piece with one sentence:</p>
           <pre class="code">GLFW:
 OpenGL context:
+Manual loader:
 VBO:
 VAO:
 Vertex shader:
@@ -784,6 +931,7 @@ glfwPollEvents:</pre>
             <div class="answer-box">
               <pre class="code">GLFW: allowed library to create the window, the OpenGL context and handle events.
 OpenGL context: OpenGL state tied to a window/thread that makes OpenGL calls valid.
+Manual loader: our own code that resolves the OpenGL function pointers at runtime with glfwGetProcAddress.
 VBO: buffer in GPU memory that holds raw vertex data.
 VAO: object that remembers how to interpret the VBO data: location, size, stride and offset.
 Vertex shader: program that runs per vertex and produces `gl_Position`.
@@ -791,6 +939,42 @@ Fragment shader: program that runs per fragment and decides the final color.
 glDrawArrays: draw call that tells the GPU to draw sequential vertices from the active VAO.
 glfwSwapBuffers: swaps the drawn back buffer with the visible front buffer.
 glfwPollEvents: processes pending keyboard, mouse, close, resize and focus events.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 9 · compile and run (mandatory)</span>
+          <p>Create a <code>Makefile</code> with <code>-Wall -Wextra -Werror</code> and the dependencies line using <code>pkg-config --cflags --libs glfw3</code>. Compile and run. The observable criterion: the window opens with an orange triangle on a blue-black background, the terminal prints the driver line, and there are no compiler warnings.</p>
+          <details class="solution">
+            <summary>Show the answer</summary>
+            <div class="answer-box">
+              <p>Reference Makefile:</p>
+              <pre class="code">NAME    = scop
+CC      = cc
+CFLAGS  = -Wall -Wextra -Werror
+GLFW    = $(shell pkg-config --cflags --libs glfw3)
+SRCS    = src/main.c src/gl_loader.c
+OBJ     = $(SRCS:.c=.o)
+
+all: $(NAME)
+
+$(NAME): $(OBJ)
+	$(CC) $(CFLAGS) -o $@ $(OBJ) $(GLFW)
+
+%.o: %.c src/gl_loader.h
+	$(CC) $(CFLAGS) $(shell pkg-config --cflags glfw3) -c $&lt; -o $@
+
+clean:
+	rm -f $(OBJ)
+
+fclean: clean
+	rm -f $(NAME)
+
+re: fclean all
+
+.PHONY: all clean fclean re</pre>
+              <p>In the real session the Makefile was initially saved inside <code>src/</code> and had to be moved to the repo root: <code>make</code> runs from the root and its <code>src/...</code> paths resolve there, not from inside <code>src/</code>.</p>
             </div>
           </details>
         </div>
@@ -806,6 +990,12 @@ glfwPollEvents: processes pending keyboard, mouse, close, resize and focus event
             <li>Forgetting <code>glfwPollEvents()</code> and getting a window that does not respond.</li>
             <li>Forgetting <code>glfwSwapBuffers()</code> and not presenting the frame correctly.</li>
             <li>Believing the hardcoded triangle is part of the final project; it is only a minimal pipeline test.</li>
+            <li>Using the manual loader before <code>glfwMakeContextCurrent</code>.</li>
+            <li>Putting the <code>glfwWindowHint</code> calls after <code>glfwCreateWindow</code>: the context is born with the default profile.</li>
+            <li>Forgetting the commas in the constants <code>enum</code> and seeing confusing declaration errors.</li>
+            <li>Forgetting the pointer definitions in the <code>.c</code> and getting an <em>undefined reference</em> at link time.</li>
+            <li>Leaving spaces after the macro's <code>\</code> and seeing <code>stray '#' in program</code>.</li>
+            <li>Treating <code>(void *)0</code> of <code>glVertexAttribPointer</code> as a real pointer when it is a byte offset.</li>
           </ul>
         </div>
 
@@ -814,25 +1004,30 @@ glfwPollEvents: processes pending keyboard, mouse, close, resize and focus event
           <li>Before drawing you need a window, a current OpenGL context, shaders, buffers and a render loop.</li>
           <li>GLFW is allowed because it handles window, context and events, not the parser or the renderer math.</li>
           <li>OpenGL needs a current context before running valid calls.</li>
-          <li>The VBO holds vertex data on the GPU.</li>
-          <li>The VAO remembers how to interpret that data for the shader attributes.</li>
-          <li><code>layout(location = N)</code> must match the attribute configured in <code>glVertexAttribPointer</code>.</li>
+          <li>OpenGL functions are resolved at runtime with <code>glfwGetProcAddress</code> because the API is extensible and the driver loads with the context; there are no linkable symbols for OpenGL 3.3+.</li>
+          <li><code>GLFW_INCLUDE_NONE</code> stops GLFW from pulling in <code>&lt;GL/gl.h&gt;</code> and colliding with our function pointers.</li>
+          <li>Extern declares, the <code>.c</code> defines, and the runtime assignment fills the value; the three moments are different.</li>
+          <li>The <code>GL_LOAD</code> macro with <code>#name</code> and <code>do { } while (0)</code> loads each function and aborts with a clear message if the driver does not provide it.</li>
+          <li>The VBO holds data; the VAO remembers how to read it; <code>layout(location = N)</code> must match <code>glVertexAttribPointer</code>.</li>
           <li>The vertex shader works per vertex; the fragment shader decides colors per fragment.</li>
           <li><code>glDrawArrays(GL_TRIANGLES, 0, 3)</code> draws three sequential vertices as a triangle.</li>
           <li><code>glfwSwapBuffers()</code> presents the finished frame and <code>glfwPollEvents()</code> processes events.</li>
+          <li>Requesting a 3.3 context asks for a minimum, not an exact value: the driver may deliver a newer compatible version.</li>
         </ul>
 
         <h2>Defense-style questions</h2>
         <p>Answer out loud, without looking at your notes:</p>
         <ol class="checklist">
           <li class="chk"><label><input type="checkbox" data-id="d1"><span>Why is GLFW allowed by the subject?</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="d2"><span>Why must you call <code>glfwMakeContextCurrent(window)</code> before using OpenGL?</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="d3"><span>What is the difference between VBO and VAO?</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="d4"><span>Why must the shader's <code>layout(location = 0)</code> match the attribute configured in <code>glVertexAttribPointer</code>?</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="d5"><span>What is <code>glfwSwapBuffers()</code> for?</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="d6"><span>What is <code>glfwPollEvents()</code> for?</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="d7"><span>Which part of the first triangle will disappear when we start loading <code>.obj</code>, and which part will remain?</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="d8"><span>Why is it not a good idea to mix window, <code>.obj</code> parser, shaders, buffers and render into a single function?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d2"><span>Why are OpenGL 3.3+ functions not linked at compile time and must be loaded at runtime?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d3"><span>Why must <code>glfwMakeContextCurrent(window)</code> be called before the manual loader?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d4"><span>What is the difference between declaring, defining and assigning a global function pointer?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d5"><span>Why do the <code>glfwWindowHint</code> calls go before <code>glfwCreateWindow</code> and not after?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d6"><span>What does <code>(void *)0</code> mean in <code>glVertexAttribPointer</code>, and what would a second attribute indicate?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d7"><span>What does <code>#name</code> do in the <code>GL_LOAD</code> macro and why is the body wrapped in <code>do { } while (0)</code>?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d8"><span>Why must the shader's <code>layout(location = 0)</code> match the attribute configured in <code>glVertexAttribPointer</code>?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d9"><span>Why is rebinding the VAO every frame the safe convention with multiple objects?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d10"><span>Which part of the first triangle will disappear once we start loading <code>.obj</code>, and which part will remain?</span></label></li>
         </ol>
 
         <h2>Completion criteria</h2>
@@ -840,21 +1035,24 @@ glfwPollEvents: processes pending keyboard, mouse, close, resize and focus event
         <ol class="checklist">
           <li class="chk"><label><input type="checkbox" data-id="c1"><span>Explain which responsibilities GLFW covers and which it must not cover.</span></label></li>
           <li class="chk"><label><input type="checkbox" data-id="c2"><span>Explain what an OpenGL context is and why it must be current.</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Count how many vertices are in a float array based on the stride.</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Tell VBO and VAO apart without mixing data and interpretation.</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Explain the relationship between <code>glVertexAttribPointer</code> and <code>layout(location = ...)</code>.</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="c6"><span>Describe the minimal job of a vertex shader and a fragment shader.</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="c7"><span>Mentally order a frame: clear, use program, bind VAO, draw call, swap buffers, poll events.</span></label></li>
-          <li class="chk"><label><input type="checkbox" data-id="c8"><span>Explain what disappears from the hardcoded triangle once the <code>.obj</code> becomes the data source.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Explain why OpenGL functions are loaded at runtime and how it is done with <code>glfwGetProcAddress</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Tell apart declaring, defining and assigning a function pointer, and place each step in the loader code.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Count how many vertices are in a float array based on the stride.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c6"><span>Tell VBO and VAO apart without mixing data and interpretation.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c7"><span>Explain the relationship between <code>glVertexAttribPointer</code> and <code>layout(location = ...)</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c8"><span>Mentally order a frame: clear, use program, bind VAO, draw call, swap buffers, poll events.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c9"><span>Have written, compiled with <code>-Wall -Wextra -Werror</code> and run the code: the window opened and the orange triangle was visible.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c10"><span>Explain what disappears from the hardcoded triangle once the <code>.obj</code> becomes the data source.</span></label></li>
         </ol>
 
-        <p><strong>Next class:</strong> we will get into the <code>.obj</code> parser: reading <code>v</code>, <code>vt</code>, <code>vn</code> and <code>f</code> lines, adapting one-based indices to zero-based arrays and turning faces into triangles. The result will be reading and validating a simple <code>.obj</code> before connecting it to the graphics pipeline.</p>
+        <p><strong>Next class:</strong> we will get into the <code>.obj</code> parser: reading <code>v</code>, <code>vt</code>, <code>vn</code> and <code>f</code> lines, adapting one-based indices to zero-based arrays and turning faces into triangles. The result will be reading and validating a simple <code>.obj</code> and loading it into the same class-2 skeleton, before connecting it to the graphics pipeline.</p>
 
         <h2>Reading list</h2>
         <ul>
-          <li>GLFW documentation — <code>glfwCreateWindow</code>, <code>glfwMakeContextCurrent</code>, <code>glfwPollEvents</code> and <code>glfwSwapBuffers</code> (double buffering).</li>
-          <li>Khronos, OpenGL 3.3 spec — buffer objects (VBO) and vertex array objects (VAO); <code>glVertexAttribPointer</code>.</li>
+          <li>Official GLFW documentation — <code>glfwCreateWindow</code>, <code>glfwWindowHint</code>, <code>glfwMakeContextCurrent</code>, <code>glfwPollEvents</code>, <code>glfwSwapBuffers</code> and <code>glfwGetProcAddress</code>.</li>
+          <li>Khronos, OpenGL 3.3 Core Profile spec — buffer objects (VBO), vertex array objects (VAO) and <code>glVertexAttribPointer</code>; clip space and perspective division.</li>
           <li>Khronos, GLSL 3.30 spec — compiling, linking and using shaders (<code>glShaderSource</code>/<code>glLinkProgram</code>).</li>
+          <li>Khronos OpenGL constants spec — values of <code>GL_COLOR_BUFFER_BIT</code>, <code>GL_VERTEX_SHADER</code>, <code>GL_ARRAY_BUFFER</code>, <code>GL_STATIC_DRAW</code> and <code>GL_TRIANGLES</code>.</li>
         </ul>
       </section>
     </div>
