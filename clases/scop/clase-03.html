@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clase 3 · Parseo del .obj, triangulación y EBO — Scop</title>
+  <meta name="description" content="Parseo de .obj con fgets, validación de v y f, índices base 1 a base 0, fan triangulation, dos pasadas, VBO/EBO/VAO y GL_DEPTH_TEST.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="scop/clase-03">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <label class="visually-hidden" for="site-search" data-i18n="search.label">Buscar proyecto</label>
+        <input id="site-search" type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="index.html" data-i18n="p.scop.name">Scop</a><span class="sep">/</span>
+        <span><span lang="es">Clase 3</span><span lang="en">Class 3</span></span>
+      </nav>
+
+      <h1><span lang="es">Clase 3 · parseo del .obj, triangulación y EBO</span><span lang="en">Class 3 · .obj parsing, triangulation and EBO</span></h1>
+
+      <div class="class-toolbar">
+        <span class="toolbar-hint mono">.obj · fgets · sscanf · strtol · fan triangulation · VBO · EBO · VAO · DEPTH_TEST</span>
+      </div>
+    </div>
+
+    <div class="prose">
+
+      <!-- ============ ESPAÑOL ============ -->
+      <section lang="es">
+        <div class="objective">
+          <span class="label">Objetivo</span>
+          <p>Convertir texto en geometría: leer un <code>.obj</code> real con <code>fgets</code>, validar cada línea <code>v</code> y <code>f</code>, traducir índices base&nbsp;1 a base&nbsp;0, trocear caras de N vértices en N−2 triángulos con abanico y subir el resultado a VBO/EBO. Al terminar debes poder explicar por qué un <code>.obj</code> no es una imagen, por qué <code>f&nbsp;1&nbsp;2&nbsp;3&nbsp;4</code> no es un triángulo, dónde se rompe el parser si olvidas <code>-1</code>, cómo dos pasadas evitan pelearte con <code>realloc</code>, por qué <code>f&nbsp;1/2/3</code> solo te interesa el <code>1</code>, y por qué el EBO vive dentro del VAO y necesita <code>GL_DEPTH_TEST</code>.</p>
+        </div>
+        <p>Esta clase se tomó de forma interactiva y cumple la regla del proyecto: se escribió, compiló con <code>-Wall -Wextra -Werror</code> y ejecutó código real. El resultado observable fue <code>OBJ OK: 8 vertices (24 floats), 36 indices (12 triangulos)</code> y un cubo naranja renderizado con <code>glDrawElements</code> en vez del triángulo hardcodeado, sin avisos de compilación y con el cubo validado índice a índice.</p>
+
+        <h2>1. Qué estamos aislando</h2>
+        <p>Esta clase no toca matrices MVP ni texturas. Aísla una sola pregunta:</p>
+        <pre class="code">¿Cómo pasa una línea como "f 1 2 3 4" del disco a triángulos que el GPU entiende?</pre>
+        <p>El flujo mínimo es:</p>
+        <pre class="code">assets/cube.obj (texto)
+  ↓ fgets línea a línea
+pasada 1: contar v y caras → reservar exacto
+  ↓ malloc + rewind
+pasada 2: llenar vertices[] y indices[] (base 0, fan)
+  ↓
+t_mesh { vertices, v_count, indices, i_count }
+  ↓ glBufferData(GL_ARRAY_BUFFER) + glBufferData(GL_ELEMENT_ARRAY_BUFFER)
+VAO (location 0 = 3 floats, stride 3*sizeof(float), offset 0)
+  ↓
+glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0)</pre>
+        <p>El parser es tonto a propósito: solo convierte texto en geometría. Centrar el modelo, proyectar y texturizar vendrán después.</p>
+
+        <h2>2. El formato .obj línea a línea</h2>
+        <p>Un <code>.obj</code> es texto plano, una instrucción por línea. Un cubo mínimo real usado en la sesión:</p>
+        <pre class="code">o Cube
+v -0.5 -0.5  0.5
+v  0.5 -0.5  0.5
+v  0.5  0.5  0.5
+v -0.5  0.5  0.5
+v -0.5 -0.5 -0.5
+v  0.5 -0.5 -0.5
+v  0.5  0.5 -0.5
+v -0.5  0.5 -0.5
+f 1 2 3 4
+f 5 8 7 6
+f 1 5 6 2
+f 2 6 7 3
+f 3 7 8 4
+f 5 1 4 8</pre>
+        <table>
+          <thead><tr><th>Prefijo</th><th>Significado</th><th>Ejemplo</th><th>¿Clase&nbsp;3?</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col"><code>v x y z</code></td><td>posición</td><td><code>v 0.5 -0.5 0.5</code></td><td>sí, con <code>sscanf ==3</code></td></tr>
+            <tr><td class="mono-col"><code>vt u v</code></td><td>coordenada de textura</td><td><code>vt 0.25 0.75</code></td><td>ignorar</td></tr>
+            <tr><td class="mono-col"><code>vn x y z</code></td><td>normal</td><td><code>vn 0 0 1</code></td><td>ignorar</td></tr>
+            <tr><td class="mono-col"><code>f a b c ...</code></td><td>cara, índices base&nbsp;1</td><td><code>f 1 2 3 4</code></td><td>sí, con fan</td></tr>
+            <tr><td class="mono-col"><code>o</code>, <code>s</code>, <code>#</code>, <code>mtllib</code></td><td>objeto, suavizado, comentario, material</td><td><code>o Cube</code></td><td>ignorar</td></tr>
+          </tbody>
+        </table>
+        <p>Un error que se pagó en la sesión: escribir una sola cara <code>f&nbsp;1&nbsp;2&nbsp;3&nbsp;4&nbsp;5&nbsp;6&nbsp;7&nbsp;8</code> no es un cubo — es un octógono plano que el fan convertiría en 6 triángulos colgando del vértice&nbsp;1.</p>
+
+        <h2>3. fgets, sscanf y la trampa de <code>v</code></h2>
+        <p>Para texto línea a línea <code>fopen</code> + <code>fgets</code> evita reimplementar buffering:</p>
+        <pre class="code">FILE *fp = fopen(path, "r");
+char line[1024];
+while (fgets(line, sizeof(line), fp)) {
+    const char *s = skip_ws(line);
+    if (*s == '\0' || *s == '\n' || *s == '#') continue;
+    // ...
+}</pre>
+        <p><code>open/read</code> te da trozos crudos sin garantía de que un trozo acabe en <code>\n</code>; <code>fgets</code> te da una línea completa por llamada.</p>
+        <p>Para <code>v</code> basta <code>sscanf</code> porque el formato es fijo:</p>
+        <pre class="code">float x, y, z;
+if (sscanf(s, "v %f %f %f", &amp;x, &amp;y, &amp;z) != 3) error;</pre>
+        <p>El retorno de <code>sscanf</code> es tu validación gratis: pedir 3 y recibir 2 significa línea rota. Y OJO: lo robusto es filtrar antes por prefijo, no fiarte solo de <code>sscanf</code>:</p>
+        <pre class="code">if (s[0]=='v' &amp;&amp; s[1]==' ') { /* v pura */ }
+else if (s[0]=='v' &amp;&amp; s[1]=='t') continue;
+else if (s[0]=='v' &amp;&amp; s[1]=='n') continue;</pre>
+        <p>Para <code>f</code> no sirve <code>sscanf</code> con 8 <code>%d</code> fijos — un quad tiene 4 índices (<code>==4</code> nunca es <code>==8</code>) y Blender escupe <code>1/2/3</code> o <code>1//3</code>. Hay que tokenizar:</p>
+        <pre class="code">int tmp[64]; int n=0; const char *p = s+2; // tras "f "
+while (*p &amp;&amp; *p!='#' &amp;&amp; n&lt;64) {
+    char *end; long v = strtol(p, &amp;end, 10);
+    if (end==p) break;
+    tmp[n++] = (int)v;
+    p = end;
+    while (*p &amp;&amp; *p!=' ' &amp;&amp; *p!='\t' &amp;&amp; *p!='\n') p++; // salta "/2/3"
+    p = skip_ws(p);
+}</pre>
+        <p><code>strtol</code> para en <code>/</code>, así <code>1/2/3</code> te deja el <code>1</code> y el bucle salta el resto hasta el espacio.</p>
+
+        <h2>4. Dos pasadas vs realloc</h2>
+        <p>No sabes cuántos <code>v</code> trae el archivo antes de leerlo. Dos estrategias:</p>
+        <ul>
+          <li><strong>Dos pasadas:</strong> cuentas en la primera, <code>malloc</code> exacto, <code>rewind</code> y llenas en la segunda. Simple, memoria justa, dos lecturas.</li>
+          <li><strong>Crecimiento dinámico:</strong> <code>realloc</code> duplicando capacidad en una sola pasada. Una lectura, más código y cuidado con punteros invalidados.</li>
+        </ul>
+        <p>Se eligió <strong>dos pasadas por simplicidad de depuración</strong>: el conteo es verificable (<code>8v</code> y <code>6 caras × (4−2)×3 = 36i</code>) antes de tocar memoria. El coste de releer un cubo es despreciable; para modelos gigantes se podría cambiar a <code>realloc</code> sin tocar el API.</p>
+
+        <h2>5. De base 1 a base 0</h2>
+        <p>OBJ es base&nbsp;1: el primer <code>v</code> del archivo es el vértice&nbsp;1. Tu array es base&nbsp;0: <code>vertices[0]</code> es el primer vértice.</p>
+        <pre class="code">f 1 2 3  →  indices 0 1 2  (siempre idx-1)</pre>
+        <p>Olvidar el <code>-1</code> no da error de compilación: da geometría rota. Y la bomba: <code>f&nbsp;8</code> sobre 8 vértices sin restar lee <code>vertices[8]</code> → fuera de rango, basura o segfault. En la pasada&nbsp;2 se valida:</p>
+        <pre class="code">if (a&lt;1 || b&lt;1 || c&lt;1 || (size_t)a&gt;v_count || ...) error;
+out-&gt;indices[i++] = (unsigned)(a-1);</pre>
+
+        <h2>6. Fan triangulation</h2>
+        <p>El GPU dibuja <code>GL_TRIANGLES</code>: cada 3 índices es un triángulo. Una cara con 4 vértices no se puede enviar directa. Abanico fijando el primer vértice:</p>
+        <pre class="code">f 1 2 3 4   →  (1,2,3) (1,3,4)
+f 1 2 3 4 5 →  (1,2,3) (1,3,4) (1,4,5)
+N vértices  →  N-2 triángulos → (N-2)*3 índices</pre>
+        <pre class="code">4 ----- 3
+|     / |
+|   /   |
+| /     |
+1 ----- 2</pre>
+        <p>Funciona para convexos simples; falla con cóncavas/no coplanares — justo el bonus de <code>.obj</code> complejos.</p>
+
+        <h2>7. De la CPU al GPU: VBO, EBO y VAO</h2>
+        <p>Hasta ahora <code>float vertices[]</code> vivía en RAM del programa. El GPU no lo lee solo; hay que subirlo:</p>
+        <pre class="code">GLuint vao, vbo, ebo;
+glGenVertexArrays(1, &amp;vao);
+glBindVertexArray(vao);
+
+glGenBuffers(1, &amp;vbo);
+glBindBuffer(GL_ARRAY_BUFFER, vbo);
+glBufferData(GL_ARRAY_BUFFER, mesh.v_count*3*sizeof(float), mesh.vertices, GL_STATIC_DRAW);
+
+glGenBuffers(1, &amp;ebo);
+glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh.i_count*sizeof(unsigned), mesh.indices, GL_STATIC_DRAW);
+
+glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), (void*)0);
+glEnableVertexAttribArray(0);
+glEnable(GL_DEPTH_TEST);</pre>
+        <ul>
+          <li><strong>VBO:</strong> guarda datos crudos. "¿Dónde están los datos?"</li>
+          <li><strong>EBO:</strong> guarda índices. "¿En qué orden se usan?"</li>
+          <li><strong>VAO:</strong> recuerda cómo se leen (<code>location&nbsp;0</code>, tamaño 3, stride, offset) <strong>y qué EBO está bindeado</strong>. No hagas <code>glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0)</code> mientras el VAO esté bindeado o lo desenganchas.</li>
+        </ul>
+        <p><code>glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0)</code> dibuja 12 triángulos reutilizando 8 vértices. Con <code>glDrawArrays</code> habrías duplicado vértices (36×3 floats) en RAM. Sin <code>GL_DEPTH_TEST</code> + <code>glClear(DEPTH_BUFFER_BIT)</code> el cubo se ve mal: caras traseras pisando delanteras. El triángulo hardcodeado de la clase&nbsp;2 muere aquí; la infraestructura (ventana, contexto, loader, shaders, <code>swap</code>, <code>poll</code>, <code>terminate</code>) sobrevive intacta.</p>
+
+        <h2>8. Integración en main y verificación real</h2>
+        <p>El parser no necesita ventana ni GL, así que se llama <strong>antes</strong> de <code>glfwInit()</code>:</p>
+        <pre class="code">t_mesh mesh={0};
+if (parse_obj("assets/cube.obj",&amp;mesh)!=0) return 1;
+printf("OBJ OK: %zu vertices (%zu floats), %zu indices (%zu tris)\n",
+       mesh.v_count, mesh.v_count*3, mesh.i_count, mesh.i_count/3);</pre>
+        <p>Al ejecutar:</p>
+        <pre class="code">OBJ OK: 8 vertices (24 floats), 36 indices (12 triangulos)
+  v1: -0.50 -0.50 0.50
+  ...
+  v8: -0.50 0.50 -0.50
+  indices (base 0, fan):
+   0 1 2
+   0 2 3
+   4 7 6
+   4 6 5
+   0 4 5
+   0 5 1
+   1 5 6
+   1 6 2
+   2 6 7
+   2 7 3
+   4 0 3
+   4 3 7
+OpenGL 4.6 (Core Profile) Mesa ... (cargador manual OK)</pre>
+        <p>Ventana 800×600, fondo <code>0.1/0.1/0.12</code>, cubo naranja <code>0.8/0.4/0.2</code>, <code>fflush</code> para que el <code>printf</code> se vea incluso con <code>timeout</code>, compilación <code>cc -Wall -Wextra -Werror</code> + <code>pkg-config --cflags --libs glfw3</code> sin avisos, loader con 26 funciones sin <code>NULL</code>.</p>
+        <p>Errores provocados a mano:</p>
+        <table>
+          <thead><tr><th>Prueba</th><th>Esperado</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col"><code>cube.obj</code> inexistente</td><td><code>no se pudo abrir</code> → <code>ret&nbsp;1</code>, sin ventana</td></tr>
+            <tr><td class="mono-col"><code>v 0 0</code></td><td><code>linea 'v' malformada</code> → <code>ret&nbsp;1</code></td></tr>
+            <tr><td class="mono-col"><code>f 1 2</code></td><td><code>linea 'f' malformada</code> → <code>ret&nbsp;1</code></td></tr>
+            <tr><td class="mono-col"><code>f 1 2 99</code></td><td><code>indice fuera de rango</code> → <code>ret&nbsp;1</code></td></tr>
+            <tr><td class="mono-col"><code>f 1/2/3 2/3/4 3/4/5</code></td><td>parseado como <code>1 2 3</code> → OK</td></tr>
+            <tr><td class="mono-col"><code>vt</code>, <code>vn</code>, <code>#</code>, <code>o</code></td><td>ignoradas sin error</td></tr>
+          </tbody>
+        </table>
+
+        <h2>9. Predicciones y ejercicios</h2>
+        <p>Conviene intentar cada ejercicio antes de consultar la solución.</p>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 1 · contar vértices</span>
+          <p>Si tu <code>vertices</code> contiene 9 floats y cada vértice tiene 3 floats, ¿cuántos vértices hay?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>Hay 3 vértices, porque <code>9 / 3 = 3</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 2 · quad a triángulos</span>
+          <p>Un <code>.obj</code> dice <code>f 1 2 3 4</code> y tu array es base&nbsp;0. ¿Qué índices reales lees y cuántos triángulos generas?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>Lees <code>0&nbsp;1&nbsp;2</code> y <code>0&nbsp;2&nbsp;3</code> (siempre <code>idx-1</code>). Un quad → 2 triángulos → 6 índices. Regla: N vértices → N−2 triángulos.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 3 · v vs vt</span>
+          <p>¿Por qué <code>sscanf(line, "v %f %f %f")</code> no basta para distinguir <code>v</code> de <code>vt</code> y qué harías?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p><code>sscanf</code> sobre <code>vt ...</code> falla pero de forma implícita; lo robusto es filtrar por prefijo: <code>s[0]=='v' &amp;&amp; s[1]==' '</code> para vértices, <code>s[1]=='t'</code>/<code>'n'</code> para ignorar.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 4 · formato de Blender</span>
+          <p><code>f 1/5/2 2/6/3 3/7/4</code> viene de Blender (<code>v/vt/vn</code>). ¿Qué parte te interesa y cómo la extraes sin morir?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>Solo el primer entero de cada token (índice de posición). Con <code>strtol(p,&amp;end,10)</code> lees <code>1</code> y paras en <code>/</code>; luego saltas hasta el siguiente espacio.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 5 · dos pasadas</span>
+          <p>¿Por qué dos pasadas es más simple de depurar que <code>realloc</code> y cuándo cambiarías?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>Cuentas primero (<code>8v</code>, <code>36i</code>) y reservas exacto; cualquier descuadre se ve antes de <code>malloc</code>. Con <code>realloc</code> una sola pasada pero más ramas y riesgo de invalidar punteros. Para modelos enormes o streaming cambiaría a <code>realloc</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 6 · loader antes del contexto</span>
+          <p>¿Qué le pasa al loader si lo llamas antes de <code>glfwMakeContextCurrent</code> y cómo lo evitas?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p><code>glfwGetProcAddress</code> devuelve <code>NULL</code> (el driver aún no está cargado) y la macro <code>GL_LOAD</code> aborta. Orden fijo: <code>glfwCreateWindow</code> → <code>glfwMakeContextCurrent</code> → <code>init_gl_functions()</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 7 · EBO y VAO</span>
+          <p>¿Por qué el EBO debe crearse con el VAO bindeado y qué rompe si lo desbindeas mal?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p>El binding de <code>GL_ELEMENT_ARRAY_BUFFER</code> se guarda <strong>dentro del VAO</strong>. Si haces <code>glBindBuffer(EBO,0)</code> con el VAO bindeado, el VAO olvida su EBO y <code>glDrawElements</code> no tiene índices.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 8 · compilar y ejecutar (obligatorio)</span>
+          <p>Escribe <code>assets/cube.obj</code> a mano con 8 <code>v</code> y 6 <code>f</code> quads consistentes, compila <code>src/obj_parser.c</code> con <code>-Wall -Wextra -Werror</code> y ejecuta <code>./scop</code>.</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <p><code>cube.obj</code> de referencia (6 caras, índices 1..8):</p>
+              <pre class="code">o Cube
+v -0.5 -0.5  0.5
+v  0.5 -0.5  0.5
+v  0.5  0.5  0.5
+v -0.5  0.5  0.5
+v -0.5 -0.5 -0.5
+v  0.5 -0.5 -0.5
+v  0.5  0.5 -0.5
+v -0.5  0.5 -0.5
+f 1 2 3 4
+f 5 8 7 6
+f 1 5 6 2
+f 2 6 7 3
+f 3 7 8 4
+f 5 1 4 8</pre>
+              <p>Salida esperada:</p>
+              <pre class="code">OBJ OK: 8 vertices (24 floats), 36 indices (12 triangulos)
+OpenGL 4.6 (Core Profile) Mesa ... (cargador manual OK)</pre>
+              <p>Ventana con cubo naranja sobre fondo azul-negro, <code>GL_DEPTH_TEST</code> activo. Sin el archivo el parser sale con <code>no se pudo abrir</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Errores frecuentes</span>
+          <ul>
+            <li>Escribir una sola cara <code>f 1 2 3 4 5 6 7 8</code> y creer que es un cubo.</li>
+            <li>Hacer <code>sscanf(line, "f %d %d %d %d %d %d %d %d")==8</code> y que los quads (4 índices) nunca entren.</li>
+            <li>Olvidar <code>idx-1</code> y leer <code>vertices[1]</code> para <code>f 1</code>, o peor <code>vertices[8]</code> para <code>f 8</code> → fuera de rango.</li>
+            <li>Filtrar <code>v</code> con <code>sscanf</code> sin distinguir <code>vt</code>/<code>vn</code>.</li>
+            <li>Parsear <code>1/2/3</code> como entero grande en vez de tomar solo el <code>1</code>.</li>
+            <li>Hacer <code>realloc</code> sin necesidad y pelearse con punteros invalidados.</li>
+            <li>Crear el EBO sin VAO bindeado o desbindearlo a destiempo y perder los índices.</li>
+            <li>Olvidar <code>GL_DEPTH_TEST</code> y <code>GL_DEPTH_BUFFER_BIT</code> y ver caras traseras por delante.</li>
+            <li>Poner el parser después de <code>glfwInit</code> y no poder validar el <code>.obj</code> sin display.</li>
+            <li>Dejar el triángulo hardcodeado conviviendo con el cubo y dibujar 3 vértices en vez de 36 índices.</li>
+          </ul>
+        </div>
+
+        <h2>Has aprendido que</h2>
+        <ul>
+          <li>Un <code>.obj</code> es texto: <code>v</code> son posiciones, <code>f</code> son caras con índices base&nbsp;1, el resto se ignora en clase&nbsp;3.</li>
+          <li><code>fgets</code> + <code>skip_ws</code> da una línea limpia por iteración; <code>open/read</code> te habría dado trozos crudos.</li>
+          <li><code>sscanf</code> valida <code>v</code> con su retorno <code>==3</code>; para <code>f</code> necesitas <code>strtol</code> token a token para soportar <code>1</code>, <code>1/2</code>, <code>1//3</code>, <code>1/2/3</code>.</li>
+          <li>OBJ base&nbsp;1 → array base&nbsp;0 es siempre <code>idx-1</code>; validar <code>1..v_count</code> evita segfaults silenciosos.</li>
+          <li>Fan triangulation: <code>f a b c d</code> → <code>(a,b,c)</code> <code>(a,c,d)</code>; N vértices → N−2 triángulos.</li>
+          <li>Dos pasadas permiten <code>malloc</code> exacto y depuración por conteo (<code>8v</code>/<code>36i</code>); <code>realloc</code> se deja para streaming.</li>
+          <li>El EBO comparte el VAO y se dibuja con <code>glDrawElements</code>; <code>glDrawArrays</code> habría duplicado vértices.</li>
+          <li><code>GL_DEPTH_TEST</code> es obligatorio para un cubo sólido; sin él el orden de dibujo decide qué se ve.</li>
+          <li>El parser vive antes de <code>glfwInit()</code> y su criterio observable es <code>OBJ OK</code> + 8/36 + cubo visible con <code>-Wall -Wextra -Werror</code> limpio.</li>
+        </ul>
+
+        <h2>Preguntas tipo defensa</h2>
+        <p>Responde en voz alta, sin mirar los apuntes:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="d1"><span>¿Por qué un <code>.obj</code> no se puede mostrar directamente como si fuera una imagen?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d2"><span>¿Por qué <code>f 1 2 3 4</code> debe convertirse en dos triángulos y cuál es la regla para N vértices?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d3"><span>¿Qué error aparece si usas índices OBJ directamente como índices de array y cómo lo detectas?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d4"><span>¿Cómo distingues <code>v</code> de <code>vt</code>/<code>vn</code> sin que <code>sscanf</code> te engañe?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d5"><span>¿Cómo extraes solo el primer entero de <code>1/5/2</code> y por qué <code>strtol</code> ayuda?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d6"><span>¿Qué ventaja da hacer dos pasadas frente a <code>realloc</code> y qué coste tiene?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d7"><span>¿Por qué el EBO se guarda dentro del VAO?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d8"><span>¿Por qué <code>GL_DEPTH_TEST</code> es necesario para un cubo y qué pasa sin él?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d9"><span>¿Qué líneas de un <code>.obj</code> puedes ignorar y cuáles son error?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d10"><span>¿Qué parte del triángulo de la clase&nbsp;2 desapareció y qué infraestructura sobrevivió?</span></label></li>
+        </ol>
+
+        <h2>Criterio de finalización</h2>
+        <p>La clase está completada cuando puedes:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Explicar por qué un <code>.obj</code> es geometría en texto, no píxeles.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Convertir <code>f 1 2 3 4</code> en <code>(1,2,3)</code> <code>(1,3,4)</code> y generalizar a N−2 triángulos.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Convertir índices OBJ base&nbsp;1 a array base&nbsp;0 y validar el rango.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Distinguir <code>v</code> de <code>vt</code>/<code>vn</code> y justificar el filtro por prefijo.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Extraer el primer entero de <code>v/vt/vn</code> con <code>strtol</code> y saltar el resto del token.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c6"><span>Defender dos pasadas vs <code>realloc</code> en una frase.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c7"><span>Explicar VBO vs EBO vs VAO sin confundir datos con receta.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c8"><span>Explicar por qué <code>glDrawElements</code> + EBO es más eficiente que duplicar vértices.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c9"><span>Ordenar un frame: <code>glClear(COLOR|DEPTH)</code>, <code>glUseProgram</code>, <code>glBindVertexArray</code>, <code>glDrawElements</code>, <code>swap</code>, <code>poll</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c10"><span>Haber escrito <code>cube.obj</code> a mano, compilado con <code>-Wall -Wextra -Werror</code> y ejecutado: <code>OBJ OK: 8/36</code> y cubo naranja visible.</span></label></li>
+        </ol>
+
+        <p><strong>Siguiente clase:</strong> entraremos en matrices MVP y perspectiva: coordenadas homogéneas, <code>Model</code>/<code>View</code>/<code>Projection</code>, <code>frustum</code> con <code>FOV</code>/<code>near</code>/<code>far</code> y el orden <code>P*V*M*vertex</code>. El resultado será ver el cubo en perspectiva y hacerlo rotar, antes de añadir color por cara.</p>
+
+        <h2>Lista de lecturas</h2>
+        <ul>
+          <li>Especificación Wavefront OBJ — líneas <code>v</code>, <code>vt</code>, <code>vn</code>, <code>f</code>, índices base&nbsp;1 y variantes <code>v/vt/vn</code>.</li>
+          <li>Documentación de <code>fgets</code>, <code>sscanf</code>, <code>strtol</code>, <code>rewind</code>/<code>fseek</code> y <code>malloc</code>/<code>free</code>.</li>
+          <li>Khronos, OpenGL 3.3 Core Profile — <code>GL_ARRAY_BUFFER</code>, <code>GL_ELEMENT_ARRAY_BUFFER</code>, <code>VAO</code>, <code>glVertexAttribPointer</code>, <code>glDrawElements</code>, <code>GL_DEPTH_TEST</code>.</li>
+          <li>Khronos, GLSL 3.30 — <code>layout(location=0)</code> y paso de <code>aPos</code> a <code>gl_Position</code>.</li>
+        </ul>
+      </section>
+
+      <!-- ============ ENGLISH ============ -->
+      <section lang="en">
+        <div class="objective">
+          <span class="label">Objective</span>
+          <p>Turn text into geometry: read a real <code>.obj</code> with <code>fgets</code>, validate every <code>v</code> and <code>f</code> line, translate 1-based indices to 0-based, split N-vertex faces into N−2 triangles with a fan, and upload the result to VBO/EBO. By the end you must be able to explain why a <code>.obj</code> is not an image, why <code>f&nbsp;1&nbsp;2&nbsp;3&nbsp;4</code> is not a triangle, where the parser breaks if you forget <code>-1</code>, how two passes avoid fighting <code>realloc</code>, why only the <code>1</code> in <code>f&nbsp;1/2/3</code> matters, and why the EBO lives inside the VAO and needs <code>GL_DEPTH_TEST</code>.</p>
+        </div>
+        <p>This class was taken interactively and follows the project rule: real code was written, compiled with <code>-Wall -Wextra -Werror</code> and run. The observable result was <code>OBJ OK: 8 vertices (24 floats), 36 indices (12 triangles)</code> and an orange cube rendered with <code>glDrawElements</code> instead of the hardcoded triangle, with no compiler warnings and the cube validated index by index.</p>
+
+        <h2>1. What we are isolating</h2>
+        <p>This class does not touch MVP matrices or textures. It isolates one question:</p>
+        <pre class="code">How does a line like "f 1 2 3 4" go from disk to triangles the GPU understands?</pre>
+        <p>The minimum flow is:</p>
+        <pre class="code">assets/cube.obj (text)
+  ↓ fgets line by line
+pass 1: count v and faces → allocate exact
+  ↓ malloc + rewind
+pass 2: fill vertices[] and indices[] (0-based, fan)
+  ↓
+t_mesh { vertices, v_count, indices, i_count }
+  ↓ glBufferData(GL_ARRAY_BUFFER) + glBufferData(GL_ELEMENT_ARRAY_BUFFER)
+VAO (location 0 = 3 floats, stride 3*sizeof(float), offset 0)
+  ↓
+glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0)</pre>
+        <p>The parser is intentionally dumb: it only turns text into geometry. Centering, projection and texturing come later.</p>
+
+        <h2>2. The .obj format line by line</h2>
+        <p>An <code>.obj</code> is plain text, one instruction per line. The minimal cube used in the session:</p>
+        <pre class="code">o Cube
+v -0.5 -0.5  0.5
+v  0.5 -0.5  0.5
+v  0.5  0.5  0.5
+v -0.5  0.5  0.5
+v -0.5 -0.5 -0.5
+v  0.5 -0.5 -0.5
+v  0.5  0.5 -0.5
+v -0.5  0.5 -0.5
+f 1 2 3 4
+f 5 8 7 6
+f 1 5 6 2
+f 2 6 7 3
+f 3 7 8 4
+f 5 1 4 8</pre>
+        <table>
+          <thead><tr><th>Prefix</th><th>Meaning</th><th>Example</th><th>Class&nbsp;3?</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col"><code>v x y z</code></td><td>position</td><td><code>v 0.5 -0.5 0.5</code></td><td>yes, with <code>sscanf ==3</code></td></tr>
+            <tr><td class="mono-col"><code>vt u v</code></td><td>texture coordinate</td><td><code>vt 0.25 0.75</code></td><td>skip</td></tr>
+            <tr><td class="mono-col"><code>vn x y z</code></td><td>normal</td><td><code>vn 0 0 1</code></td><td>skip</td></tr>
+            <tr><td class="mono-col"><code>f a b c ...</code></td><td>face, 1-based indices</td><td><code>f 1 2 3 4</code></td><td>yes, with fan</td></tr>
+            <tr><td class="mono-col"><code>o</code>, <code>s</code>, <code>#</code>, <code>mtllib</code></td><td>object, smoothing, comment, material</td><td><code>o Cube</code></td><td>skip</td></tr>
+          </tbody>
+        </table>
+        <p>One mistake paid for in the session: writing a single face <code>f&nbsp;1&nbsp;2&nbsp;3&nbsp;4&nbsp;5&nbsp;6&nbsp;7&nbsp;8</code> is not a cube — it is a flat octagon the fan would turn into 6 triangles hanging from vertex&nbsp;1.</p>
+
+        <h2>3. fgets, sscanf and the <code>v</code> trap</h2>
+        <p>For line-by-line text <code>fopen</code> + <code>fgets</code> avoids reimplementing buffering:</p>
+        <pre class="code">FILE *fp = fopen(path, "r");
+char line[1024];
+while (fgets(line, sizeof(line), fp)) {
+    const char *s = skip_ws(line);
+    if (*s == '\0' || *s == '\n' || *s == '#') continue;
+    // ...
+}</pre>
+        <p><code>open/read</code> gives raw chunks with no guarantee a chunk ends at <code>\n</code>; <code>fgets</code> gives one full line per call.</p>
+        <p>For <code>v</code> plain <code>sscanf</code> is enough because the format is fixed:</p>
+        <pre class="code">float x, y, z;
+if (sscanf(s, "v %f %f %f", &amp;x, &amp;y, &amp;z) != 3) error;</pre>
+        <p>The return value of <code>sscanf</code> is your free validation: asking for 3 and getting 2 means the line is broken. And the robust filter is prefix-based:</p>
+        <pre class="code">if (s[0]=='v' &amp;&amp; s[1]==' ') { /* pure v */ }
+else if (s[0]=='v' &amp;&amp; s[1]=='t') continue;
+else if (s[0]=='v' &amp;&amp; s[1]=='n') continue;</pre>
+        <p>For <code>f</code> a fixed <code>sscanf</code> with 8 <code>%d</code> never works — a quad has 4 indices (<code>==4</code> is never <code>==8</code>) and Blender emits <code>1/2/3</code>. You must tokenize:</p>
+        <pre class="code">int tmp[64]; int n=0; const char *p = s+2; // past "f "
+while (*p &amp;&amp; *p!='#' &amp;&amp; n&lt;64) {
+    char *end; long v = strtol(p, &amp;end, 10);
+    if (end==p) break;
+    tmp[n++] = (int)v;
+    p = end;
+    while (*p &amp;&amp; *p!=' ' &amp;&amp; *p!='\t' &amp;&amp; *p!='\n') p++; // skip "/2/3"
+    p = skip_ws(p);
+}</pre>
+        <p><code>strtol</code> stops at <code>/</code>, so <code>1/2/3</code> yields <code>1</code> and the loop skips the rest.</p>
+
+        <h2>4. Two passes vs realloc</h2>
+        <p>You do not know how many <code>v</code> the file has before reading it. Two strategies:</p>
+        <ul>
+          <li><strong>Two passes:</strong> count in the first, <code>malloc</code> exact, <code>rewind</code> and fill in the second. Simple, tight memory, two reads.</li>
+          <li><strong>Dynamic growth:</strong> <code>realloc</code> doubling capacity in a single pass. One read, more branches and dangling-pointer risks.</li>
+        </ul>
+        <p><strong>Two passes was chosen for debuggability</strong>: the counts are verifiable (<code>8v</code> and <code>6×(4−2)×3 = 36i</code>) before touching memory. Re-reading a cube is negligible; for huge streamed models you could switch to <code>realloc</code> without changing the API.</p>
+
+        <h2>5. From 1-based to 0-based</h2>
+        <p>OBJ is 1-based: the first <code>v</code> in the file is vertex&nbsp;1. Your arrays are 0-based: <code>vertices[0]</code> is the first vertex.</p>
+        <pre class="code">f 1 2 3  →  indices 0 1 2  (always idx-1)</pre>
+        <p>Forgetting <code>-1</code> gives no compiler error: it gives broken geometry. And <code>f&nbsp;8</code> on 8 vertices without subtracting reads <code>vertices[8]</code> → out of bounds.</p>
+        <pre class="code">if (a&lt;1 || b&lt;1 || c&lt;1 || (size_t)a&gt;v_count || ...) error;
+out-&gt;indices[i++] = (unsigned)(a-1);</pre>
+
+        <h2>6. Fan triangulation</h2>
+        <p>The GPU draws <code>GL_TRIANGLES</code>: every 3 indices is a triangle. A 4-vertex face cannot be sent as-is. Fan with the first vertex fixed:</p>
+        <pre class="code">f 1 2 3 4   →  (1,2,3) (1,3,4)
+f 1 2 3 4 5 →  (1,2,3) (1,3,4) (1,4,5)
+N vertices  →  N-2 triangles → (N-2)*3 indices</pre>
+        <pre class="code">4 ----- 3
+|     / |
+|   /   |
+| /     |
+1 ----- 2</pre>
+        <p>Works for simple convex polygons; fails with concave/non-coplanar — the bonus for complex <code>.obj</code> files.</p>
+
+        <h2>7. From CPU to GPU: VBO, EBO and VAO</h2>
+        <p>Until now <code>float vertices[]</code> lived in program RAM. The GPU does not read it on its own; you upload it:</p>
+        <pre class="code">GLuint vao, vbo, ebo;
+glGenVertexArrays(1, &amp;vao);
+glBindVertexArray(vao);
+
+glGenBuffers(1, &amp;vbo);
+glBindBuffer(GL_ARRAY_BUFFER, vbo);
+glBufferData(GL_ARRAY_BUFFER, mesh.v_count*3*sizeof(float), mesh.vertices, GL_STATIC_DRAW);
+
+glGenBuffers(1, &amp;ebo);
+glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh.i_count*sizeof(unsigned), mesh.indices, GL_STATIC_DRAW);
+
+glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(float), (void*)0);
+glEnableVertexAttribArray(0);
+glEnable(GL_DEPTH_TEST);</pre>
+        <ul>
+          <li><strong>VBO:</strong> holds raw data. "Where is the data?"</li>
+          <li><strong>EBO:</strong> holds indices. "In which order are they used?"</li>
+          <li><strong>VAO:</strong> remembers how to read them (<code>location&nbsp;0</code>, size 3, stride, offset) <strong>and which EBO is bound</strong>. Do not <code>glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,0)</code> while the VAO is bound.</li>
+        </ul>
+        <p><code>glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0)</code> draws 12 triangles reusing 8 vertices. With <code>glDrawArrays</code> you would have duplicated vertices (36×3 floats). Without <code>GL_DEPTH_TEST</code> + <code>glClear(DEPTH_BUFFER_BIT)</code> back faces punch through front faces. The hardcoded triangle of class&nbsp;2 dies here; the infrastructure (window, context, loader, shaders, <code>swap</code>, <code>poll</code>, <code>terminate</code>) survives intact.</p>
+
+        <h2>8. Wiring it in main and real verification</h2>
+        <p>The parser needs no window or GL, so it is called <strong>before</strong> <code>glfwInit()</code>:</p>
+        <pre class="code">t_mesh mesh={0};
+if (parse_obj("assets/cube.obj",&amp;mesh)!=0) return 1;
+printf("OBJ OK: %zu vertices (%zu floats), %zu indices (%zu tris)\n",
+       mesh.v_count, mesh.v_count*3, mesh.i_count, mesh.i_count/3);</pre>
+        <p>On run:</p>
+        <pre class="code">OBJ OK: 8 vertices (24 floats), 36 indices (12 triangles)
+  v1: -0.50 -0.50 0.50
+  ...
+  v8: -0.50 0.50 -0.50
+  indices (0-based, fan):
+   0 1 2
+   0 2 3
+   4 7 6
+   4 6 5
+   0 4 5
+   0 5 1
+   1 5 6
+   1 6 2
+   2 6 7
+   2 7 3
+   4 0 3
+   4 3 7
+OpenGL 4.6 (Core Profile) Mesa ... (manual loader OK)</pre>
+        <p>800×600 window, <code>0.1/0.1/0.12</code> background, orange cube <code>0.8/0.4/0.2</code>, <code>fflush</code> so <code>printf</code> shows even under <code>timeout</code>, <code>cc -Wall -Wextra -Werror</code> + <code>pkg-config --cflags --libs glfw3</code> clean, 26 loader functions with no <code>NULL</code>.</p>
+        <table>
+          <thead><tr><th>Probe</th><th>Expected</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col"><code>cube.obj</code> missing</td><td><code>could not open</code> → <code>ret&nbsp;1</code>, no window</td></tr>
+            <tr><td class="mono-col"><code>v 0 0</code></td><td><code>malformed 'v' line</code> → <code>ret&nbsp;1</code></td></tr>
+            <tr><td class="mono-col"><code>f 1 2</code></td><td><code>malformed 'f' line</code> → <code>ret&nbsp;1</code></td></tr>
+            <tr><td class="mono-col"><code>f 1 2 99</code></td><td><code>index out of range</code> → <code>ret&nbsp;1</code></td></tr>
+            <tr><td class="mono-col"><code>f 1/2/3 2/3/4 3/4/5</code></td><td>parsed as <code>1 2 3</code> → OK</td></tr>
+            <tr><td class="mono-col"><code>vt</code>, <code>vn</code>, <code>#</code>, <code>o</code></td><td>ignored, no error</td></tr>
+          </tbody>
+        </table>
+
+        <h2>9. Predictions and exercises</h2>
+        <p>Try each exercise before unfolding the solution.</p>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 1 · count vertices</span>
+          <p>If your <code>vertices</code> holds 9 floats and each vertex has 3 floats, how many vertices are there?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>3 vertices, because <code>9 / 3 = 3</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 2 · quad to triangles</span>
+          <p>A <code>.obj</code> says <code>f 1 2 3 4</code> and your array is 0-based. Which real indices do you read and how many triangles?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>You read <code>0&nbsp;1&nbsp;2</code> and <code>0&nbsp;2&nbsp;3</code> (always <code>idx-1</code>). One quad → 2 triangles → 6 indices. Rule: N vertices → N−2 triangles.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 3 · v vs vt</span>
+          <p>Why is <code>sscanf(line, "v %f %f %f")</code> not enough to tell <code>v</code> from <code>vt</code> and what would you do?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p><code>sscanf</code> on <code>vt ...</code> fails but only implicitly; the robust way is to filter by prefix: <code>s[0]=='v' &amp;&amp; s[1]==' '</code> for positions, <code>s[1]=='t'</code>/<code>'n'</code> to skip.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 4 · Blender format</span>
+          <p><code>f 1/5/2 2/6/3 3/7/4</code> comes from Blender (<code>v/vt/vn</code>). Which part do you care about and how do you extract it safely?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>Only the first integer of each token (the position index). With <code>strtol(p,&amp;end,10)</code> you read <code>1</code> and stop at <code>/</code>; then skip to the next space.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 5 · two passes</span>
+          <p>Why are two passes simpler to debug than <code>realloc</code> and when would you switch?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>You count first (<code>8v</code>, <code>36i</code>) and allocate exact; any mismatch shows before <code>malloc</code>. With <code>realloc</code> one pass but more branches and pointer-invalidation risk. For huge or streamed models you would switch to doubling <code>realloc</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 6 · loader before context</span>
+          <p>What happens if you call the loader before <code>glfwMakeContextCurrent</code> and how do you avoid it?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p><code>glfwGetProcAddress</code> returns <code>NULL</code> (driver not loaded yet) and the <code>GL_LOAD</code> guard aborts. Fixed order: <code>glfwCreateWindow</code> → <code>glfwMakeContextCurrent</code> → <code>init_gl_functions()</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 7 · EBO and VAO</span>
+          <p>Why must the EBO be created with the VAO bound and what breaks if you unbind it wrong?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>The <code>GL_ELEMENT_ARRAY_BUFFER</code> binding is stored <strong>inside the VAO</strong>. If you <code>glBindBuffer(EBO,0)</code> while the VAO is bound, the VAO forgets its EBO and <code>glDrawElements</code> has no indices.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 8 · compile and run (mandatory)</span>
+          <p>Write <code>assets/cube.obj</code> by hand with 8 <code>v</code> and 6 quad <code>f</code> with consistent winding, compile <code>src/obj_parser.c</code> with <code>-Wall -Wextra -Werror</code> and run <code>./scop</code>.</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <p>Reference <code>cube.obj</code> (6 faces, indices 1..8):</p>
+              <pre class="code">o Cube
+v -0.5 -0.5  0.5
+v  0.5 -0.5  0.5
+v  0.5  0.5  0.5
+v -0.5  0.5  0.5
+v -0.5 -0.5 -0.5
+v  0.5 -0.5 -0.5
+v  0.5  0.5 -0.5
+v -0.5  0.5 -0.5
+f 1 2 3 4
+f 5 8 7 6
+f 1 5 6 2
+f 2 6 7 3
+f 3 7 8 4
+f 5 1 4 8</pre>
+              <p>Expected output:</p>
+              <pre class="code">OBJ OK: 8 vertices (24 floats), 36 indices (12 triangles)
+OpenGL 4.6 (Core Profile) Mesa ... (manual loader OK)</pre>
+              <p>Window with orange cube on blue-black background, <code>GL_DEPTH_TEST</code> on. Without the file the parser exits with <code>could not open</code>.</p>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Common mistakes</span>
+          <ul>
+            <li>Writing a single face <code>f 1 2 3 4 5 6 7 8</code> and believing it is a cube.</li>
+            <li>Using <code>sscanf(line, "f %d %d %d %d %d %d %d %d")==8</code> so quads (4 indices) never match.</li>
+            <li>Forgetting <code>idx-1</code> and reading <code>vertices[1]</code> for <code>f 1</code>, or worse <code>vertices[8]</code> for <code>f 8</code> → out of bounds.</li>
+            <li>Filtering <code>v</code> with <code>sscanf</code> without telling <code>vt</code>/<code>vn</code> apart.</li>
+            <li>Parsing <code>1/2/3</code> as a big integer instead of taking only the <code>1</code>.</li>
+            <li>Doing <code>realloc</code> for no reason and fighting invalidated pointers.</li>
+            <li>Creating the EBO without a bound VAO or unbinding it at the wrong time and losing the indices.</li>
+            <li>Forgetting <code>GL_DEPTH_TEST</code> and <code>GL_DEPTH_BUFFER_BIT</code> and seeing back faces in front.</li>
+            <li>Putting the parser after <code>glfwInit</code> and not being able to validate the <code>.obj</code> without a display.</li>
+            <li>Leaving the hardcoded triangle next to the cube and drawing 3 vertices instead of 36 indices.</li>
+          </ul>
+        </div>
+
+        <h2>You have learned that</h2>
+        <ul>
+          <li>A <code>.obj</code> is text: <code>v</code> are positions, <code>f</code> are 1-based faces, the rest is ignored in class&nbsp;3.</li>
+          <li><code>fgets</code> + <code>skip_ws</code> gives one clean line per iteration; <code>open/read</code> would have given raw chunks.</li>
+          <li><code>sscanf</code> validates <code>v</code> with its return <code>==3</code>; for <code>f</code> you need token-by-token <code>strtol</code> to handle <code>1</code>, <code>1/2</code>, <code>1//3</code>, <code>1/2/3</code>.</li>
+          <li>OBJ 1-based → 0-based is always <code>idx-1</code>; validating <code>1..v_count</code> avoids silent segfaults.</li>
+          <li>Fan triangulation: <code>f a b c d</code> → <code>(a,b,c)</code> <code>(a,c,d)</code>; N vertices → N−2 triangles.</li>
+          <li>Two passes allow exact <code>malloc</code> and count-based debugging (<code>8v</code>/<code>36i</code>); <code>realloc</code> is for streaming.</li>
+          <li>The EBO shares the VAO and is drawn with <code>glDrawElements</code>; <code>glDrawArrays</code> would have duplicated vertices.</li>
+          <li><code>GL_DEPTH_TEST</code> is mandatory for a solid cube; without it draw order decides visibility.</li>
+          <li>The parser lives before <code>glfwInit()</code> and its observable criterion is <code>OBJ OK</code> + 8/36 + visible cube with a clean <code>-Wall -Wextra -Werror</code> build.</li>
+        </ul>
+
+        <h2>Defense-style questions</h2>
+        <p>Answer out loud, without looking at your notes:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="d1"><span>Why can a <code>.obj</code> not be shown directly as if it were an image?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d2"><span>Why must <code>f 1 2 3 4</code> become two triangles and what is the rule for N vertices?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d3"><span>What error appears if you use OBJ indices directly as array indices and how do you detect it?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d4"><span>How do you tell <code>v</code> from <code>vt</code>/<code>vn</code> without being fooled by <code>sscanf</code>?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d5"><span>How do you extract only the first integer from <code>1/5/2</code> and why does <code>strtol</code> help?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d6"><span>What advantage do two passes have over <code>realloc</code> and what is the cost?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d7"><span>Why is the EBO stored inside the VAO?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d8"><span>Why is <code>GL_DEPTH_TEST</code> needed for a cube and what happens without it?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d9"><span>Which lines of a <code>.obj</code> may you ignore and which are an error?</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="d10"><span>Which part of the class&nbsp;2 triangle disappeared and which infrastructure survived?</span></label></li>
+        </ol>
+
+        <h2>Completion criteria</h2>
+        <p>The class is complete when you can:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Explain why a <code>.obj</code> is geometry in text, not pixels.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Turn <code>f 1 2 3 4</code> into <code>(1,2,3)</code> <code>(1,3,4)</code> and generalize to N−2 triangles.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Convert 1-based OBJ indices to 0-based array indices and validate the range.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Tell <code>v</code> from <code>vt</code>/<code>vn</code> and justify the prefix filter.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Extract the first integer from <code>v/vt/vn</code> with <code>strtol</code> and skip the rest of the token.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c6"><span>Defend two passes vs <code>realloc</code> in one sentence.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c7"><span>Explain VBO vs EBO vs VAO without mixing data with recipe.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c8"><span>Explain why <code>glDrawElements</code> + EBO is more efficient than duplicating vertices.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c9"><span>Order a frame: <code>glClear(COLOR|DEPTH)</code>, <code>glUseProgram</code>, <code>glBindVertexArray</code>, <code>glDrawElements</code>, <code>swap</code>, <code>poll</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c10"><span>Have written <code>cube.obj</code> by hand, compiled with <code>-Wall -Wextra -Werror</code> and run it: <code>OBJ OK: 8/36</code> and an orange cube is visible.</span></label></li>
+        </ol>
+
+        <p><strong>Next class:</strong> we will enter MVP matrices and perspective: homogeneous coordinates, <code>Model</code>/<code>View</code>/<code>Projection</code>, <code>frustum</code> with <code>FOV</code>/<code>near</code>/<code>far</code> and the order <code>P*V*M*vertex</code>. The result will be seeing the cube in perspective and making it rotate, before adding per-face color.</p>
+
+        <h2>Reading list</h2>
+        <ul>
+          <li>Wavefront OBJ specification — <code>v</code>, <code>vt</code>, <code>vn</code>, <code>f</code> lines, 1-based indices and <code>v/vt/vn</code> variants.</li>
+          <li><code>fgets</code>, <code>sscanf</code>, <code>strtol</code>, <code>rewind</code>/<code>fseek</code> and <code>malloc</code>/<code>free</code> docs.</li>
+          <li>Khronos, OpenGL 3.3 Core Profile — <code>GL_ARRAY_BUFFER</code>, <code>GL_ELEMENT_ARRAY_BUFFER</code>, <code>VAO</code>, <code>glVertexAttribPointer</code>, <code>glDrawElements</code>, <code>GL_DEPTH_TEST</code>.</li>
+          <li>Khronos, GLSL 3.30 — <code>layout(location=0)</code> and passing <code>aPos</code> to <code>gl_Position</code>.</li>
+        </ul>
+      </section>
+    </div>
+
+    <div class="complete-block">
+      <div class="complete-copy">
+        <h2><span lang="es">¿Has terminado la clase?</span><span lang="en">Done with the class?</span></h2>
+        <p><span lang="es">Responde en voz alta las preguntas de defensa, cumple el criterio de finalización y marca la clase como completada. Tu progreso se guarda en el navegador.</span><span lang="en">Answer the defense questions out loud, meet the completion criteria and mark the class as completed. Your progress is saved in the browser.</span></p>
+      </div>
+      <label class="complete-toggle">
+        <input type="checkbox" data-complete="scop/clase-03">
+        <span data-i18n="btn.complete">Marcar clase como completada</span>
+      </label>
+    </div>
+    <nav class="pager">
+      <a href="clase-02.html">
+        <small data-i18n="prev.class">Clase anterior</small>
+        <strong><span lang="es">Clase 2 · entorno y primer triángulo</span><span lang="en">Class 2 · environment and first triangle</span></strong>
+      </a>
+      <a class="next" href="index.html">
+        <small>Hub</small>
+        <strong data-i18n="p.scop.name">Scop</strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>
