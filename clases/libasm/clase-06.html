@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clase 6 · ft_strcpy y ft_strcmp — Libasm</title>
+  <meta name="description" content="Dos punteros, retorno de dst, terminador y comparación unsigned char con movzx.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="libasm/clase-06">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <label class="visually-hidden" for="site-search" data-i18n="search.label">Buscar proyecto</label>
+        <input id="site-search" type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="index.html" data-i18n="p.libasm.name">Libasm</a><span class="sep">/</span>
+        <span><span lang="es">Clase 6</span><span lang="en">Class 6</span></span>
+      </nav>
+
+      <h1><span lang="es">Clase 6 · <code>ft_strcpy</code> y <code>ft_strcmp</code></span><span lang="en">Class 6 · <code>ft_strcpy</code> and <code>ft_strcmp</code></span></h1>
+
+      <div class="class-toolbar">
+        <span class="toolbar-hint mono">rdi rsi · rax · movzx · unsigned char · terminator</span>
+      </div>
+    </div>
+
+    <div class="prose">
+
+      <!-- ============ ESPAÑOL ============ -->
+      <section lang="es">
+        <div class="objective">
+          <span class="label">Objetivo</span>
+          <p>Dominar funciones con <strong>dos punteros</strong> y la semántica de <code>unsigned char</code>. Al terminar debes poder explicar por qué <code>ft_strcpy</code> guarda el <code>dst</code> original, por qué debe copiar el <code>\0</code>, y por qué <code>ft_strcmp</code> debe cargar bytes con <code>movzx</code> y devolver <code>byte1 - byte2</code> como <code>unsigned char</code>. Ambas son hojas: no tocan pila.</p>
+        </div>
+
+        <h2>1. Contratos</h2>
+        <pre class="code">char *ft_strcpy(char *dst, const char *src);
+int   ft_strcmp(const char *s1, const char *s2);</pre>
+        <pre class="code">ft_strcpy: rdi = dst, rsi = src, retorno rax = dst original
+ft_strcmp: rdi = s1,  rsi = s2,  retorno eax = diff unsigned</pre>
+
+        <h2>2. <code>ft_strcpy</code>: copiar incluido <code>\0</code></h2>
+        <pre class="code">char *ft_strcpy(char *dst, const char *src) {
+    char *orig = dst;
+    while ((*dst++ = *src++) != '\0')
+        ;
+    return orig;
+}</pre>
+        <p><strong>Invariante:</strong> todo lo copiado hasta <code>i-1</code> coincide y aún no se ha copiado <code>\0</code> salvo la última iteración.</p>
+        <pre class="code">default rel
+section .text
+global ft_strcpy
+ft_strcpy:
+    mov     rax, rdi
+.loop:
+    mov     dl, byte [rsi]
+    mov     byte [rdi], dl
+    test    dl, dl
+    je      .done
+    inc     rdi
+    inc     rsi
+    jmp     .loop
+.done:
+    ret
+section .note.GNU-stack noalloc noexec nowrite progbits</pre>
+        <p><code>dl</code> (byte bajo de <code>rdx</code>) es caller-saved. <code>test dl,dl</code> fija <code>ZF</code>. Si haces <code>je</code> antes de <code>mov [rdi],dl</code>, no copias el terminador → <code>strlen(dst)</code> lee basura.</p>
+
+        <h2>3. <code>ft_strcmp</code>: <code>unsigned char</code></h2>
+        <p>C debe comparar como <code>unsigned char</code>:</p>
+        <pre class="code">s1 = {0xFF,0} // 255 unsigned, -1 signed
+s2 = {0x01,0} // 1
+signed: -1 -1 = -2 (&lt;0 mal)  unsigned: 255-1=254 (&gt;0 bien)</pre>
+        <pre class="code">int ft_strcmp(const char *s1, const char *s2) {
+    while (1) {
+        unsigned char c1 = *s1, c2 = *s2;
+        if (c1 != c2) return c1 - c2;
+        if (c1 == '\0') return 0;
+        s1++; s2++;
+    }
+}</pre>
+        <pre class="code">default rel
+section .text
+global ft_strcmp
+ft_strcmp:
+.loop:
+    movzx   eax, byte [rdi]
+    movzx   ecx, byte [rsi]
+    cmp     al, cl
+    jne     .diff
+    test    al, al
+    je      .equal
+    inc     rdi
+    inc     rsi
+    jmp     .loop
+.diff:
+    sub     eax, ecx
+    ret
+.equal:
+    xor     eax, eax
+    ret
+section .note.GNU-stack noalloc noexec nowrite progbits</pre>
+        <p><code>movzx</code> extiende con ceros (unsigned). <code>sub eax,ecx</code> da el diff exacto que usa libc aquí.</p>
+
+        <h2>4. Matriz de pruebas</h2>
+        <table>
+          <thead><tr><th>Entrada</th><th>Esperado</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col">strcpy "" / "a" / "hola"</td><td class="mono-col">copia + ret==dst</td></tr>
+            <tr><td class="mono-col">buf con X</td><td class="mono-col">[len]==0 y [len+1]==X</td></tr>
+            <tr><td class="mono-col">strcmp ""/""/"a"/"b"</td><td class="mono-col">0 / -1 / 1</td></tr>
+            <tr><td class="mono-col">abc vs abcd</td><td class="mono-col">-100</td></tr>
+            <tr><td class="mono-col">{0x80} vs {0x00}</td><td class="mono-col">128</td></tr>
+            <tr><td class="mono-col">{0xFF} vs {0x01}</td><td class="mono-col">254</td></tr>
+          </tbody>
+        </table>
+
+        <h2>5. Predicciones y ejercicios</h2>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 1 · strcpy paso a paso</span>
+          <p><code>src="Hi"</code> en <code>0x9000</code>, <code>dst</code> <code>0x8000</code>, <code>rax=0x8000</code>. ¿Qué se escribe cada iteración?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">iter1 dl=0x48->[0x8000]=0x48 rdi=0x8001 rsi=0x9001
+iter2 dl=0x69->[0x8001]=0x69 rdi=0x8002 rsi=0x9002
+iter3 dl=0x00->[0x8002]=0x00 je .done ret 0x8000</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 2 · strcpy sin \0</span>
+          <p>¿Qué pasa si <code>je .done</code> va antes de <code>mov [rdi],dl</code>?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">No copias \0, dst sin terminar, strlen lee basura. El test X falla.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 3 · signed vs unsigned</span>
+          <p><code>{0xFF} vs {0x01}</code>: signed vs unsigned.</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">signed -1-1=-2 (&lt;0) mal; unsigned 255-1=254 (&gt;0) bien</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 4 · prefijo</span>
+          <p><code>"abc" vs "abcd"</code> en <code>i=3</code>.</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">c1=0x00 c2='d'(0x64) → 0-100=-100 (&lt;0)</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 5 · retorno strcmp</span>
+          <p>¿Debe devolver solo -1/0/1?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">No, c1-c2 exacto (-100, 254, etc.). -1/0/1 pierde el test exacto.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 6 · guardar dst</span>
+          <p>¿Por qué <code>mov rax,rdi</code> al inicio?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">rdi avanza; al final vale \0. Solo rax inicial conserva dst original.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Errores frecuentes</span>
+          <ul>
+            <li>Devolver <code>rdi</code> avanzado en <code>strcpy</code>.</li>
+            <li>No copiar <code>\0</code>.</li>
+            <li>Usar <code>movsx</code> en <code>strcmp</code>.</li>
+            <li>Comparar <code>rdi</code> vs <code>rsi</code> en lugar de <code>[rdi]</code> vs <code>[rsi]</code>.</li>
+            <li>Devolver <code>-1/0/1</code>.</li>
+          </ul>
+        </div>
+
+        <h2>Preguntas tipo defensa</h2>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>¿Qué hace <code>mov rax,rdi</code> en <code>strcpy</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>¿Por qué copiar <code>\0</code> y cómo lo verificas?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span><code>movzx</code> vs <code>movsx</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>¿Qué da <code>{0xFF} vs {0x01}</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d5"><span>Signo de <code>"abc" vs "abcd"</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d6"><span>¿<code>-1/0/1</code> o <code>c1-c2</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d7"><span>¿Por qué <code>test dl,dl</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d8"><span>¿Qué registros puedes destruir?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d9"><span>¿Cómo verificas <code>ret==dst</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d10"><span>¿<code>U</code> vs <code>T</code> en <code>nm</code>?</span></label>
+        </div>
+
+        <h2>Criterio de finalización</h2>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Escribir ambos <code>.s</code> de memoria.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Explicar <code>dst</code> y <code>\0</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Explicar <code>unsigned</code> con <code>0xFF</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Pasar matrices 5+8 tests.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Verificar <code>T</code> con <code>nm/objdump</code>.</span></label></li>
+        </ol>
+
+        <h2>Has aprendido que</h2>
+        <ul>
+          <li><code>rdi/rsi</code> son 1º/2º args; <code>rax/eax</code> retorno.</li>
+          <li><code>strcpy</code> guarda <code>dst</code> y copia <code>\0</code>.</li>
+          <li><code>strcmp</code> usa <code>movzx</code> → <code>unsigned</code>.</li>
+          <li><code>sub eax,ecx</code> da diff correcto.</li>
+          <li>Prefijo decide signo por <code>\0 - char</code>.</li>
+        </ul>
+
+        <h2>Lista de lecturas</h2>
+        <ul>
+          <li><code>man 3 strcpy</code>, <code>man 3 strcmp</code></li>
+          <li><code>man 7 ascii</code></li>
+          <li>Intel SDM <code>MOVZX/MOVSX/CMP</code></li>
+        </ul>
+      </section>
+
+      <!-- ============ ENGLISH ============ -->
+      <section lang="en">
+        <div class="objective">
+          <span class="label">Objective</span>
+          <p>Master two-pointer functions and <code>unsigned char</code> semantics. You must explain why <code>ft_strcpy</code> saves the original <code>dst</code>, why it must copy <code>\0</code>, and why <code>ft_strcmp</code> loads with <code>movzx</code> and returns <code>byte1 - byte2</code> unsigned. Both are leaves.</p>
+        </div>
+
+        <h2>1. Contracts</h2>
+        <pre class="code">char *ft_strcpy(char *dst, const char *src);
+int   ft_strcmp(const char *s1, const char *s2);</pre>
+        <h2>2. <code>ft_strcpy</code></h2>
+        <pre class="code">mov rax,rdi; loop: dl=[rsi]; [rdi]=dl; test dl; je done; inc rdi/rsi; jmp</pre>
+        <h2>3. <code>ft_strcmp</code></h2>
+        <pre class="code">movzx eax,[rdi]; movzx ecx,[rsi]; cmp al,cl; jne diff; test al; je equal</pre>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 1 · strcpy</span>
+          <p>Trace <code>"Hi"</code>.</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">3 iters, last copies 0x00, ret 0x8000</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 2 · missing \0</span>
+          <p>What if you jump before copying?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">No terminator, garbage strlen.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 3 · unsigned</span>
+          <p><code>{0xFF} vs {0x01}</code></p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">unsigned 254 &gt;0</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 4 · prefix</span>
+          <p><code>"abc" vs "abcd"</code></p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">-100</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Common mistakes</span>
+          <ul>
+            <li>Returning advanced <code>rdi</code>.</li>
+            <li>Missing <code>\0</code>.</li>
+            <li>Using <code>movsx</code>.</li>
+          </ul>
+        </div>
+
+        <h2>Defense questions</h2>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>Why <code>mov rax,rdi</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>Why copy <code>\0</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span><code>movzx</code> vs <code>movsx</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span><code>{0xFF} vs {0x01}</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d5"><span><code>"abc" vs "abcd"</code> sign?</span></label>
+        </div>
+
+        <h2>Completion criteria</h2>
+        <p>Both <code>.s</code> from memory, explain dst/terminator and unsigned, pass tests, verify <code>T</code>.</p>
+
+        <h2>You have learned that</h2>
+        <ul>
+          <li><code>rdi/rsi → rax/eax</code></li>
+          <li><code>strcpy</code> saves dst and copies <code>\0</code></li>
+          <li><code>strcmp</code> needs <code>movzx</code></li>
+        </ul>
+      </section>
+    </div>
+
+    <div class="complete-block">
+      <div class="complete-copy">
+        <h2><span lang="es">¿Has terminado la clase?</span><span lang="en">Done with the class?</span></h2>
+        <p><span lang="es">Responde en voz alta las preguntas de defensa, cumple el criterio y marca la clase como completada.</span><span lang="en">Answer the defense questions out loud, meet the criteria and mark as completed.</span></p>
+      </div>
+      <label class="complete-toggle">
+        <input type="checkbox" data-complete="libasm/clase-06">
+        <span data-i18n="btn.complete">Marcar clase como completada</span>
+      </label>
+    </div>
+    <nav class="pager">
+      <a href="clase-05.html">
+        <small data-i18n="prev.class">Clase anterior</small>
+        <strong><span lang="es">Clase 5 · ft_strlen</span><span lang="en">Class 5 · ft_strlen</span></strong>
+      </a>
+      <a class="next" href="index.html">
+        <small data-i18n="next.class">Siguiente</small>
+        <strong data-i18n="p.libasm.name">Libasm</strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>

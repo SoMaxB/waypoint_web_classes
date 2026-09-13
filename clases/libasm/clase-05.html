@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clase 5 · ft_strlen — Libasm</title>
+  <meta name="description" content="Recorrido de memoria hasta \\0, invariante, retorno size_t y primera función hoja en NASM.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="libasm/clase-05">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <label class="visually-hidden" for="site-search" data-i18n="search.label">Buscar proyecto</label>
+        <input id="site-search" type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="index.html" data-i18n="p.libasm.name">Libasm</a><span class="sep">/</span>
+        <span><span lang="es">Clase 5</span><span lang="en">Class 5</span></span>
+      </nav>
+
+      <h1><span lang="es">Clase 5 · <code>ft_strlen</code></span><span lang="en">Class 5 · <code>ft_strlen</code></span></h1>
+
+      <div class="class-toolbar">
+        <span class="toolbar-hint mono">rdi · rax · cmp byte [rdi+rax] · xor · invariant · size_t</span>
+      </div>
+    </div>
+
+    <div class="prose">
+
+      <!-- ============ ESPAÑOL ============ -->
+      <section lang="es">
+        <div class="objective">
+          <span class="label">Objetivo</span>
+          <p>Construir la primera función real de <code>libasm.a</code>: recorrer memoria byte a byte hasta encontrar el terminador <code>\0</code>, mantener un invariante sobre el contador y devolver la longitud como <code>size_t</code> en <code>rax</code>. Al terminar debes poder explicar por qué el primer argumento llega en <code>rdi</code>, por qué <code>xor rax,rax</code> pone el contador a cero, por qué <code>cmp byte [rdi+rax],0</code> no necesita <code>movzx</code>, y demostrar con un tester comparativo que <code>ft_strlen</code> empata con <code>strlen</code> en todos los casos definidos.</p>
+        </div>
+
+        <h2>1. El contrato</h2>
+        <pre class="code">size_t ft_strlen(const char *s);</pre>
+        <ul>
+          <li><code>s</code> llega en <code>rdi</code> (System V AMD64).</li>
+          <li>Retorno en <code>rax</code> (<code>size_t</code> = 64 bits sin signo).</li>
+          <li>No hay longitud almacenada: hay que buscar el primer <code>0x00</code>.</li>
+          <li>El terminador no se cuenta. <code>strlen("") == 0</code>, <code>strlen("hola") == 4</code>.</li>
+          <li><code>strlen(NULL)</code> es indefinido — no lo gestionamos.</li>
+        </ul>
+        <p>Memoria de <code>"hola"</code> si <code>s == 0x1000</code>:</p>
+        <pre class="code">0x1000  0x68 'h'
+0x1001  0x6f 'o'
+0x1002  0x6c 'l'
+0x1003  0x61 'a'
+0x1004  0x00 '\0'</pre>
+
+        <h2>2. ABI mínimo que necesitas</h2>
+        <pre class="code">rdi = s (solo lo lees)
+rax = contador y valor de retorno
+flags = resultado de cmp para je/jne</pre>
+        <p>Registros caller-saved (<code>rax, rcx, rdx, rsi, rdi, r8-r11</code>) pueden destruirse. Como no llamas a nadie, no hay que salvar nada ni alinear <code>rsp</code>. <code>xor rax,rax</code> es el idiom para <code>rax=0</code>: 3 bytes frente a 7 de <code>mov rax,0</code>, rompe dependencias y deja <code>ZF=1</code>.</p>
+        <p><code>cmp byte [rdi+rax],0</code> compara directamente el byte en memoria con cero. No necesitas <code>movzx</code> porque no usas el valor, solo los flags. En <code>ft_strcmp</code> sí necesitarás <code>movzx</code> porque restarás <code>byte1 - byte2</code> y un <code>0xFF</code> no debe volverse <code>-1</code>.</p>
+
+        <h2>3. Algoritmo e invariante</h2>
+        <pre class="code">size_t ft_strlen(const char *s) {
+    size_t i = 0;
+    while (s[i] != '\0')
+        i++;
+    return i;
+}</pre>
+        <p>Pasos en ensamblador: <code>rax=0</code> → leer <code>[rdi+rax]</code> → si es <code>0</code> fin → <code>rax++</code> → repetir → <code>ret</code>.</p>
+        <p><strong>Invariante:</strong> <em>antes de cada iteración, todos los bytes con índice &lt; rax son != 0</em>. Cuando encuentras <code>0</code>, <code>rax</code> ya es la respuesta y no has contado el terminador.</p>
+
+        <h2>4. Implementación NASM</h2>
+        <pre class="code">default rel
+section .text
+
+global ft_strlen
+ft_strlen:
+    xor     rax, rax          ; i = 0
+.loop:
+    cmp     byte [rdi + rax], 0
+    je      .done
+    inc     rax
+    jmp     .loop
+.done:
+    ret
+
+section .note.GNU-stack noalloc noexec nowrite progbits</pre>
+        <p>Desensamblado (<code>objdump -d -M intel</code>):</p>
+        <pre class="code">xor    rax,rax
+cmp    BYTE PTR [rdi+rax*1],0x0
+je     &lt;done&gt;
+inc    rax
+jmp    &lt;loop&gt;
+ret</pre>
+        <ul>
+          <li><code>global</code> exporta <code>T ft_strlen</code> (<code>nm -g</code>).</li>
+          <li><code>.note.GNU-stack</code> evita pila ejecutable.</li>
+          <li>Función hoja: ningún <code>push</code>/<code>pop</code>.</li>
+        </ul>
+
+        <h2>5. UTF-8 son bytes</h2>
+        <p><code>strlen</code> cuenta bytes, no caracteres. <code>"café"</code> en UTF-8 son 5 bytes:</p>
+        <pre class="code">'c' 0x63
+'a' 0x61
+'f' 0x66
+'é' 0xc3 0xa9   ; 2 bytes
+'\0' 0x00</pre>
+        <p>Por eso <code>strlen("café") == 5</code>, no 4.</p>
+
+        <h2>6. Compilar y verificar</h2>
+        <pre class="code">nasm -f elf64 -g -F dwarf ft_strlen.s -o ft_strlen.o
+cc -Wall -Wextra -Werror -g main.c ft_strlen.o -o tester
+./tester
+nm -g ft_strlen.o          # 0000000000000000 T ft_strlen
+objdump -d -M intel ft_strlen.o</pre>
+        <table>
+          <thead><tr><th>Entrada</th><th>Esperado</th></tr></thead>
+          <tbody>
+            <tr><td class="mono-col">""</td><td class="mono-col">0</td></tr>
+            <tr><td class="mono-col">"a"</td><td class="mono-col">1</td></tr>
+            <tr><td class="mono-col">"hola"</td><td class="mono-col">4</td></tr>
+            <tr><td class="mono-col">"café" (c3 a9)</td><td class="mono-col">5</td></tr>
+            <tr><td class="mono-col">cadena larga</td><td class="mono-col">igual que strlen</td></tr>
+          </tbody>
+        </table>
+
+        <h2>7. Predicciones y ejercicios</h2>
+        <p>Intenta cada ejercicio antes de desplegar la solución.</p>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 1 · terminador y contador</span>
+          <p><code>rdi = 0x1000</code> con <code>[ 'h' 'o' 'l' 'a' 0 ]</code>. ¿Qué vale <code>rax</code> al terminar? ¿Cuentas el <code>0</code>?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">rax = 4. No se cuenta el terminador.
+rax=0 'h'→1, 'o'→2, 'l'→3, 'a'→4, 0x00→je .done, ret 4</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 2 · cadena vacía</span>
+          <p>Memoria <code>[ 0x00 ]</code>. ¿Qué devuelve <code>ft_strlen</code> y cuántas iteraciones hace?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">Devuelve 0. Comprueba el primer byte, ve 0 y salta a .done sin ningún inc.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 3 · bytes vs caracteres</span>
+          <p><code>"café"</code> = <code>63 61 66 c3 a9 00</code>. ¿Qué devuelve <code>strlen</code>?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">5. Cuenta bytes hasta \0. La 'é' son dos bytes (c3 a9), 3+2=5.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 4 · cmp sin movzx</span>
+          <p>¿Por qué <code>cmp byte [rdi+rax],0</code> funciona sin <code>movzx</code> y cuándo sí lo necesitarías?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">cmp compara el byte en memoria y fija flags. Solo necesitas saber si es cero.
+movzx lo necesitas cuando usas el valor (ft_strcmp: byte1 - byte2 sin signo).</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 5 · xor vs mov</span>
+          <p>¿Por qué <code>xor rax,rax</code> es preferible a <code>mov rax,0</code>?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">3 bytes (48 31 c0), rompe dependencias y deja ZF=1. mov rax,0 ocupa 7 bytes.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 6 · invariante</span>
+          <p>Enuncia el invariante y por qué garantiza no contar el <code>\0</code>.</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">Antes de cada iteración, todo índice &lt; rax es !=0. Solo inc si byte !=0;
+cuando encuentra 0 salta sin inc, así que rax = nº de bytes !=0.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 7 · verificación real</span>
+          <p>Predice y ejecuta:</p>
+          <pre class="code">nasm -f elf64 ft_strlen.s -o ft_strlen.o
+cc -Wall -Wextra -Werror main.c ft_strlen.o -o tester
+./tester
+nm -g ft_strlen.o | grep ft_strlen</pre>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">nasm silencioso si OK. ./tester → [OK] en 6 pruebas, len 5 para "café".
+nm → 0000000000000000 T ft_strlen (U = olvidaste global)</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Errores frecuentes</span>
+          <ul>
+            <li>Contar el terminador (<code>inc</code> antes de <code>cmp</code>).</li>
+            <li>Usar <code>eax</code> de 32 bits y truncar longitudes &gt; 4 GiB.</li>
+            <li>Intentar gestionar <code>NULL</code> (indefinido).</li>
+            <li>Leer de 8 en 8 antes de dominar límites de página.</li>
+            <li>Olvidar <code>global ft_strlen</code> → símbolo <code>U</code>.</li>
+            <li>Añadir <code>push</code>/<code>pop</code> innecesarios en una hoja.</li>
+          </ul>
+        </div>
+
+        <h2>Preguntas tipo defensa</h2>
+        <p>Responde en voz alta, sin mirar:</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>¿Por qué <code>rdi</code> trae el primer argumento y <code>rax</code> el retorno?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>¿Qué diferencia hay entre <code>rax</code>, <code>eax</code> y <code>al</code> y por qué usas <code>rax</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>¿Por qué <code>cmp byte [rdi+rax],0</code> no necesita <code>movzx</code> y <code>strcmp</code> sí?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>¿Qué hace <code>xor rax,rax</code> y por qué es preferible a <code>mov rax,0</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d5"><span>¿Cuál es el invariante del bucle?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d6"><span>¿Por qué no cuentas el <code>\0</code> y cuánto ocupa <code>"hola"</code> con terminador?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d7"><span>¿Qué devuelve <code>strlen("café")</code> y por qué?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d8"><span>¿Qué significaría <code>U ft_strlen</code> en <code>nm</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d9"><span>¿Por qué esta función no necesita alinear pila?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d10"><span>¿Cómo verificas que el objeto exporta <code>T ft_strlen</code>?</span></label>
+        </div>
+
+        <h2>Criterio de finalización</h2>
+        <p>La clase está completa cuando puedes:</p>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Escribir <code>ft_strlen.s</code> de memoria con <code>xor/cmp/je/inc/jmp/ret</code> y <code>GNU-stack</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Explicar ABI (<code>rdi/rax</code>), invariante y por qué no se cuenta <code>\0</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Distinguir <code>cmp byte ...,0</code> de <code>movzx</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Compilar con <code>nasm -f elf64</code> y enlazar con <code>cc -Wall -Wextra -Werror</code> sin <code>-no-pie</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c5"><span>Pasar la matriz de 6 tests contra <code>strlen</code> y explicar UTF-8.</span></label></li>
+        </ol>
+
+        <h2>Has aprendido que</h2>
+        <ul>
+          <li>Una cadena C no lleva longitud: se busca <code>0x00</code> y no se cuenta.</li>
+          <li><code>rdi</code> trae <code>s</code>, <code>rax</code> devuelve <code>size_t</code> de 64 bits.</li>
+          <li><code>cmp byte [rdi+rax],0</code> + <code>je</code> basta para testear cero.</li>
+          <li><code>xor rax,rax</code> es el idiom para cero.</li>
+          <li>El invariante <em>todo &lt; rax es !=0</em> hace el bucle correcto.</li>
+          <li><code>strlen</code> cuenta bytes, no glifos; UTF-8 son varios bytes.</li>
+          <li>Una hoja no toca <code>rsp</code> ni preserva <code>rbx/r12-r15</code>.</li>
+          <li><code>global</code> + <code>GNU-stack</code> + <code>default rel</code> es la plantilla NASM/ELF64.</li>
+        </ul>
+
+        <h2>Lista de lecturas</h2>
+        <ul>
+          <li><code>man 3 strlen</code> — contrato, <code>size_t</code> y <code>\0</code>.</li>
+          <li><code>man 7 ascii</code> — <code>0x00</code> vs <code>'0'</code> y bytes <code>&gt;=0x80</code>.</li>
+          <li>Intel SDM Vol.1 §3.4.1, §3.7.2 — <code>rax/eax/al</code> y <code>xor</code> idiom; Vol.2 <code>CMP/Jcc</code>.</li>
+          <li><code>man 1 nm</code>, <code>man 1 objdump</code> — <code>T ft_strlen</code>.</li>
+        </ul>
+      </section>
+
+      <!-- ============ ENGLISH ============ -->
+      <section lang="en">
+        <div class="objective">
+          <span class="label">Objective</span>
+          <p>Build the first real function of <code>libasm.a</code>: walk memory byte by byte until the <code>\0</code> terminator, keep an invariant on the counter and return the length as <code>size_t</code> in <code>rax</code>. By the end you must be able to explain why the first argument arrives in <code>rdi</code>, why <code>xor rax,rax</code> zeroes the counter, why <code>cmp byte [rdi+rax],0</code> needs no <code>movzx</code>, and prove with a comparative tester that <code>ft_strlen</code> matches <code>strlen</code> on every defined case.</p>
+        </div>
+
+        <h2>1. The contract</h2>
+        <pre class="code">size_t ft_strlen(const char *s);</pre>
+        <ul>
+          <li><code>s</code> arrives in <code>rdi</code> (System V AMD64).</li>
+          <li>Return in <code>rax</code> (<code>size_t</code> = 64-bit unsigned).</li>
+          <li>No stored length: scan for first <code>0x00</code>.</li>
+          <li>Terminator not counted. <code>strlen("") == 0</code>, <code>strlen("hola") == 4</code>.</li>
+          <li><code>strlen(NULL)</code> is undefined — we don't handle it.</li>
+        </ul>
+        <p>Memory for <code>"hola"</code> if <code>s == 0x1000</code>:</p>
+        <pre class="code">0x1000  0x68 'h'
+0x1001  0x6f 'o'
+0x1002  0x6c 'l'
+0x1003  0x61 'a'
+0x1004  0x00 '\0'</pre>
+
+        <h2>2. Minimal ABI</h2>
+        <pre class="code">rdi = s (read-only)
+rax = counter and return
+flags = cmp result for je/jne</pre>
+        <p>Caller-saved (<code>rax, rcx, rdx, rsi, rdi, r8-r11</code>) may be clobbered. Leaf function: no saves, no <code>rsp</code> alignment. <code>xor rax,rax</code> is the zero idiom: 3 bytes vs 7 for <code>mov rax,0</code>. <code>cmp byte [rdi+rax],0</code> tests zero directly; you need <code>movzx</code> only when you use the value (e.g. <code>ft_strcmp</code> does <code>byte1 - byte2</code> unsigned).</p>
+
+        <h2>3. Algorithm and invariant</h2>
+        <pre class="code">size_t ft_strlen(const char *s) {
+    size_t i = 0;
+    while (s[i] != '\0')
+        i++;
+    return i;
+}</pre>
+        <p>Steps: <code>rax=0</code> → read <code>[rdi+rax]</code> → if <code>0</code> done → <code>rax++</code> → repeat → <code>ret</code>.</p>
+        <p><strong>Invariant:</strong> <em>before each iteration, every byte with index &lt; rax is != 0</em>. When you hit <code>0</code>, <code>rax</code> already is the answer.</p>
+
+        <h2>4. NASM implementation</h2>
+        <pre class="code">default rel
+section .text
+
+global ft_strlen
+ft_strlen:
+    xor     rax, rax
+.loop:
+    cmp     byte [rdi + rax], 0
+    je      .done
+    inc     rax
+    jmp     .loop
+.done:
+    ret
+
+section .note.GNU-stack noalloc noexec nowrite progbits</pre>
+        <p>Disassembly (<code>objdump -d -M intel</code>):</p>
+        <pre class="code">xor    rax,rax
+cmp    BYTE PTR [rdi+rax*1],0x0
+je     &lt;done&gt;
+inc    rax
+jmp    &lt;loop&gt;
+ret</pre>
+
+        <h2>5. UTF-8 is bytes</h2>
+        <p><code>strlen</code> counts bytes, not glyphs. <code>"café"</code> is 5 bytes: <code>c a f</code> + <code>c3 a9</code> for <code>é</code> + <code>00</code>.</p>
+
+        <h2>6. Build and verify</h2>
+        <pre class="code">nasm -f elf64 -g -F dwarf ft_strlen.s -o ft_strlen.o
+cc -Wall -Wextra -Werror -g main.c ft_strlen.o -o tester
+./tester
+nm -g ft_strlen.o
+objdump -d -M intel ft_strlen.o</pre>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 1 · terminator</span>
+          <p><code>rdi = 0x1000</code> with <code>[ 'h' 'o' 'l' 'a' 0 ]</code>. What is <code>rax</code> on exit?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">rax = 4. Terminator not counted.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 2 · empty</span>
+          <p>Memory <code>[ 0x00 ]</code>. Return value?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">0, zero increments.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 3 · bytes</span>
+          <p><code>"café"</code> = <code>63 61 66 c3 a9 00</code>. What does <code>strlen</code> return?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">5, byte count.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 4 · cmp</span>
+          <p>Why does <code>cmp byte [rdi+rax],0</code> need no <code>movzx</code>?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">You only test zero via flags. movzx is for using the value (strcmp).</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 5 · xor</span>
+          <p>Why <code>xor rax,rax</code> over <code>mov rax,0</code>?</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">3 bytes, breaks dependency, sets ZF.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 6 · invariant</span>
+          <p>State the invariant.</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">Before each iteration, every byte with index &lt; rax is !=0.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 7 · verify</span>
+          <p>Predict then run the build commands.</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">All [OK], 5 for café, nm shows T ft_strlen.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Common mistakes</span>
+          <ul>
+            <li>Counting the terminator.</li>
+            <li>Using 32-bit <code>eax</code>.</li>
+            <li>Handling <code>NULL</code>.</li>
+            <li>Forgetting <code>global ft_strlen</code>.</li>
+            <li>Unneeded <code>push</code>/<code>pop</code> in a leaf.</li>
+          </ul>
+        </div>
+
+        <h2>Defense questions</h2>
+        <p>Answer out loud:</p>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>Why does <code>rdi</code> hold the first argument and <code>rax</code> the return?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>Difference between <code>rax</code>, <code>eax</code>, <code>al</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>Why does <code>cmp byte [rdi+rax],0</code> need no <code>movzx</code> but <code>strcmp</code> does?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>What does <code>xor rax,rax</code> do?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d5"><span>What is the loop invariant?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d6"><span>Why not count <code>\0</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d7"><span>What is <code>strlen("café")</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d8"><span>What does <code>U ft_strlen</code> mean in <code>nm</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d9"><span>Why no stack alignment here?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d10"><span>How to verify <code>T ft_strlen</code>?</span></label>
+        </div>
+
+        <h2>Completion criteria</h2>
+        <p>Done when you can write <code>ft_strlen.s</code> from memory, explain ABI/invariant, build with <code>nasm/cc</code> and pass the 6 comparative tests.</p>
+
+        <h2>You have learned that</h2>
+        <ul>
+          <li>C strings have no length: scan for <code>0x00</code>.</li>
+          <li><code>rdi</code> in, <code>rax</code> out (64-bit).</li>
+          <li><code>cmp byte [rdi+rax],0</code> + <code>je</code> tests zero.</li>
+          <li><code>xor rax,rax</code> zeroes.</li>
+          <li>Invariant makes the loop correct.</li>
+          <li><code>strlen</code> counts bytes.</li>
+          <li>Leaf needs no stack.</li>
+        </ul>
+
+        <h2>Reading list</h2>
+        <ul>
+          <li><code>man 3 strlen</code></li>
+          <li><code>man 7 ascii</code></li>
+          <li>Intel SDM Vol.1 §3.4.1, §3.7.2; Vol.2 <code>CMP/Jcc</code></li>
+          <li><code>man 1 nm</code>, <code>man 1 objdump</code></li>
+        </ul>
+      </section>
+    </div>
+
+    <div class="complete-block">
+      <div class="complete-copy">
+        <h2><span lang="es">¿Has terminado la clase?</span><span lang="en">Done with the class?</span></h2>
+        <p><span lang="es">Responde en voz alta las preguntas de defensa, cumple el criterio de finalización y marca la clase como completada. Tu progreso se guarda en el navegador.</span><span lang="en">Answer the defense questions out loud, meet the completion criteria and mark the class as completed. Your progress is saved in the browser.</span></p>
+      </div>
+      <label class="complete-toggle">
+        <input type="checkbox" data-complete="libasm/clase-05">
+        <span data-i18n="btn.complete">Marcar clase como completada</span>
+      </label>
+    </div>
+    <nav class="pager">
+      <a href="clase-04.html">
+        <small data-i18n="prev.class">Clase anterior</small>
+        <strong><span lang="es">Clase 4 · NASM, ELF64 y herramientas</span><span lang="en">Class 4 · NASM, ELF64 and tools</span></strong>
+      </a>
+      <a class="next" href="clase-06.html">
+        <small data-i18n="next.class">Siguiente clase</small>
+        <strong><span lang="es">Clase 6 · ft_strcpy y ft_strcmp</span><span lang="en">Class 6 · ft_strcpy and ft_strcmp</span></strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>

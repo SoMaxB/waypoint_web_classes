@@ -116,22 +116,34 @@
             <span class="status" data-status-for="libasm/clase-04" data-i18n="btn.complete">Marcar clase como completada</span>
           </label>
         </div>
+
+        <div class="class-row">
+          <span class="num">05</span>
+          <span class="info">
+            <a href="clase-05.html"><h4><span lang="es"><code>ft_strlen</code></span><span lang="en"><code>ft_strlen</code></span></h4></a>
+            <p><span lang="es">Recorrido de memoria hasta <code>\0</code>, invariante, <code>size_t</code> en <code>rax</code> y primera función hoja.</span><span lang="en">Memory walk to <code>\0</code>, invariant, <code>size_t</code> in <code>rax</code> and first leaf function.</span></p>
+          </span>
+          <label class="complete-toggle">
+            <input type="checkbox" data-complete="libasm/clase-05">
+            <span class="status" data-status-for="libasm/clase-05" data-i18n="btn.complete">Marcar clase como completada</span>
+          </label>
+        </div>
+
+        <div class="class-row">
+          <span class="num">06</span>
+          <span class="info">
+            <a href="clase-06.html"><h4><span lang="es"><code>ft_strcpy</code> y <code>ft_strcmp</code></span><span lang="en"><code>ft_strcpy</code> and <code>ft_strcmp</code></span></h4></a>
+            <p><span lang="es">Dos punteros, retorno del <code>dst</code> original, terminador y semántica <code>unsigned char</code> con <code>movzx</code>.</span><span lang="en">Two pointers, original <code>dst</code> return, terminator and <code>unsigned char</code> via <code>movzx</code>.</span></p>
+          </span>
+          <label class="complete-toggle">
+            <input type="checkbox" data-complete="libasm/clase-06">
+            <span class="status" data-status-for="libasm/clase-06" data-i18n="btn.complete">Marcar clase como completada</span>
+          </label>
+        </div>
       </div>
 
       <h3 class="soon-heading"><span lang="es">Próximamente</span><span lang="en">Coming soon</span></h3>
       <div class="soon-grid">
-
-        <div class="soon-card">
-          <h4><span lang="es">Clase 5 · <code>ft_strlen</code></span><span lang="en">Class 5 · <code>ft_strlen</code></span></h4>
-          <p><span lang="es">Recorrido de memoria, invariantes, terminador y retorno <code>size_t</code>. Resultado: implementación explicable y tests comparativos completos contra <code>strlen</code>.</span><span lang="en">Memory walk, invariants, terminator and <code>size_t</code> return. Result: explainable implementation and full comparative tests against <code>strlen</code>.</span></p>
-          <span class="badge amber" data-i18n="status.coming">En preparación</span>
-        </div>
-
-        <div class="soon-card">
-          <h4><span lang="es">Clase 6 · <code>ft_strcpy</code> y <code>ft_strcmp</code></span><span lang="en">Class 6 · <code>ft_strcpy</code> and <code>ft_strcmp</code></span></h4>
-          <p><span lang="es">Dos punteros, retorno del <code>dst</code> original, terminador y semántica de <code>unsigned char</code>. Resultado: ambas validadas, incluidos bytes <code>&gt;= 0x80</code>.</span><span lang="en">Two pointers, returning the original <code>dst</code>, terminator and <code>unsigned char</code> semantics. Result: both validated, including bytes <code>&gt;= 0x80</code>.</span></p>
-          <span class="badge amber" data-i18n="status.coming">En preparación</span>
-        </div>
 
         <div class="soon-card">
           <h4><span lang="es">Clase 7 · Interfaz de syscalls</span><span lang="en">Class 7 · Syscall interface</span></h4>
