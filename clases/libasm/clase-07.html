@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clase 7 · Interfaz de syscalls — Libasm</title>
+  <meta name="description" content="Frontera usuario/kernel, registros de syscall, números read/write, retornos negativos y strace.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="libasm/clase-07">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <path d="m20 20-3.5-3.5"></path>
+        </svg>
+        <label class="visually-hidden" for="site-search" data-i18n="search.label">Buscar proyecto</label>
+        <input id="site-search" type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button">EN</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <div class="page-head">
+      <nav class="breadcrumbs">
+        <a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span>
+        <a href="index.html" data-i18n="p.libasm.name">Libasm</a><span class="sep">/</span>
+        <span><span lang="es">Clase 7</span><span lang="en">Class 7</span></span>
+      </nav>
+
+      <h1><span lang="es">Clase 7 · Interfaz de syscalls</span><span lang="en">Class 7 · Syscall interface</span></h1>
+
+      <div class="class-toolbar">
+        <span class="toolbar-hint mono">syscall · rax 0/1 · rdi rsi rdx · rcx r11 · errno · strace</span>
+      </div>
+    </div>
+
+    <div class="prose">
+
+      <!-- ============ ESPAÑOL ============ -->
+      <section lang="es">
+        <div class="objective">
+          <span class="label">Objetivo</span>
+          <p>Entender la frontera usuario/kernel: qué hace <code>syscall</code>, qué registros usa, qué números son <code>read</code>/<code>write</code> y cómo el kernel señaliza errores con retornos negativos que la libc traduce a <code>-1</code> y <code>errno</code>. Al terminar debes predecir los registros antes de <code>syscall</code>, distinguir una syscall vista en <code>strace</code> de su wrapper C, y explicar por qué <code>read(fd,buf,0)=0</code> no es error.</p>
+        </div>
+
+        <h2>1. Función ≠ syscall</h2>
+        <pre class="code">C:        ft_write(1, buf, 5)  // rdi=1 rsi=buf rdx=5
+ft_write: rax=1               // número de write
+          syscall             // → rax = retorno kernel
+          // si rax negativo → errno = -rax, rax = -1
+          ret</pre>
+        <p>Los 3 primeros args ya están en <code>rdi/rsi/rdx</code>. El 4º de syscall sería <code>r10</code>, no <code>rcx</code>. <code>syscall</code> destruye <code>rcx</code> y <code>r11</code>.</p>
+
+        <h2>2. Convenciones</h2>
+        <table>
+          <thead><tr><th></th><th>Función System V</th><th>Syscall Linux</th></tr></thead>
+          <tbody>
+            <tr><td>Número</td><td>—</td><td><code>rax</code></td></tr>
+            <tr><td>Args 1-3</td><td><code>rdi rsi rdx</code></td><td><code>rdi rsi rdx</code></td></tr>
+            <tr><td>Args 4-6</td><td><code>rcx r8 r9</code></td><td><code>r10 r8 r9</code></td></tr>
+            <tr><td>Destruidos</td><td><code>rax rcx rdx rsi rdi r8-11</code></td><td><code>rcx r11</code></td></tr>
+          </tbody>
+        </table>
+        <pre class="code">read  = 0
+write = 1</pre>
+
+        <h2>3. Qué devuelve el kernel</h2>
+        <pre class="code">rax ≥ 0           → éxito: bytes
+rax ∈ [-4095,-1]  → error: -errno (ej. -9 = -EBADF)</pre>
+        <p>El rango existe porque nunca hay punteros válidos ahí. Para <code>read/write</code> un éxito no cae en negativo, así que <code>js .error</code> funciona, pero entiende el rango para defensa.</p>
+        <pre class="code">if (ret >= -4095) { errno = -ret; return -1; }</pre>
+        <p><code>errno</code> es thread-local: <code>__errno_location() → int*</code>, no <code>int errno</code>. Necesitas <code>wrt ..plt</code> (PIE) y preservar el error a través del <code>call</code>.</p>
+
+        <h2>4. <code>strace</code></h2>
+        <pre class="code">strace -e trace=read,write,openat,close ./demo</pre>
+        <pre class="code">write(1, "hola\n", 5) = 5
+write(-1, "hola\n", 5) = -1 EBADF (Bad file descriptor)
+read(0, "", 0) = 0
+openat(AT_FDCWD, "/tmp/...", O_WRONLY|O_CREAT|O_TRUNC, 0644) = 3
+write(3, "hola\n", 5) = 5
+read(3, "hola\n", 5) = 5</pre>
+        <p>La 2ª línea es <code>rax=-9</code> decorado. <code>read(...,0)=0</code> no es error. <code>read</code> parcial (40 de 100) tampoco es error: solo usa <code>buf[0..39]</code>, siguiente <code>read</code> dará <code>0</code> (EOF).</p>
+
+        <h2>5. Predicciones y ejercicios</h2>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 1 · registros</span>
+          <p><code>write(1,"Hi\n",3)</code> con <code>buf=0x6000</code>. ¿<code>rax/rdi/rsi/rdx</code> y qué destruye <code>syscall</code>?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">rax=1 rdi=1 rsi=0x6000 rdx=3; destruye rcx r11</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 2 · EBADF</span>
+          <p><code>write(-1,buf,10)</code> → kernel <code>-9</code>. ¿Retorno y <code>errno</code>?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">ret -1, errno 9. rax=-9 → neg → call __errno_location → mov dword [rax],9 → rax=-1</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 3 · count 0</span>
+          <p><code>read(fd,buf,0)</code> con fd válido.</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">kernel 0, libc 0, errno intacto. No es error.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 4 · thread-local</span>
+          <p>¿Por qué no <code>extern int errno</code>?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">errno es thread-local/macro. glibc usa __errno_location(). int global rompe hilos y PIE.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 5 · parcial</span>
+          <p><code>read(fd,buf,100)</code> sobre archivo de 40 bytes.</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">40, no error. Siguiente read → 0 (EOF).</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Ejercicio 6 · strace</span>
+          <p><code>strace</code> dice <code>write(-1,…)=-1 EBADF</code>. ¿Qué había en <code>rax</code> tras <code>syscall</code>?</p>
+          <details class="solution">
+            <summary>Mostrar solución</summary>
+            <div class="answer-box">
+              <pre class="code">-9 (0xfffffffffffffff7). El wrapper lo convierte a -1/errno 9.</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Errores frecuentes</span>
+          <ul>
+            <li>Confundir <code>rax=1</code> (número) con <code>rdi=1</code> (fd).</li>
+            <li>Usar <code>rcx</code> para 4º arg (es <code>r10</code>).</li>
+            <li>Creer que <code>syscall</code> preserva <code>rcx/r11</code>.</li>
+            <li><code>extern int errno</code> en vez de <code>__errno_location</code>.</li>
+            <li><code>mov [rax],rdi</code> (64b) en vez de <code>mov dword [rax],edi</code>.</li>
+            <li>Olvidar <code>wrt ..plt</code> o no preservar error ante <code>call</code>.</li>
+            <li>Pensar que <code>count=0</code> o parcial es error.</li>
+          </ul>
+        </div>
+
+        <h2>Preguntas tipo defensa</h2>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>¿Función vs syscall?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>¿Registros para <code>write(1,buf,5)</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>¿Qué destruye <code>syscall</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d4"><span>¿Números <code>read/write</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d5"><span>¿Retorno éxito/error del kernel?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d6"><span>¿Por qué <code>-4095</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d7"><span>¿Traducción libc a <code>errno</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d8"><span>¿Por qué <code>__errno_location</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d9"><span>¿<code>wrt ..plt</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d10"><span>¿Qué muestra <code>strace</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d11"><span>¿<code>read(...,0)=0</code>?</span></label>
+        </div>
+
+        <h2>Criterio de finalización</h2>
+        <ol class="checklist">
+          <li class="chk"><label><input type="checkbox" data-id="c1"><span>Predecir registros y destruidos de <code>syscall</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c2"><span>Explicar <code>rax negativo → errno → -1</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c3"><span>Distinguir <code>__errno_location</code> y <code>wrt ..plt</code>.</span></label></li>
+          <li class="chk"><label><input type="checkbox" data-id="c4"><span>Predecir <code>strace</code> para éxito/EBADF/count0.</span></label></li>
+        </ol>
+
+        <h2>Has aprendido que</h2>
+        <ul>
+          <li>Función y syscall son capas distintas.</li>
+          <li><code>read=0 write=1</code> en <code>rax</code>, args <code>rdi/rsi/rdx</code>, destruidos <code>rcx/r11</code>.</li>
+          <li>Kernel: <code>≥0</code> éxito, <code>[-4095,-1]</code> error.</li>
+          <li>Libc: <code>-1</code> + <code>errno</code> thread-local.</li>
+          <li><code>strace</code> ve syscalls.</li>
+          <li><code>count=0 → 0</code>, parcial no es error, <code>0</code> con <code>count&gt;0</code> es EOF.</li>
+        </ul>
+
+        <h2>Lista de lecturas</h2>
+        <ul>
+          <li><code>man 2 syscall</code>, <code>man 2 read</code>, <code>man 2 write</code></li>
+          <li><code>man 3 errno</code>, <code>man 1 strace</code></li>
+          <li>Intel SDM Vol.2 <code>SYSCALL</code></li>
+        </ul>
+      </section>
+
+      <!-- ============ ENGLISH ============ -->
+      <section lang="en">
+        <div class="objective">
+          <span class="label">Objective</span>
+          <p>Understand the user/kernel boundary: what <code>syscall</code> does, which registers it uses, the numbers for <code>read/write</code> and how the kernel signals errors with negative returns that libc translates to <code>-1</code> and <code>errno</code>. You must predict registers before <code>syscall</code>, tell a strace syscall from its C wrapper, and explain why <code>read(fd,buf,0)=0</code> is not an error.</p>
+        </div>
+
+        <h2>1. Function vs syscall</h2>
+        <pre class="code">rax=1 (write) rdi=1 rsi=buf rdx=3 → syscall → rax return</pre>
+        <h2>2. Conventions</h2>
+        <pre class="code">read 0, write 1, args rdi rsi rdx, clobbers rcx r11</pre>
+        <h2>3. Kernel return</h2>
+        <pre class="code">≥0 success, [-4095,-1] = -errno</pre>
+        <h2>4. strace</h2>
+        <pre class="code">write(-1,…) = -1 EBADF // raw rax = -9</pre>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 1 · registers</span>
+          <p><code>write(1,"Hi\n",3)</code></p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">rax1 rdi1 rsi buf rdx3; clobbers rcx r11</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="exercise">
+          <span class="ex-tag">Exercise 2 · EBADF</span>
+          <p><code>write(-1,…)</code> → -9</p>
+          <details class="solution">
+            <summary>Show answer</summary>
+            <div class="answer-box">
+              <pre class="code">ret -1 errno 9</pre>
+            </div>
+          </details>
+        </div>
+
+        <div class="panel warn">
+          <span class="label">Common mistakes</span>
+          <ul>
+            <li>Mixing <code>rax</code> number with <code>rdi</code> fd.</li>
+            <li>Using <code>rcx</code> for arg 4.</li>
+            <li><code>extern int errno</code>.</li>
+          </ul>
+        </div>
+
+        <h2>Defense questions</h2>
+        <div class="checklist">
+          <label class="chk"><input type="checkbox" data-id="d1"><span>Function vs syscall?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d2"><span>Registers for <code>write</code>?</span></label>
+          <label class="chk"><input type="checkbox" data-id="d3"><span>What does <code>syscall</code> clobber?</span></label>
+        </div>
+
+        <h2>You have learned that</h2>
+        <ul>
+          <li>Layers differ.</li>
+          <li><code>read 0 write 1</code>, <code>rcx/r11</code> clobbered.</li>
+          <li>Kernel negative = error, libc → <code>-1/errno</code>.</li>
+        </ul>
+      </section>
+    </div>
+
+    <div class="complete-block">
+      <div class="complete-copy">
+        <h2><span lang="es">¿Has terminado la clase?</span><span lang="en">Done with the class?</span></h2>
+        <p><span lang="es">Responde en voz alta las preguntas de defensa, cumple el criterio y marca la clase como completada.</span><span lang="en">Answer the defense questions out loud, meet the criteria and mark as completed.</span></p>
+      </div>
+      <label class="complete-toggle">
+        <input type="checkbox" data-complete="libasm/clase-07">
+        <span data-i18n="btn.complete">Marcar clase como completada</span>
+      </label>
+    </div>
+    <nav class="pager">
+      <a href="clase-06.html">
+        <small data-i18n="prev.class">Clase anterior</small>
+        <strong><span lang="es">Clase 6 · ft_strcpy y ft_strcmp</span><span lang="en">Class 6 · ft_strcpy and ft_strcmp</span></strong>
+      </a>
+      <a class="next" href="index.html">
+        <small data-i18n="next.class">Siguiente</small>
+        <strong data-i18n="p.libasm.name">Libasm</strong>
+      </a>
+    </nav>
+  </main>
+
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+
+  <script src="../../js/i18n.js"></script>
+  <script src="../../js/main.js"></script>
+</body>
+</html>
