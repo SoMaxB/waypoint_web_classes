@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clase 4 · Matrices MVP y perspectiva — Scop</title>
+  <meta name="description" content="Matrices 4x4 propias, coordenadas homogeneas, Model View Projection y perspectiva en Scop.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="scop/clase-04">
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+      <div class="search-wrap hidden-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+        <label class="visually-hidden" for="site-search" data-i18n="search.label">Buscar proyecto</label>
+        <input id="site-search" type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1">
+      </div>
+      <div class="header-actions"><button id="lang-toggle" class="lang-toggle" type="button">EN</button></div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-head">
+      <nav class="breadcrumbs"><a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span><a href="index.html" data-i18n="p.scop.name">Scop</a><span class="sep">/</span><span><span lang="es">Clase 4</span><span lang="en">Class 4</span></span></nav>
+      <h1><span lang="es">Clase 4 · matrices MVP y perspectiva</span><span lang="en">Class 4 · MVP matrices and perspective</span></h1>
+      <div class="class-toolbar"><span class="toolbar-hint mono">mat4 · homogeneous coordinates · Model · View · Projection · MVP</span></div>
+    </div>
+
+    <div class="prose">
+      <section lang="es">
+        <div class="objective"><span class="label">Objetivo</span><p>Implementar matrices 4x4 propias, coordenadas homogeneas y la composicion <code>Projection * View * Model</code>. Al terminar, el cubo real del proyecto gira sobre su centro y se muestra en perspectiva sin usar GLM.</p></div>
+        <h2>1. Del OBJ a la pantalla</h2>
+        <p>La clase 3 ya subia posiciones e indices al GPU. Ahora cada posicion atraviesa tres espacios:</p>
+        <pre class="code">posicion local
+  -> Model: transforma el objeto
+  -> View: expresa el mundo desde la camara
+  -> Projection: aplica perspectiva
+  -> division por w
+  -> rasterizacion</pre>
+        <p>Con vectores columna, la matriz de la derecha actua primero:</p>
+        <pre class="code">clip = Projection * View * Model * vertex</pre>
+
+        <h2>2. Matrices y coordenadas homogeneas</h2>
+        <p>Cada fila de una matriz calcula una coordenada nueva. Usamos <code>w=1</code> para posiciones y <code>w=0</code> para direcciones. Asi una traslacion afecta a una posicion pero no a una direccion.</p>
+        <pre class="code">T = [ 1  0  0  tx ]
+    [ 0  1  0  ty ]
+    [ 0  0  1  tz ]
+    [ 0  0  0  1  ]
+
+posicion (x,y,z,1) -> (x+tx,y+ty,z+tz,1)
+direccion (x,y,z,0) -> (x,y,z,0)</pre>
+        <p>La implementacion guarda matrices en <code>m[col * 4 + row]</code>. Por eso la traslacion vive en <code>m[12]</code>, <code>m[13]</code> y <code>m[14]</code>.</p>
+        <pre class="code">t_mat4 mat4_translate(float x, float y, float z)
+{
+    t_mat4 out = mat4_identity();
+    out.m[12] = x;
+    out.m[13] = y;
+    out.m[14] = z;
+    return out;
+}</pre>
+
+        <h2>3. Orden de transformacion</h2>
+        <p>Las transformaciones no conmutan. Para que el cubo gire sobre su origen y despues se traslade usamos:</p>
+        <pre class="code">Model = T * R
+Model * vertex = T * (R * vertex)</pre>
+        <p>Las funciones <code>mat4_rotate_x</code>, <code>mat4_rotate_y</code> y <code>mat4_rotate_z</code> estan implementadas en <code>src/mat4.c</code>. Si el modelo no estuviera centrado, habria que centrarlo antes de rotar.</p>
+
+        <h2>4. Camara y perspectiva</h2>
+        <p>Una camara en <code>(0,0,5)</code> se representa moviendo el mundo a <code>z=-5</code>:</p>
+        <pre class="code">view = mat4_translate(0.0f, 0.0f, -5.0f);</pre>
+        <p>La proyeccion usa FOV, proporcion de ventana, <code>near</code> y <code>far</code>. La division posterior por <code>w</code> hace que lo lejano parezca mas pequeno.</p>
+        <pre class="code">projection = mat4_perspective(
+    60 grados, 800.0f / 600.0f, 0.1f, 100.0f);
+mvp = mat4_mul(projection, mat4_mul(view, model));</pre>
+
+        <h2>5. El MVP llega al shader</h2>
+        <pre class="code">uniform mat4 u_mvp;
+layout(location = 0) in vec3 aPos;
+
+void main()
+{
+    gl_Position = u_mvp * vec4(aPos, 1.0);
+}</pre>
+        <p>En cada frame, C actualiza el uniform:</p>
+        <pre class="code">glUseProgram(program);
+glUniformMatrix4fv(mvp_location, 1, GL_FALSE, mvp.m);</pre>
+        <p><code>GL_FALSE</code> conserva la matriz column-major. El depth test sigue siendo necesario:</p>
+        <pre class="code">glEnable(GL_DEPTH_TEST);
+glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);</pre>
+
+        <h2>Predicciones y ejercicios</h2>
+        <div class="exercise"><span class="ex-tag">Ejercicio 1 · orden</span><p>Explica por que <code>T * R</code> rota primero y traslada despues.</p><details class="solution"><summary>Mostrar solucion</summary><div class="answer-box"><p>La matriz de la derecha actua primero: <code>T * R * v = T * (R * v)</code>.</p></div></details></div>
+        <div class="exercise"><span class="ex-tag">Ejercicio 2 · traslacion</span><p>Calcula <code>translate(3,-1,2) * (1,2,0,1)</code>.</p><details class="solution"><summary>Mostrar solucion</summary><div class="answer-box"><p>El resultado es <code>(4,1,2,1)</code>.</p></div></details></div>
+        <div class="exercise"><span class="ex-tag">Ejercicio 3 · verificacion real</span><p>Ejecuta <code>make test</code>, <code>make</code> y <code>timeout 3s ./scop</code> desde <code>42_projects/scop</code>.</p><details class="solution"><summary>Mostrar solucion</summary><div class="answer-box"><p>La prueba matematica termina correctamente. El renderer imprime <code>OBJ OK: 8 vertices (24 floats), 36 indices (12 triangulos)</code> y la version de OpenGL.</p></div></details></div>
+
+        <div class="panel warn"><span class="label">Errores frecuentes</span><ul><li>Confundir <code>T * R</code> con <code>R * T</code>.</li><li>Colocar la traslacion en <code>m[3]</code>, <code>m[7]</code>, <code>m[11]</code> usando la convencion equivocada.</li><li>Usar grados directamente en <code>sinf</code>, <code>cosf</code> o <code>tanf</code>.</li><li>Olvidar subir el uniform despues de activar el programa.</li><li>Olvidar <code>GL_DEPTH_BUFFER_BIT</code> o el enlace <code>-lm</code>.</li></ul></div>
+
+        <h2>Has aprendido que</h2><ul><li><code>w=1</code> representa posiciones y <code>w=0</code> direcciones.</li><li><code>Model</code>, <code>View</code> y <code>Projection</code> tienen responsabilidades distintas.</li><li><code>MVP = P * V * M</code> y la derecha actua primero.</li><li>La division por <code>w</code> produce la perspectiva.</li><li>Las matrices se implementan en <code>src/mat4.c</code> y se validan con <code>make test</code>.</li></ul>
+
+        <h2>Preguntas tipo defensa</h2><ol class="checklist"><li class="chk"><label><input type="checkbox" data-id="d1"><span>Por que usamos cuatro componentes?</span></label></li><li class="chk"><label><input type="checkbox" data-id="d2"><span>Que diferencia hay entre <code>w=1</code> y <code>w=0</code>?</span></label></li><li class="chk"><label><input type="checkbox" data-id="d3"><span>Por que <code>T * R</code> y <code>R * T</code> no son iguales?</span></label></li><li class="chk"><label><input type="checkbox" data-id="d4"><span>Que significa <code>m[col * 4 + row]</code>?</span></label></li><li class="chk"><label><input type="checkbox" data-id="d5"><span>Que hace cada matriz de MVP?</span></label></li><li class="chk"><label><input type="checkbox" data-id="d6"><span>Por que la camara en z=5 usa una traslacion z=-5?</span></label></li><li class="chk"><label><input type="checkbox" data-id="d7"><span>Por que lo lejano se ve mas pequeno?</span></label></li><li class="chk"><label><input type="checkbox" data-id="d8"><span>Que hace <code>glUniformMatrix4fv</code>?</span></label></li></ol>
+
+        <h2>Criterio de finalizacion</h2><ol class="checklist"><li class="chk"><label><input type="checkbox" data-id="c1"><span>Puedes calcular una fila por un vector.</span></label></li><li class="chk"><label><input type="checkbox" data-id="c2"><span>Puedes explicar <code>w=1</code> y <code>w=0</code>.</span></label></li><li class="chk"><label><input type="checkbox" data-id="c3"><span>Localizas la traslacion en <code>m[12..14]</code>.</span></label></li><li class="chk"><label><input type="checkbox" data-id="c4"><span>Defiendes el orden <code>P * V * M</code>.</span></label></li><li class="chk"><label><input type="checkbox" data-id="c5"><span><code>make test</code> termina correctamente.</span></label></li><li class="chk"><label><input type="checkbox" data-id="c6"><span><code>make</code> compila sin avisos.</span></label></li><li class="chk"><label><input type="checkbox" data-id="c7"><span><code>./scop</code> muestra el cubo en perspectiva y lo hace girar.</span></label></li></ol>
+        <p><strong>Siguiente clase:</strong> añadiremos color por cara usando los atributos del vertex buffer.</p>
+        <h2>Lista de lecturas</h2><ul><li>Khronos OpenGL 3.3: coordenadas de clip, viewport y division por <code>w</code>.</li><li>GLSL 3.30: <code>mat4</code>, uniforms y <code>gl_Position</code>.</li><li><code>man 3 sinf</code>, <code>cosf</code> y <code>tanf</code>.</li><li><code>src/mat4.c</code> y <code>tests/mat4_test.c</code>.</li></ul>
+      </section>
+
+      <section lang="en">
+        <div class="objective"><span class="label">Objective</span><p>Implement our own 4x4 matrices, homogeneous coordinates and the <code>Projection * View * Model</code> composition. By the end, the real project cube rotates around its center and is displayed in perspective without GLM.</p></div>
+        <h2>1. From OBJ to the screen</h2><p>Class 3 already uploaded positions and indices to the GPU. Now each position crosses three spaces:</p><pre class="code">local position
+  -> Model: transforms the object
+  -> View: expresses the world from the camera
+  -> Projection: applies perspective
+  -> division by w
+  -> rasterization</pre><p>With column vectors, the rightmost matrix acts first:</p><pre class="code">clip = Projection * View * Model * vertex</pre>
+        <h2>2. Matrices and homogeneous coordinates</h2><p>Each matrix row computes one new coordinate. We use <code>w=1</code> for positions and <code>w=0</code> for directions, so translation affects positions but not directions. Matrices use <code>m[col * 4 + row]</code>; translation is stored in <code>m[12]</code>, <code>m[13]</code> and <code>m[14]</code>.</p><pre class="code">t_mat4 mat4_translate(float x, float y, float z)
+{
+    t_mat4 out = mat4_identity();
+    out.m[12] = x;
+    out.m[13] = y;
+    out.m[14] = z;
+    return out;
+}</pre>
+        <h2>3. Transformation order</h2><p>Transformations do not commute. To rotate around the object origin and then translate, use:</p><pre class="code">Model = T * R
+Model * vertex = T * (R * vertex)</pre><p>The X, Y and Z rotation functions are implemented in <code>src/mat4.c</code>.</p>
+        <h2>4. Camera and perspective</h2><p>A camera at <code>(0,0,5)</code> is represented by moving the world to <code>z=-5</code>. Perspective uses FOV, aspect ratio, near and far planes; division by <code>w</code> makes distant objects smaller.</p><pre class="code">view = mat4_translate(0.0f, 0.0f, -5.0f);
+        <h2>5. Sending MVP to the shader</h2><pre class="code">uniform mat4 u_mvp;
+layout(location = 0) in vec3 aPos;
+void main() { gl_Position = u_mvp * vec4(aPos, 1.0); }</pre><pre class="code">glUseProgram(program);
+        <h2>Predictions and exercises</h2><div class="exercise"><span class="ex-tag">Exercise 1 · order</span><p>Explain why <code>T * R</code> rotates first and translates afterwards.</p><details class="solution"><summary>Show answer</summary><div class="answer-box"><p>The rightmost matrix acts first: <code>T * R * v = T * (R * v)</code>.</p></div></details></div><div class="exercise"><span class="ex-tag">Exercise 2 · translation</span><p>Calculate <code>translate(3,-1,2) * (1,2,0,1)</code>.</p><details class="solution"><summary>Show answer</summary><div class="answer-box"><p>The result is <code>(4,1,2,1)</code>.</p></div></details></div><div class="exercise"><span class="ex-tag">Exercise 3 · real verification</span><p>Run <code>make test</code>, <code>make</code> and <code>timeout 3s ./scop</code> from <code>42_projects/scop</code>.</p><details class="solution"><summary>Show answer</summary><div class="answer-box"><p>The math test passes. The renderer prints the OBJ counts and the OpenGL version.</p></div></details></div>
+        <div class="panel warn"><span class="label">Common mistakes</span><ul><li>Confusing <code>T * R</code> with <code>R * T</code>.</li><li>Mixing row-major and column-major layouts.</li><li>Passing degrees directly to trigonometric functions.</li><li>Forgetting the uniform update or the depth-buffer clear.</li><li>Forgetting <code>-lm</code> when linking math functions.</li></ul></div>
+        <h2>You have learned that</h2><ul><li><code>w=1</code> represents positions and <code>w=0</code> directions.</li><li><code>Model</code>, <code>View</code> and <code>Projection</code> have separate responsibilities.</li><li><code>MVP = P * V * M</code>, with the rightmost matrix acting first.</li><li>Division by <code>w</code> creates perspective.</li><li>The matrices live in <code>src/mat4.c</code> and are checked with <code>make test</code>.</li></ul>
+        <h2>Defense-style questions</h2><ol class="checklist"><li class="chk"><label><input type="checkbox" data-id="d1"><span>Why do we use four components?</span></label></li><li class="chk"><label><input type="checkbox" data-id="d2"><span>What is the difference between <code>w=1</code> and <code>w=0</code>?</span></label></li><li class="chk"><label><input type="checkbox" data-id="d3"><span>Why are <code>T * R</code> and <code>R * T</code> different?</span></label></li><li class="chk"><label><input type="checkbox" data-id="d4"><span>What does <code>m[col * 4 + row]</code> mean?</span></label></li><li class="chk"><label><input type="checkbox" data-id="d5"><span>What is each MVP matrix responsible for?</span></label></li><li class="chk"><label><input type="checkbox" data-id="d6"><span>Why does a camera at z=5 use z=-5 for the view?</span></label></li><li class="chk"><label><input type="checkbox" data-id="d7"><span>Why do distant objects look smaller?</span></label></li><li class="chk"><label><input type="checkbox" data-id="d8"><span>What does <code>glUniformMatrix4fv</code> do?</span></label></li></ol>
+        <h2>Completion criteria</h2><ol class="checklist"><li class="chk"><label><input type="checkbox" data-id="c1"><span>You can calculate a matrix row times a vector.</span></label></li><li class="chk"><label><input type="checkbox" data-id="c2"><span>You can explain <code>w=1</code> and <code>w=0</code>.</span></label></li><li class="chk"><label><input type="checkbox" data-id="c3"><span>You can locate translation in <code>m[12..14]</code>.</span></label></li><li class="chk"><label><input type="checkbox" data-id="c4"><span>You can defend <code>P * V * M</code>.</span></label></li><li class="chk"><label><input type="checkbox" data-id="c5"><span><code>make test</code> passes.</span></label></li><li class="chk"><label><input type="checkbox" data-id="c6"><span><code>make</code> builds without warnings.</span></label></li><li class="chk"><label><input type="checkbox" data-id="c7"><span><code>./scop</code> shows a rotating cube in perspective.</span></label></li></ol>
+        <p><strong>Next class:</strong> add per-face colors using vertex-buffer attributes.</p><h2>Reading list</h2><ul><li>Khronos OpenGL 3.3: clip coordinates, viewport and division by <code>w</code>.</li><li>GLSL 3.30: <code>mat4</code>, uniforms and <code>gl_Position</code>.</li><li><code>man 3 sinf</code>, <code>cosf</code> and <code>tanf</code>.</li><li><code>src/mat4.c</code> and <code>tests/mat4_test.c</code>.</li></ul>
+      </section>
+    </div>
+    <div class="complete-block"><div class="complete-copy"><h2><span lang="es">¿Has terminado la clase?</span><span lang="en">Done with the class?</span></h2><p><span lang="es">Responde las preguntas, cumple el criterio y marca la clase. Tu progreso se guarda en el navegador.</span><span lang="en">Answer the questions, meet the criteria and mark the class. Your progress is saved in the browser.</span></p></div><label class="complete-toggle"><input type="checkbox" data-complete="scop/clase-04"><span data-i18n="btn.complete">Marcar clase como completada</span></label></div>
+    <nav class="pager"><a href="clase-03.html"><small data-i18n="prev.class">Clase anterior</small><strong><span lang="es">Clase 3 · parseo del .obj</span><span lang="en">Class 3 · .obj parsing</span></strong></a><a class="next" href="index.html"><small>Hub</small><strong data-i18n="p.scop.name">Scop</strong></a></nav>
+  </main>
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+  <script src="../../js/i18n.js"></script><script src="../../js/main.js"></script>
+</body>
+</html>
