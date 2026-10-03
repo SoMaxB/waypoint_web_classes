@@ -194,7 +194,9 @@ Cada sesión sigue el formato general: repaso, explicación con el modelo mental
 - **Clase 6:** shaders (vertex + fragment) y carga de textura. Resultado: textura aplicada y transición suave color ↔ textura.
 - **Clase 7:** controles completos y giro del 42 logo con tonos de gris. Resultado: demo del logo girando sobre su eje central.
 - **Clase 8:** README, prueba con objetos adicionales y auditoría. Resultado: obligatoria cerrada y defendible.
-- **Clase 9+:** bonus (OBJ complejo, texturas sutiles, extras) — solo cuando lo anterior es perfecto.
+- **Clase 9:** bonus OBJ complejo: ear clipping, proyeccion dominante y fixtures concavos.
+- **Clase 10:** bonus de texturas sutiles: triplanar mapping ponderado por normales.
+- **Clase 11:** bonus extra: wireframe y visualizacion de normales para depuracion.
 
 ## 12. Auditoría de la parte obligatoria
 
