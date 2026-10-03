@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clase 6 · Textura y transicion — Scop</title>
+  <meta name="description" content="Textura PPM propia, UV planar y transicion suave entre color y textura en Scop.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/styles.css">
+</head>
+<body data-class="scop/clase-06">
+  <header class="site-header"><div class="header-inner">
+    <a href="../../index.html" class="logo">waypoint<span>.</span><small>web_classes</small></a>
+    <div class="search-wrap hidden-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg><label class="visually-hidden" for="site-search" data-i18n="search.label">Buscar proyecto</label><input id="site-search" type="search" placeholder="Buscar proyecto…" data-i18n-ph="search.ph" tabindex="-1"></div>
+    <div class="header-actions"><button id="lang-toggle" class="lang-toggle" type="button">EN</button></div>
+  </div></header>
+  <main class="container">
+    <div class="page-head"><nav class="breadcrumbs"><a href="../../index.html" data-i18n="breadcrumb.home">Inicio</a><span class="sep">/</span><a href="index.html" data-i18n="p.scop.name">Scop</a><span class="sep">/</span><span><span lang="es">Clase 6</span><span lang="en">Class 6</span></span></nav><h1><span lang="es">Clase 6 · textura PPM y transicion suave</span><span lang="en">Class 6 · PPM texture and smooth transition</span></h1><div class="class-toolbar"><span class="toolbar-hint mono">PPM · GL_TEXTURE_2D · sampler2D · UV · mix · delta_time</span></div></div>
+    <div class="prose">
+      <section lang="es">
+        <div class="objective"><span class="label">Objetivo</span><p>Aplicar una textura sin librerias externas de imagenes y alternarla suavemente con los colores por triangulo. Debes poder explicar el recorrido imagen CPU - textura GPU - sampler - fragment shader.</p></div>
+        <h2>1. Decision tecnica</h2><p>El subject solo permite librerias externas para ventana y eventos. Por eso Scop usa un cargador PPM propio en <code>src/main.c</code> y la imagen <code>assets/texture.ppm</code>.</p><p>Los OBJ disponibles no tienen <code>vt</code>. Como fallback inicial, el vertex shader genera UV planar desde <code>aPos.xy</code>:</p><pre class="code">out vec2 v_uv;
+        <h2>2. De PPM a OpenGL</h2><p>El cargador valida <code>P3</code>, ancho, alto y maximo de color; reserva los pixels y los convierte a bytes.</p><pre class="code">glGenTextures(1, &amp;texture);
+glBindTexture(GL_TEXTURE_2D, texture);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
+    image.width, image.height, 0,
+    GL_RGB, GL_UNSIGNED_BYTE, image.pixels);</pre><p>Despues de <code>glTexImage2D</code>, los bytes de CPU se pueden liberar.</p>
+        <h2>3. Sampler y mezcla</h2><pre class="code">uniform sampler2D u_texture;
+uniform float u_texture_factor;
+
+vec3 texture_color = texture(u_texture, v_uv).rgb;
+FragColor = vec4(
+    mix(face_color, texture_color, u_texture_factor), 1.0);
+
+factor 0.0 -> solo color
+factor 0.5 -> mezcla
+factor 1.0 -> solo textura</pre>
+        <h2>4. Transicion independiente de FPS</h2><p><code>T</code> cambia <code>texture_target</code>. Cada frame, <code>delta_time</code> acerca <code>texture_factor</code> al objetivo. La deteccion de flanco evita multiples toggles mientras la tecla permanece pulsada.</p><pre class="code">if (texture_key_down &amp;&amp; !texture_key_was_down)
+    texture_target = !texture_target;
+texture_key_was_down = texture_key_down;
+
+texture_factor += direction * delta_time * 2.0;</pre>
+        <h2>Predicciones y ejercicios</h2><div class="exercise"><span class="ex-tag">Ejercicio 1 · extremos</span><p>Que se ve con <code>u_texture_factor = 0.0</code>?</p><details class="solution"><summary>Mostrar solucion</summary><div class="answer-box"><p>Solo la paleta por triangulo de la clase 5.</p></div></details></div><div class="exercise"><span class="ex-tag">Ejercicio 2 · contexto</span><p>Por que <code>glTexImage2D</code> necesita un contexto actual?</p><details class="solution"><summary>Mostrar solucion</summary><div class="answer-box"><p>Es una funcion OpenGL cargada despues de crear el contexto; antes no hay estado valido ni puntero del driver.</p></div></details></div><div class="exercise"><span class="ex-tag">Ejercicio 3 · verificacion real</span><p>Ejecuta <code>make test</code>, <code>make</code> y <code>timeout 3s ./scop</code>. Pulsa <code>T</code> durante la ejecucion.</p><details class="solution"><summary>Mostrar solucion</summary><div class="answer-box"><p>El programa carga <code>assets/texture.ppm</code>, compila sin avisos y la tecla produce una transicion gradual, no un corte.</p></div></details></div>
+        <div class="panel warn"><span class="label">Errores frecuentes</span><ul><li>Usar una libreria externa de imagenes.</li><li>Confundir la textura GPU con los bytes de RAM.</li><li>Alternar en cada frame mientras se mantiene <code>T</code>.</li><li>Cambiar directamente el factor de 0 a 1.</li><li>Asumir UV reales cuando el OBJ no contiene <code>vt</code>.</li></ul></div>
+        <h2>Has aprendido que</h2><ul><li>PPM permite cargar imagenes con codigo propio.</li><li><code>glTexImage2D</code> copia los pixels a OpenGL.</li><li>Un sampler y UV conectan el fragment shader con la textura.</li><li><code>mix</code> interpola color y textura.</li><li><code>delta_time</code> hace la animacion independiente de los FPS.</li></ul>
+        <h2>Preguntas tipo defensa</h2><ol class="checklist"><li class="chk"><label><input type="checkbox" data-id="d1"><span>Por que se eligio PPM?</span></label></li><li class="chk"><label><input type="checkbox" data-id="d2"><span>Que recibe <code>glTexImage2D</code>?</span></label></li><li class="chk"><label><input type="checkbox" data-id="d3"><span>Que diferencia hay entre textura y sampler?</span></label></li><li class="chk"><label><input type="checkbox" data-id="d4"><span>Que ocurre con factor 0.5?</span></label></li><li class="chk"><label><input type="checkbox" data-id="d5"><span>Por que se usa <code>delta_time</code>?</span></label></li><li class="chk"><label><input type="checkbox" data-id="d6"><span>Que limitacion tiene la UV planar?</span></label></li></ol>
+        <h2>Criterio de finalizacion</h2><ol class="checklist"><li class="chk"><label><input type="checkbox" data-id="c1"><span>Puedes explicar PPM - CPU - textura - sampler - fragmento.</span></label></li><li class="chk"><label><input type="checkbox" data-id="c2"><span>Puedes justificar la UV planar de fallback.</span></label></li><li class="chk"><label><input type="checkbox" data-id="c3"><span>Puedes explicar <code>mix</code> y sus tres estados.</span></label></li><li class="chk"><label><input type="checkbox" data-id="c4"><span><code>make test</code> termina correctamente.</span></label></li><li class="chk"><label><input type="checkbox" data-id="c5"><span>La tecla <code>T</code> produce una transicion visible.</span></label></li></ol><p><strong>Siguiente clase:</strong> controles completos, recentrado automatico y demo del logo 42.</p><h2>Lista de lecturas</h2><ul><li>OpenGL 3.3: <code>glTexImage2D</code>, texture units y filtros.</li><li>GLSL 3.30: <code>sampler2D</code>, <code>texture</code> y <code>mix</code>.</li><li>Formato Netpbm PPM P3.</li><li><code>src/main.c</code>: <code>load_ppm</code> y <code>texture_factor</code>.</li></ul>
+      </section>
+      <section lang="en">
+        <div class="objective"><span class="label">Objective</span><p>Apply a texture without external image libraries and blend it smoothly with per-triangle colors. You should explain the path from CPU image to GPU texture, sampler and fragment shader.</p></div>
+        <h2>1. Technical decision</h2><p>The subject only allows external libraries for window and events. Scop therefore uses its own PPM loader in <code>src/main.c</code> and <code>assets/texture.ppm</code>.</p><p>The available OBJ files have no <code>vt</code>. As an initial fallback, the vertex shader generates planar UVs from <code>aPos.xy</code>.</p>
+        <h2>2. From PPM to OpenGL</h2><p>The loader validates <code>P3</code>, dimensions and maximum color, then converts the pixels to bytes for <code>glTexImage2D</code>. CPU memory is released after the upload.</p><pre class="code">glGenTextures(1, &amp;texture);
+glBindTexture(GL_TEXTURE_2D, texture);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
+    image.width, image.height, 0,
+    GL_RGB, GL_UNSIGNED_BYTE, image.pixels);</pre>
+        <h2>3. Sampler and blending</h2><pre class="code">uniform sampler2D u_texture;
+uniform float u_texture_factor;
+vec3 texture_color = texture(u_texture, v_uv).rgb;
+FragColor = vec4(mix(face_color,
+    texture_color, u_texture_factor), 1.0);
+
+factor 0.0 -> color only
+factor 0.5 -> blend
+factor 1.0 -> texture only</pre>
+        <h2>4. Frame-rate independent transition</h2><p><code>T</code> changes <code>texture_target</code>. Each frame, <code>delta_time</code> moves <code>texture_factor</code> toward that target. Edge detection prevents repeated toggles while the key is held.</p>
+        <h2>Predictions and exercises</h2><div class="exercise"><span class="ex-tag">Exercise 1 · endpoints</span><p>What is visible when <code>u_texture_factor = 0.0</code>?</p><details class="solution"><summary>Show answer</summary><div class="answer-box"><p>Only the per-triangle palette from class 5.</p></div></details></div><div class="exercise"><span class="ex-tag">Exercise 2 · context</span><p>Why does <code>glTexImage2D</code> need a current context?</p><details class="solution"><summary>Show answer</summary><div class="answer-box"><p>It is an OpenGL function loaded after context creation; before that there is no valid state or driver pointer.</p></div></details></div><div class="exercise"><span class="ex-tag">Exercise 3 · real verification</span><p>Run <code>make test</code>, <code>make</code> and <code>timeout 3s ./scop</code>. Press <code>T</code>.</p><details class="solution"><summary>Show answer</summary><div class="answer-box"><p>The program loads <code>assets/texture.ppm</code> and the key creates a gradual transition.</p></div></details></div>
+        <div class="panel warn"><span class="label">Common mistakes</span><ul><li>Using an external image library.</li><li>Confusing GPU texture with CPU image bytes.</li><li>Toggling every frame while holding <code>T</code>.</li><li>Jumping directly from factor 0 to 1.</li><li>Assuming real UVs when the OBJ has no <code>vt</code>.</li></ul></div>
+        <h2>You have learned that</h2><ul><li>PPM can be loaded with project-owned code.</li><li><code>glTexImage2D</code> copies pixels to OpenGL.</li><li>A sampler and UVs connect the fragment shader to the texture.</li><li><code>mix</code> interpolates color and texture.</li><li><code>delta_time</code> makes the animation frame-rate independent.</li></ul>
+        <h2>Defense-style questions</h2><ol class="checklist"><li class="chk"><label><input type="checkbox" data-id="ed1"><span>Why choose PPM?</span></label></li><li class="chk"><label><input type="checkbox" data-id="ed2"><span>What does <code>glTexImage2D</code> receive?</span></label></li><li class="chk"><label><input type="checkbox" data-id="ed3"><span>What is the difference between texture and sampler?</span></label></li><li class="chk"><label><input type="checkbox" data-id="ed4"><span>What happens at factor 0.5?</span></label></li><li class="chk"><label><input type="checkbox" data-id="ed5"><span>Why use <code>delta_time</code>?</span></label></li><li class="chk"><label><input type="checkbox" data-id="ed6"><span>What is the limitation of planar UVs?</span></label></li></ol>
+        <h2>Completion criteria</h2><ol class="checklist"><li class="chk"><label><input type="checkbox" data-id="ec1"><span>You can explain CPU image to texture, sampler and fragment.</span></label></li><li class="chk"><label><input type="checkbox" data-id="ec2"><span>You can justify the planar fallback UV.</span></label></li><li class="chk"><label><input type="checkbox" data-id="ec3"><span>You can explain <code>mix</code> and its three states.</span></label></li><li class="chk"><label><input type="checkbox" data-id="ec4"><span><code>make test</code> passes.</span></label></li><li class="chk"><label><input type="checkbox" data-id="ec5"><span><code>T</code> creates a visible transition.</span></label></li></ol><p><strong>Next class:</strong> full controls, automatic centering and the 42 logo demo.</p><h2>Reading list</h2><ul><li>OpenGL 3.3: <code>glTexImage2D</code>, texture units and filters.</li><li>GLSL 3.30: <code>sampler2D</code>, <code>texture</code> and <code>mix</code>.</li><li>Netpbm PPM P3 format.</li><li><code>src/main.c</code>: <code>load_ppm</code> and <code>texture_factor</code>.</li></ul>
+      </section>
+    </div>
+    <div class="complete-block"><div class="complete-copy"><h2><span lang="es">Has terminado la clase?</span><span lang="en">Done with the class?</span></h2><p><span lang="es">Responde las preguntas, cumple el criterio y marca la clase.</span><span lang="en">Answer the questions, meet the criteria and mark the class.</span></p></div><label class="complete-toggle"><input type="checkbox" data-complete="scop/clase-06"><span data-i18n="btn.complete">Marcar clase como completada</span></label></div>
+    <nav class="pager"><a href="clase-05.html"><small data-i18n="prev.class">Clase anterior</small><strong><span lang="es">Clase 5 · color por triangulo</span><span lang="en">Class 5 · per-triangle color</span></strong></a><a class="next" href="index.html"><small>Hub</small><strong data-i18n="p.scop.name">Scop</strong></a></nav>
+  </main>
+  <footer class="site-footer" data-i18n="footer">100% estática, sin frameworks, sin build.</footer>
+  <script src="../../js/i18n.js"></script><script src="../../js/main.js"></script>
+</body>
+</html>
