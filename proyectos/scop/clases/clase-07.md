@@ -41,6 +41,9 @@ El centrado ocurre una vez, en CPU, antes de subir el VBO. Asi `Model = T * R` r
 | S/W | Traslacion Y |
 | F/R | Traslacion Z |
 | T | Alternar textura suavemente |
+| G | Alternar wireframe |
+| N / B | Activar / desactivar normales |
+| H | Mostrar / ocultar ayuda |
 | ESC / cerrar ventana | Salir |
 
 El renderer consulta el estado de las teclas cada frame. La variacion se multiplica por `delta_time`, por lo que mantener una tecla produce la misma velocidad en diferentes tasas de refresco.

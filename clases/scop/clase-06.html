@@ -21,8 +21,8 @@
     <div class="prose">
       <section lang="es">
         <div class="objective"><span class="label">Objetivo</span><p>Aplicar una textura sin librerias externas de imagenes y alternarla suavemente con los colores por triangulo. Debes poder explicar el recorrido imagen CPU - textura GPU - sampler - fragment shader.</p></div>
-        <h2>1. Decision tecnica</h2><p>El subject solo permite librerias externas para ventana y eventos. Por eso Scop usa un cargador PPM propio en <code>src/main.c</code> y la imagen <code>assets/texture.ppm</code>.</p><p>Los OBJ disponibles no tienen <code>vt</code>. Como fallback inicial, el vertex shader genera UV planar desde <code>aPos.xy</code>:</p><pre class="code">out vec2 v_uv;
-        <h2>2. De PPM a OpenGL</h2><p>El cargador valida <code>P3</code>, ancho, alto y maximo de color; reserva los pixels y los convierte a bytes.</p><pre class="code">glGenTextures(1, &amp;texture);
+        <h2>1. Decision tecnica</h2><p>El subject solo permite librerias externas para ventana y eventos. Por eso Scop usa un cargador PPM propio en <code>src/main.c</code>. Acepta PPM <code>P3</code> ASCII y <code>P6</code> binario; la textura se puede pasar como segundo argumento.</p><p>Los OBJ disponibles no tienen <code>vt</code>. Como fallback inicial, el vertex shader genera UV planar desde <code>aPos.xy</code>:</p><pre class="code">out vec2 v_uv;
+        <h2>2. De PPM a OpenGL</h2><p>El cargador valida el encabezado, dimensiones y maximo de color; lee numeros en <code>P3</code> o bytes RGB en <code>P6</code>.</p><pre class="code">glGenTextures(1, &amp;texture);
 glBindTexture(GL_TEXTURE_2D, texture);
 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -52,8 +52,8 @@ texture_factor += direction * delta_time * 2.0;</pre>
       </section>
       <section lang="en">
         <div class="objective"><span class="label">Objective</span><p>Apply a texture without external image libraries and blend it smoothly with per-triangle colors. You should explain the path from CPU image to GPU texture, sampler and fragment shader.</p></div>
-        <h2>1. Technical decision</h2><p>The subject only allows external libraries for window and events. Scop therefore uses its own PPM loader in <code>src/main.c</code> and <code>assets/texture.ppm</code>.</p><p>The available OBJ files have no <code>vt</code>. As an initial fallback, the vertex shader generates planar UVs from <code>aPos.xy</code>.</p>
-        <h2>2. From PPM to OpenGL</h2><p>The loader validates <code>P3</code>, dimensions and maximum color, then converts the pixels to bytes for <code>glTexImage2D</code>. CPU memory is released after the upload.</p><pre class="code">glGenTextures(1, &amp;texture);
+        <h2>1. Technical decision</h2><p>The subject only allows external libraries for window and events. Scop therefore uses its own PPM loader in <code>src/main.c</code>. It accepts ASCII <code>P3</code> and binary <code>P6</code>; the texture can be passed as the second argument.</p><p>The available OBJ files have no <code>vt</code>. As an initial fallback, the vertex shader generates planar UVs from <code>aPos.xy</code>.</p>
+        <h2>2. From PPM to OpenGL</h2><p>The loader validates the header and dimensions, then reads ASCII <code>P3</code> values or binary <code>P6</code> RGB bytes for <code>glTexImage2D</code>. CPU memory is released after the upload.</p><pre class="code">glGenTextures(1, &amp;texture);
 glBindTexture(GL_TEXTURE_2D, texture);
 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

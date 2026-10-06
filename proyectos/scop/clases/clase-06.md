@@ -6,7 +6,7 @@ Aplicar una textura sin usar una libreria externa de imagenes y alternarla suave
 
 ## 1. Restricciones y decision
 
-El subject solo permite librerias externas para ventana y eventos. Por eso no se usa stb_image ni otro cargador de imagen. Scop incluye `assets/texture.ppm`, una textura PPM ASCII pequeña que se lee con `fopen` y `fscanf` en `src/main.c`.
+El subject solo permite librerias externas para ventana y eventos. Por eso no se usa stb_image ni otro cargador de imagen. Scop incluye un cargador PPM propio que acepta `P3` ASCII y `P6` binario. La textura se puede elegir como segundo argumento del ejecutable.
 
 Los modelos disponibles (`cube.obj`, `42.obj` y las dos teteras) no contienen lineas `vt`. Para no bloquear el proyecto, el vertex shader genera una UV planar sencilla desde `aPos.xy`:
 
@@ -18,7 +18,7 @@ Es suficiente para demostrar la textura y deja una mejora clara para una futura 
 
 ## 2. De PPM a OpenGL
 
-El cargador valida el encabezado `P3`, ancho, alto y maximo de color, reserva `width * height * 3` bytes y convierte cada componente al rango 0..255.
+El cargador valida el encabezado, ancho, alto y maximo de color, reserva `width * height * 3` bytes y acepta tanto componentes ASCII (`P3`) como bytes RGB (`P6`).
 
 Despues del contexto OpenGL:
 
@@ -137,7 +137,7 @@ El programa debe cargar `assets/texture.ppm`, arrancar sin errores y conservar e
 
 ## Has aprendido que
 
-- PPM permite cargar una textura con codigo propio y sin dependencia externa.
+- PPM `P3` y `P6` permite cargar una textura con codigo propio y sin dependencia externa.
 - `glTexImage2D` copia los pixels a memoria de OpenGL.
 - Un sampler y unas UV conectan el fragment shader con la textura.
 - `mix` interpola color y textura mediante un factor entre 0 y 1.
@@ -174,5 +174,5 @@ En la siguiente clase añadiremos controles completos de rotacion y traslacion, 
 
 - OpenGL 3.3: `glTexImage2D`, texture units, filtros y `GL_TEXTURE_2D`.
 - GLSL 3.30: `sampler2D`, `texture` y `mix`.
-- Formato Netpbm PPM P3.
+- Formato Netpbm PPM P3/P6.
 - `src/main.c`: `load_ppm`, uniforms y animacion de `texture_factor`.
